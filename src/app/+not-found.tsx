@@ -1,22 +1,22 @@
 import { Link, Stack } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Frame } from '@/components/Frame';
-import { body, font, paper, rust, rustInk } from '@/theme';
+import { Screen } from '@/components/ui/Screen';
+import { body, font, spruce, spruceInk } from '@/theme';
 
 export default function NotFound() {
   return (
     <>
       <Stack.Screen options={{ title: 'Off the map' }} />
-      <Frame>
+      <Screen>
         <View style={styles.sheet}>
           <Text style={styles.kicker}>Off the map</Text>
-          <Text style={styles.title}>This route is not on the mountain.</Text>
+          <Text style={styles.title}>This page is not on the route.</Text>
           <Link href="/" style={styles.link}>
-            <Text style={styles.linkText}>Return to the road</Text>
+            <Text style={styles.linkText}>Return to the briefing</Text>
           </Link>
         </View>
-      </Frame>
+      </Screen>
     </>
   );
 }
@@ -24,7 +24,6 @@ export default function NotFound() {
 const styles = StyleSheet.create({
   sheet: {
     flex: 1,
-    backgroundColor: paper,
     padding: 24,
     justifyContent: 'center',
   },
@@ -44,14 +43,13 @@ const styles = StyleSheet.create({
   },
   link: {
     marginTop: 28,
-    backgroundColor: rust,
-    borderRadius: 16,
+    backgroundColor: spruce,
     paddingVertical: 16,
     alignItems: 'center',
   },
   linkText: {
     fontFamily: font.display,
     fontSize: 20,
-    color: rustInk,
+    color: spruceInk,
   },
 });

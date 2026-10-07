@@ -11,7 +11,7 @@ export default function Root({ children }: PropsWithChildren) {
         <ScrollViewStyleReset />
         <style
           dangerouslySetInnerHTML={{
-            __html: 'html, body, #root { height: 100%; background-color: #100e0c; } body { margin: 0; }',
+            __html: 'html, body, #root { height: 100%; background-color: #12110f; } body { margin: 0; }',
           }}
         />
       </head>

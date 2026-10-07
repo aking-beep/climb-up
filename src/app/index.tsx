@@ -13,64 +13,56 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Frame } from '@/components/Frame';
-import { Mountain } from '@/components/Mountain';
-import { createGame, formatSeed } from '@/game/engine';
-import { parseSeed } from '@/game/world';
-import { body, font, ink, line, muted, paper, rust, rustInk, SKY, skyInk } from '@/theme';
-import { LinearGradient } from 'expo-linear-gradient';
+import { TopoMark } from '@/components/game/TopoMark';
+import { Screen } from '@/components/ui/Screen';
+import { EVEREST_DISCLAIMER, EVEREST_PROGRESS } from '@/expeditions/everest';
+import { body, font, line, muted, paper, spruce, spruceInk } from '@/theme';
+import { formatSeed, parseSeed } from '@/utils/number';
 
-const PRINCIPLES = [
-  'Four people are on your rope. Their condition is the game.',
-  'Warmth, food, daylight, the rope, lungs, and morale are real. Tomorrow’s weather is posted.',
-  'How high you climb isn’t how you win. The ledger counts who comes home.',
-];
+const ROUTE = EVEREST_PROGRESS.map((stop) => stop.name).join(' → ');
 
 export default function TitleScreen() {
   const insets = useSafeAreaInsets();
   const [code, setCode] = useState('');
-  const inkOnSky = skyInk('clear');
   const parsed = parseSeed(code);
   const invalid = code.trim().length > 0 && parsed === undefined;
 
   function begin() {
-    const seed = parsed ?? createGame().seed;
+    const seed = parsed ?? (Math.floor(Math.random() * 1_000_000_000) || 1);
     router.push({ pathname: '/climb', params: { code: formatSeed(seed) } });
   }
 
   return (
-    <Frame>
+    <Screen>
       <StatusBar style="light" />
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <LinearGradient
-            colors={SKY.clear}
-            locations={[0, 0.46, 1]}
-            style={[styles.sky, { paddingTop: insets.top + 12 }]}
-          >
-            <Text style={[styles.kicker, { color: inkOnSky }]}>Kharung · 6,420 m</Text>
-            <View style={styles.ridge}>
-              <Mountain band={0} weather="clear" ink={inkOnSky} />
-            </View>
-          </LinearGradient>
+          <View style={[styles.mast, { paddingTop: insets.top + 16 }]}>
+            <Text style={styles.kicker}>Mount Everest · Simplified</Text>
+            <TopoMark progress={0.22} />
+          </View>
           <View style={[styles.sheet, { paddingBottom: insets.bottom + 28 }]}>
-            <Text style={styles.title}>Climb Up</Text>
-            <Text style={styles.tagline}>How high you climb isn’t how you win.</Text>
-            {PRINCIPLES.map((lineText) => (
-              <Text key={lineText} style={styles.principle}>
-                {lineText}
-              </Text>
-            ))}
+            <Text style={styles.title} accessibilityRole="header">
+              Climb Up
+            </Text>
+            <Text style={styles.tagline}>{"How high you climb isn't how you win."}</Text>
+            <Text style={styles.lede}>
+              Lead one expedition. Health, energy, acclimatization, oxygen, supplies, weather, hazards, time, and the team are the work. A careful retreat can outscore a reckless summit. Coming back is the result.
+            </Text>
+            <Text style={styles.routeLabel}>Simplified South Col route</Text>
+            <Text style={styles.route}>{ROUTE}</Text>
+            <View style={styles.notice}>
+              <Text style={styles.noticeLabel}>Not a manual</Text>
+              <Text style={styles.noticeText}>{EVEREST_DISCLAIMER}</Text>
+            </View>
             <Text style={styles.label}>Expedition code</Text>
             <TextInput
               value={code}
               onChangeText={setCode}
               autoCapitalize="characters"
               autoCorrect={false}
-              placeholder="Leave blank for a new mountain"
+              autoComplete="off"
+              placeholder="Leave blank for a new expedition"
               placeholderTextColor="#8a8176"
               style={styles.input}
               accessibilityLabel="Expedition code"
@@ -88,53 +80,87 @@ export default function TitleScreen() {
             >
               <Text style={styles.goText}>Start the expedition</Text>
             </Pressable>
-            <Text style={styles.foot}>Kharung is fictional. The turnaround is not.</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </Frame>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  scroll: { flexGrow: 1 },
-  sky: { minHeight: 250 },
+  scroll: { flexGrow: 1, backgroundColor: paper },
+  mast: {
+    backgroundColor: spruce,
+    paddingHorizontal: 22,
+    paddingBottom: 8,
+  },
   kicker: {
     fontFamily: font.bodyMedium,
-    fontSize: 13,
-    letterSpacing: 1.1,
+    fontSize: 12,
+    letterSpacing: 1.3,
     textTransform: 'uppercase',
-    paddingHorizontal: 22,
+    color: spruceInk,
+    opacity: 0.82,
   },
-  ridge: { height: 180 },
   sheet: {
     flexGrow: 1,
-    marginTop: -18,
-    backgroundColor: paper,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
     paddingHorizontal: 22,
-    paddingTop: 26,
+    paddingTop: 22,
   },
   title: {
     fontFamily: font.displayBold,
-    fontSize: 52,
-    lineHeight: 54,
+    fontSize: 48,
+    lineHeight: 50,
     color: body,
   },
   tagline: {
-    marginTop: 8,
+    marginTop: 10,
     fontFamily: font.italic,
     fontSize: 22,
     lineHeight: 28,
     color: body,
   },
-  principle: {
+  lede: {
     marginTop: 14,
     fontFamily: font.body,
     fontSize: 16,
-    lineHeight: 22,
+    lineHeight: 23,
+    color: body,
+  },
+  routeLabel: {
+    marginTop: 22,
+    fontFamily: font.bodyMedium,
+    fontSize: 12,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: muted,
+  },
+  route: {
+    marginTop: 6,
+    fontFamily: font.body,
+    fontSize: 14,
+    lineHeight: 21,
+    color: body,
+  },
+  notice: {
+    marginTop: 20,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: line,
+  },
+  noticeLabel: {
+    fontFamily: font.bodyMedium,
+    fontSize: 12,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: muted,
+  },
+  noticeText: {
+    marginTop: 6,
+    fontFamily: font.body,
+    fontSize: 14,
+    lineHeight: 20,
     color: body,
   },
   label: {
@@ -148,8 +174,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderWidth: 1,
     borderColor: line,
-    backgroundColor: '#fffdf8',
-    borderRadius: 14,
+    backgroundColor: '#faf7f1',
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontFamily: font.body,
@@ -161,27 +186,20 @@ const styles = StyleSheet.create({
     fontFamily: font.body,
     fontSize: 14,
     lineHeight: 20,
-    color: '#8d2d1f',
+    color: '#7a3b2e',
   },
   go: {
     marginTop: 18,
-    backgroundColor: rust,
-    borderRadius: 16,
+    backgroundColor: spruce,
     minHeight: 56,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
-  pressed: { opacity: 0.86 },
+  pressed: { opacity: 0.84 },
   goText: {
     fontFamily: font.display,
-    fontSize: 22,
-    color: rustInk,
-  },
-  foot: {
-    marginTop: 16,
-    fontFamily: font.body,
-    fontSize: 13,
-    color: muted,
+    fontSize: 20,
+    color: spruceInk,
   },
 });

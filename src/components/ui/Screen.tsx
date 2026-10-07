@@ -1,9 +1,9 @@
-import { StyleSheet, View } from 'react-native';
 import type { ReactNode } from 'react';
+import { StyleSheet, View } from 'react-native';
 
-import { ink, inkDeep } from '@/theme';
+import { inkDeep, paper } from '@/theme';
 
-export function Frame({ children }: { children: ReactNode }) {
+export function Screen({ children }: { children: ReactNode }) {
   return (
     <View style={styles.page}>
       <View style={styles.column}>{children}</View>
@@ -21,6 +21,6 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: 480,
-    backgroundColor: ink,
+    backgroundColor: paper,
   },
 });

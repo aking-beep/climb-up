@@ -9,7 +9,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
-import { ink } from '@/theme';
+import { inkDeep } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -38,7 +38,7 @@ export default function RootLayout() {
       screenOptions={{
         headerShown: false,
         animation: 'fade',
-        contentStyle: { backgroundColor: ink },
+        contentStyle: { backgroundColor: inkDeep },
       }}
     />
   );
