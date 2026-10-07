@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { TerrainStage } from '@/components/game/TerrainStage';
+import { ExpeditionScene } from '@/components/world/ExpeditionScene';
 import { Screen } from '@/components/ui/Screen';
 import { EVEREST_DISCLAIMER, EVEREST_PROGRESS } from '@/expeditions/everest';
 import { body, font, line, muted, paper, spruce, spruceInk } from '@/theme';
@@ -39,7 +39,20 @@ export default function TitleScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={[styles.mast, { paddingTop: insets.top + 16 }]}>
             <Text style={styles.kicker}>Mount Everest · Simplified</Text>
-            <TerrainStage checkpoint="briefing" altitude={1400} retreating={false} still />
+            <View style={styles.world}>
+              <ExpeditionScene
+                still
+                world={{
+                  checkpoint: 'briefing',
+                  altitude: 1400,
+                  retreating: false,
+                  elapsedHours: 0,
+                  weatherRisk: 12,
+                  teamCondition: 90,
+                  energy: 88,
+                }}
+              />
+            </View>
           </View>
           <View style={styles.sheet}>
             <Text style={styles.title} accessibilityRole="header">
@@ -97,6 +110,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingBottom: 8,
   },
+  world: { height: 220, marginTop: 10 },
   kicker: {
     fontFamily: font.bodyMedium,
     fontSize: 12,

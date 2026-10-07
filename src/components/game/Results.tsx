@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { TerrainStage } from '@/components/game/TerrainStage';
+import { ExpeditionScene } from '@/components/world/ExpeditionScene';
 import { EVEREST_DISCLAIMER, scoreEverest } from '@/expeditions/everest';
 import type { ExpeditionState } from '@/game/types';
 import { body, danger, font, line, muted, paper, spruce, spruceInk } from '@/theme';
@@ -38,12 +38,19 @@ export function Results({ state, onAgain }: { state: ExpeditionState; onAgain: (
           {title}
         </Text>
         <Text style={styles.verdict}>{verdict}</Text>
-        <TerrainStage
-          checkpoint={state.returnedSafely ? 'complete' : state.checkpoint}
-          altitude={state.returnedSafely ? 1400 : state.altitude}
-          retreating={state.returnedSafely || state.retreating}
-          weatherRisk={state.weatherRisk}
-        />
+        <View style={styles.world}>
+          <ExpeditionScene
+            world={{
+              checkpoint: state.returnedSafely ? 'complete' : state.checkpoint,
+              altitude: state.returnedSafely ? 1400 : state.altitude,
+              retreating: state.returnedSafely || state.retreating,
+              elapsedHours: state.elapsedHours,
+              weatherRisk: state.weatherRisk,
+              teamCondition: state.teamCondition,
+              energy: state.energy,
+            }}
+          />
+        </View>
       </View>
 
       <View style={styles.sheet}>
@@ -113,6 +120,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingBottom: 22,
   },
+  world: { height: 200, marginTop: 12 },
   kicker: {
     fontFamily: font.bodyMedium,
     fontSize: 12,
