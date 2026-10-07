@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { TerrainStage } from '@/components/game/TerrainStage';
 import { EVEREST_DISCLAIMER, scoreEverest } from '@/expeditions/everest';
 import type { ExpeditionState } from '@/game/types';
 import { body, danger, font, line, muted, paper, spruce, spruceInk } from '@/theme';
@@ -37,6 +38,12 @@ export function Results({ state, onAgain }: { state: ExpeditionState; onAgain: (
           {title}
         </Text>
         <Text style={styles.verdict}>{verdict}</Text>
+        <TerrainStage
+          checkpoint={state.returnedSafely ? 'complete' : state.checkpoint}
+          altitude={state.returnedSafely ? 1400 : state.altitude}
+          retreating={state.returnedSafely || state.retreating}
+          weatherRisk={state.weatherRisk}
+        />
       </View>
 
       <View style={styles.sheet}>

@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Instruments } from '@/components/game/Instruments';
 import { Results } from '@/components/game/Results';
 import { RouteProgress } from '@/components/game/RouteProgress';
-import { TopoMark } from '@/components/game/TopoMark';
+import { TerrainStage } from '@/components/game/TerrainStage';
 import { Screen } from '@/components/ui/Screen';
 import {
   EVEREST_DISCLAIMER,
@@ -123,7 +123,13 @@ export default function ClimbScreen() {
             {checkpointName(state.checkpoint)}
           </Text>
           <Text style={styles.altitude}>{formatMeters(state.altitude)} m</Text>
-          <TopoMark progress={stage / (EVEREST_PROGRESS.length - 1)} />
+          <TerrainStage
+            checkpoint={state.checkpoint}
+            altitude={state.altitude}
+            retreating={state.retreating}
+            nudge={state.history.length}
+            weatherRisk={state.weatherRisk}
+          />
           <RouteProgress checkpoint={state.checkpoint} />
           <Text style={styles.code}>
             {stage + 1} / {EVEREST_PROGRESS.length} · Expedition {formatSeed(state.seed)}
