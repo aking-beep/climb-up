@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { TopoMark } from '@/components/game/TopoMark';
+import { TerrainStage } from '@/components/game/TerrainStage';
 import { Screen } from '@/components/ui/Screen';
 import { EVEREST_DISCLAIMER, EVEREST_PROGRESS } from '@/expeditions/everest';
 import { body, font, line, muted, paper, spruce, spruceInk } from '@/theme';
@@ -39,9 +39,9 @@ export default function TitleScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={[styles.mast, { paddingTop: insets.top + 16 }]}>
             <Text style={styles.kicker}>Mount Everest · Simplified</Text>
-            <TopoMark progress={0.22} />
+            <TerrainStage checkpoint="briefing" altitude={1400} retreating={false} still />
           </View>
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + 28 }]}>
+          <View style={styles.sheet}>
             <Text style={styles.title} accessibilityRole="header">
               Climb Up
             </Text>
@@ -55,33 +55,35 @@ export default function TitleScreen() {
               <Text style={styles.noticeLabel}>Not a manual</Text>
               <Text style={styles.noticeText}>{EVEREST_DISCLAIMER}</Text>
             </View>
-            <Text style={styles.label}>Expedition code</Text>
-            <TextInput
-              value={code}
-              onChangeText={setCode}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              autoComplete="off"
-              placeholder="Leave blank for a new expedition"
-              placeholderTextColor="#8a8176"
-              style={styles.input}
-              accessibilityLabel="Expedition code"
-              returnKeyType="go"
-              onSubmitEditing={begin}
-            />
-            {invalid ? (
-              <Text style={styles.invalid}>That code is not an expedition. A new one will start.</Text>
-            ) : null}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Start the expedition"
-              onPress={begin}
-              style={({ pressed }) => [styles.go, pressed && styles.pressed]}
-            >
-              <Text style={styles.goText}>Start the expedition</Text>
-            </Pressable>
           </View>
         </ScrollView>
+        <View style={[styles.dock, { paddingBottom: insets.bottom + 14 }]}>
+          <Text style={styles.label}>Expedition code</Text>
+          <TextInput
+            value={code}
+            onChangeText={setCode}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            autoComplete="off"
+            placeholder="Leave blank for a new expedition"
+            placeholderTextColor="#8a8176"
+            style={styles.input}
+            accessibilityLabel="Expedition code"
+            returnKeyType="go"
+            onSubmitEditing={begin}
+          />
+          {invalid ? (
+            <Text style={styles.invalid}>That code is not an expedition. A new one will start.</Text>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Start the expedition"
+            onPress={begin}
+            style={({ pressed }) => [styles.go, pressed && styles.pressed]}
+          >
+            <Text style={styles.goText}>Start the expedition</Text>
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -107,6 +109,14 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 22,
     paddingTop: 22,
+    paddingBottom: 18,
+  },
+  dock: {
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    backgroundColor: paper,
+    borderTopWidth: 1,
+    borderTopColor: line,
   },
   title: {
     fontFamily: font.displayBold,
@@ -164,7 +174,6 @@ const styles = StyleSheet.create({
     color: body,
   },
   label: {
-    marginTop: 22,
     fontFamily: font.bodyMedium,
     fontSize: 13,
     color: muted,

@@ -1,23 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Path, Polygon } from 'react-native-svg';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 import { Climber } from '@/components/game/Climber';
-import {
-  TERRAIN_HEIGHT,
-  TERRAIN_WIDTH,
-  groundPath,
-  terrainFor,
-} from '@/expeditions/everest/terrain';
+import { TERRAIN_HEIGHT, TERRAIN_WIDTH, terrainFor } from '@/expeditions/everest/terrain';
 import type { TerrainId } from '@/expeditions/everest/terrain';
 import type { CheckpointId } from '@/game/types';
 import { font, spruceInk } from '@/theme';
 
-const CREAM = 'rgba(244, 241, 234, 0.82)';
-const FAINT = 'rgba(244, 241, 234, 0.28)';
-const ICE = 'rgba(244, 241, 234, 0.42)';
-const ROCK = 'rgba(8, 12, 10, 0.38)';
-const TREE = 'rgba(8, 14, 12, 0.62)';
+const PLATES: Record<TerrainId, number> = {
+  valley: require('../../../assets/terrain/valley.jpg'),
+  forest: require('../../../assets/terrain/forest.jpg'),
+  moraine: require('../../../assets/terrain/moraine.jpg'),
+  icefall: require('../../../assets/terrain/icefall.jpg'),
+  glacier: require('../../../assets/terrain/glacier.jpg'),
+  face: require('../../../assets/terrain/face.jpg'),
+  col: require('../../../assets/terrain/col.jpg'),
+  ridge: require('../../../assets/terrain/ridge.jpg'),
+};
 
 type Props = {
   checkpoint: CheckpointId;
@@ -25,37 +24,47 @@ type Props = {
   retreating: boolean;
   nudge?: number;
   weatherRisk?: number;
+  /** Hold the figure in place. Used on the title. */
+  still?: boolean;
 };
 
-export function TerrainStage({ checkpoint, altitude, retreating, nudge = 0, weatherRisk = 0 }: Props) {
+export function TerrainStage({
+  checkpoint,
+  altitude,
+  retreating,
+  nudge = 0,
+  weatherRisk = 0,
+  still = false,
+}: Props) {
   const scene = terrainFor(checkpoint, altitude);
   const descending = retreating || checkpoint === 'descent';
   const placeKey = `${scene.id}:${descending ? 'down' : 'up'}:${Math.round(altitude / 80)}`;
-  const [t, setT] = useState(descending ? 0.9 : 0.1);
+  const [t, setT] = useState(still ? 0.62 : descending ? 0.78 : 0.14);
   const [step, setStep] = useState(0);
   const placeRef = useRef(placeKey);
 
   useEffect(() => {
-    const from = descending ? 0.9 : 0.1;
-    const to = descending ? 0.1 : 0.9;
+    if (still) return;
+    const from = descending ? 0.78 : 0.14;
+    const to = descending ? 0.14 : 0.78;
     const start = Date.now();
-    const duration = 1200;
+    const duration = 1400;
     let frame = 0;
     const tick = () => {
       const u = Math.min(1, (Date.now() - start) / duration);
       const eased = 1 - (1 - u) ** 3;
       setT(from + (to - from) * eased);
-      setStep(u < 1 ? Math.floor(u * 10) % 2 : 0);
+      setStep(u < 1 ? Math.floor(u * 8) % 2 : 0);
       if (u < 1) frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [placeKey, descending]);
+  }, [placeKey, descending, still]);
 
   useEffect(() => {
     const moved = placeRef.current !== placeKey;
     placeRef.current = placeKey;
-    if (moved || nudge === 0) return;
+    if (still || moved || nudge === 0) return;
     let count = 0;
     const id = setInterval(() => {
       count += 1;
@@ -64,160 +73,82 @@ export function TerrainStage({ checkpoint, altitude, retreating, nudge = 0, weat
         clearInterval(id);
         setStep(0);
       }
-    }, 150);
+    }, 160);
     return () => clearInterval(id);
-  }, [nudge, placeKey]);
+  }, [nudge, placeKey, still]);
 
   const foot = scene.foot(t);
-  const windy = weatherRisk >= 55 || scene.id === 'col' || scene.id === 'ridge';
 
   return (
     <View accessibilityLabel={`Climber on ${scene.label}`}>
-      <View style={styles.stage}>
-        <Svg width="100%" height="100%" viewBox={`0 0 ${TERRAIN_WIDTH} ${TERRAIN_HEIGHT}`}>
-          <TerrainArt id={scene.id} />
-          {windy ? <Wind /> : null}
-          <Path d={groundPath(scene)} fill="rgba(244, 241, 234, 0.14)" stroke={CREAM} strokeWidth={1.6} />
-        </Svg>
+      <View style={styles.frame}>
+        <Image source={PLATES[scene.id]} style={styles.plate} resizeMode="cover" accessibilityIgnoresInvertColors />
+        {weatherRisk >= 62 ? <View style={styles.weather} /> : null}
         <View
-          pointerEvents="none"
           style={[
-            styles.figure,
+            styles.walker,
             {
               left: `${(foot.x / TERRAIN_WIDTH) * 100}%`,
               top: `${(foot.y / TERRAIN_HEIGHT) * 100}%`,
             },
           ]}
         >
+          <View style={styles.shadow} />
           <Climber step={step} facing={descending ? 'left' : 'right'} />
         </View>
       </View>
       <Text style={styles.label}>{scene.label}</Text>
-      <Text style={styles.sketch}>Sketch, not a route</Text>
+      <Text style={styles.note}>Illustration, not a route</Text>
     </View>
   );
 }
 
-function Wind() {
-  return (
-    <>
-      <Path d="M18 28 H92" stroke={FAINT} strokeWidth={1} />
-      <Path d="M40 40 H130" stroke={FAINT} strokeWidth={1} />
-      <Path d="M210 24 H330" stroke={FAINT} strokeWidth={1} />
-      <Path d="M240 38 H348" stroke={FAINT} strokeWidth={1} />
-    </>
-  );
-}
-
-function Tree({ x, y, h }: { x: number; y: number; h: number }) {
-  return <Polygon points={`${x},${y} ${x - h * 0.42},${y + h} ${x + h * 0.42},${y + h}`} fill={TREE} />;
-}
-
-function TerrainArt({ id }: { id: TerrainId }) {
-  if (id === 'valley') {
-    return (
-      <>
-        <Path d="M0 96 C 70 78, 140 100, 210 84 S 320 96, 360 72 V168 H0 Z" fill="rgba(244,241,234,0.08)" />
-        <Tree x={54} y={78} h={36} />
-        <Tree x={92} y={86} h={28} />
-        <Tree x={250} y={90} h={24} />
-      </>
-    );
-  }
-  if (id === 'forest') {
-    return (
-      <>
-        <Tree x={36} y={70} h={48} />
-        <Tree x={70} y={78} h={40} />
-        <Tree x={108} y={62} h={52} />
-        <Tree x={148} y={74} h={36} />
-        <Tree x={292} y={48} h={30} />
-        <Tree x={328} y={40} h={26} />
-      </>
-    );
-  }
-  if (id === 'moraine') {
-    return (
-      <>
-        <Path d="M0 70 L80 48 L160 78 L250 36 L360 64 V120 H0 Z" fill={ICE} />
-        <Polygon points="40,120 62,96 86,120" fill={ROCK} />
-        <Polygon points="120,124 148,92 176,124" fill={ROCK} />
-        <Polygon points="250,118 268,100 286,118" fill={ROCK} />
-        <Polygon points="200,108 214,90 228,108" fill="rgba(244,241,234,0.7)" />
-        <Polygon points="232,112 244,96 256,112" fill="rgba(244,241,234,0.7)" />
-      </>
-    );
-  }
-  if (id === 'icefall') {
-    return (
-      <>
-        <Polygon points="18,118 48,72 78,118" fill={ICE} />
-        <Polygon points="88,124 128,64 168,124" fill={ICE} />
-        <Polygon points="176,110 214,58 252,110" fill="rgba(244,241,234,0.55)" />
-        <Polygon points="260,100 300,46 340,100" fill={ICE} />
-        <Path d="M96 96 L112 108 L104 118" stroke={ROCK} strokeWidth={2} fill="none" />
-      </>
-    );
-  }
-  if (id === 'glacier') {
-    return (
-      <>
-        <Path d="M0 36 L70 88 L0 168 Z" fill="rgba(244,241,234,0.16)" />
-        <Path d="M360 28 L280 92 L360 168 Z" fill="rgba(244,241,234,0.16)" />
-        <Path d="M120 128 L150 146" stroke={ROCK} strokeWidth={1.5} />
-        <Path d="M200 132 L236 150" stroke={ROCK} strokeWidth={1.5} />
-      </>
-    );
-  }
-  if (id === 'face') {
-    return (
-      <>
-        <Path d="M0 40 L360 8 V168 H0 Z" fill="rgba(244,241,234,0.08)" />
-        <Path d="M70 120 L96 104" stroke={ROCK} strokeWidth={2} />
-        <Path d="M180 88 L210 70" stroke={ROCK} strokeWidth={2} />
-        <Path d="M280 58 L304 44" stroke={ROCK} strokeWidth={2} />
-      </>
-    );
-  }
-  if (id === 'col') {
-    return (
-      <>
-        <Path d="M0 20 L90 78 L150 40 L220 96 L300 28 L360 16 V168 H0 Z" fill="rgba(244,241,234,0.1)" />
-      </>
-    );
-  }
-  return (
-    <>
-      <Path d="M0 150 L168 36 L214 18 L250 48 L360 150 Z" fill="rgba(244,241,234,0.12)" />
-      <Path d="M214 18 L250 8 L286 40" stroke={CREAM} strokeWidth={1.2} fill="none" />
-    </>
-  );
-}
-
 const styles = StyleSheet.create({
-  stage: {
-    height: 176,
+  frame: {
     width: '100%',
-    marginTop: 6,
+    aspectRatio: 16 / 9,
+    marginTop: 8,
+    overflow: 'hidden',
+    backgroundColor: '#cfc6b8',
   },
-  figure: {
+  plate: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
+  },
+  weather: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(232, 236, 238, 0.28)',
+    pointerEvents: 'none',
+  },
+  walker: {
     position: 'absolute',
-    marginLeft: -24,
-    marginTop: -54,
+    alignItems: 'center',
+    marginLeft: -37,
+    marginTop: -124,
+    pointerEvents: 'none',
+  },
+  shadow: {
+    position: 'absolute',
+    bottom: 1,
+    width: 62,
+    height: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(28, 22, 16, 0.18)',
   },
   label: {
-    marginTop: 2,
+    marginTop: 8,
     fontFamily: font.bodyMedium,
     fontSize: 12,
     letterSpacing: 1.1,
     textTransform: 'uppercase',
     color: spruceInk,
   },
-  sketch: {
-    marginBottom: 8,
+  note: {
+    marginBottom: 4,
     fontFamily: font.body,
     fontSize: 11,
     color: spruceInk,
-    opacity: 0.62,
+    opacity: 0.7,
   },
 });

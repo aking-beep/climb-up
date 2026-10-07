@@ -17,52 +17,22 @@ export type TerrainScene = {
 export const TERRAIN_WIDTH = 360;
 export const TERRAIN_HEIGHT = 168;
 
+function walk(t: number, y0: number, y1 = y0): TerrainPoint {
+  return { x: 36 + t * 288, y: y0 + (y1 - y0) * t };
+}
+
 export const TERRAIN: Record<TerrainId, TerrainScene> = {
-  valley: {
-    id: 'valley',
-    label: 'Valley floor',
-    foot: (t) => ({ x: t * TERRAIN_WIDTH, y: 138 - t * 8 }),
-  },
-  forest: {
-    id: 'forest',
-    label: 'Forest trail',
-    foot: (t) => ({ x: t * TERRAIN_WIDTH, y: 150 - t * 58 }),
-  },
-  moraine: {
-    id: 'moraine',
-    label: 'Moraine',
-    foot: (t) => ({
-      x: t * TERRAIN_WIDTH,
-      y: 142 - t * 16 - Math.sin(t * Math.PI * 4) * 6,
-    }),
-  },
-  icefall: {
-    id: 'icefall',
-    label: 'Icefall',
-    foot: (t) => {
-      const step = Math.round(t * 5) / 5;
-      return { x: t * TERRAIN_WIDTH, y: 146 - step * 52 };
-    },
-  },
-  glacier: {
-    id: 'glacier',
-    label: 'Glacier',
-    foot: (t) => ({ x: t * TERRAIN_WIDTH, y: 112 + Math.sin(t * Math.PI) * 24 }),
-  },
-  face: {
-    id: 'face',
-    label: 'Steep face',
-    foot: (t) => ({ x: t * TERRAIN_WIDTH, y: 152 - t * 78 }),
-  },
-  col: {
-    id: 'col',
-    label: 'High col',
-    foot: (t) => ({ x: t * TERRAIN_WIDTH, y: 86 + Math.sin(t * Math.PI) * 34 }),
-  },
+  valley: { id: 'valley', label: 'Valley floor', foot: (t) => walk(t, 150, 144) },
+  forest: { id: 'forest', label: 'Forest trail', foot: (t) => walk(t, 146, 136) },
+  moraine: { id: 'moraine', label: 'Moraine', foot: (t) => walk(t, 152, 146) },
+  icefall: { id: 'icefall', label: 'Icefall', foot: (t) => walk(t, 144, 136) },
+  glacier: { id: 'glacier', label: 'Glacier', foot: (t) => walk(t, 158, 154) },
+  face: { id: 'face', label: 'Steep face', foot: (t) => walk(t, 156, 150) },
+  col: { id: 'col', label: 'High col', foot: (t) => walk(t, 158, 152) },
   ridge: {
     id: 'ridge',
     label: 'Summit ridge',
-    foot: (t) => ({ x: t * TERRAIN_WIDTH, y: 146 - t ** 1.2 * 84 }),
+    foot: (t) => ({ x: 118 + t * 110, y: 156 - t * 58 }),
   },
 };
 
