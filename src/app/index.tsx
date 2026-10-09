@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingBottom: 8,
   },
-  world: { height: 220, marginTop: 10 },
+  world: { height: 268, marginTop: 10 },
   kicker: {
     fontFamily: font.bodyMedium,
     fontSize: 12,

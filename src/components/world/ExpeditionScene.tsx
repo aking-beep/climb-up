@@ -5,27 +5,17 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { terrainFor } from '@/expeditions/everest/terrain';
 import type { CheckpointId } from '@/game/types';
 
-import { Camp } from './Camp';
-import { CloudLayer } from './CloudLayer';
-import { DayNightLayer } from './DayNightLayer';
-import { EnvironmentTransition } from './EnvironmentTransition';
-import { ExpeditionParty } from './ExpeditionParty';
-import { ParallaxMountain } from './ParallaxMountain';
-import { RouteMarker } from './RouteMarker';
+import { DioramaParty } from './DioramaParty';
 import { SnowLayer } from './SnowLayer';
-import { WeatherLayer } from './WeatherLayer';
-import {
-  campVisible,
-  dayPhase,
-  expeditionHour,
-  groundFor,
-  partyLabel,
-  partyPoses,
-  routeProgress,
-  snowDensity,
-} from './scene';
+import { TiltShift } from './TiltShift';
+import { dayPhase, expeditionHour, groundFor, partyLabel, partyPoses, routeProgress, snowDensity, type GroundId } from './scene';
 
-const FORE = require('../../../assets/world/foreground-snow.png');
+const PLATES: Record<GroundId, number> = {
+  valley: require('../../../assets/world/diorama-valley.jpg'),
+  forest: require('../../../assets/world/diorama-forest.jpg'),
+  rock: require('../../../assets/world/diorama-rock.jpg'),
+  snow: require('../../../assets/world/diorama-snow.jpg'),
+};
 
 export type WorldInput = {
   checkpoint: CheckpointId;
@@ -44,8 +34,9 @@ export function ExpeditionScene({ world, still = false }: { world: WorldInput; s
   const terrain = terrainFor(world.checkpoint, world.altitude);
   const poses = partyPoses(world.teamCondition, world.energy);
   const phase = dayPhase(expeditionHour(world.elapsedHours));
-  const facing = world.retreating || world.checkpoint === 'descent' ? 'left' : 'right';
+  const retreating = world.retreating || world.checkpoint === 'descent';
   const kneeling = poses[1] === 'kneel';
+  const ground = groundFor(terrain.id);
 
   useEffect(() => {
     shift.value = withTiming(progress, { duration: still ? 600 : 1500 });
@@ -62,31 +53,17 @@ export function ExpeditionScene({ world, still = false }: { world: WorldInput; s
   return (
     <View style={styles.scene} accessibilityLabel={partyLabel(poses)}>
       <Animated.View style={[styles.world, camera]}>
-        <DayNightLayer phase={phase} />
-        <ParallaxMountain shift={shift} />
-        <CloudLayer still={still} storm={world.weatherRisk} />
-        <EnvironmentTransition ground={groundFor(terrain.id)} shift={shift} />
-        <Camp visible={campVisible(world.checkpoint)} shift={shift} />
-        <RouteMarker shift={shift} />
-        <WeatherLayer risk={world.weatherRisk} phase={phase} />
-        <ExpeditionParty poses={poses} facing={facing} />
-        {groundFor(terrain.id) === 'snow' ? (
-          <Image source={FORE} style={styles.foreground} resizeMode="cover" accessibilityIgnoresInvertColors />
-        ) : null}
+        <Image source={PLATES[ground]} style={styles.plate} resizeMode="cover" accessibilityIgnoresInvertColors />
+        <DioramaParty poses={poses} retreating={retreating} progress={progress} />
         <SnowLayer density={still ? 0 : snowDensity(world.altitude, world.weatherRisk)} />
+        <TiltShift phase={phase} storm={world.weatherRisk} />
       </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scene: { flex: 1, overflow: 'hidden', backgroundColor: '#d5ddd6' },
+  scene: { flex: 1, overflow: 'hidden', backgroundColor: '#1a1612' },
   world: { flex: 1 },
-  foreground: {
-    position: 'absolute',
-    left: '-10%',
-    width: '124%',
-    height: '18%',
-    bottom: -4,
-  },
+  plate: { width: '100%', height: '100%' },
 });
