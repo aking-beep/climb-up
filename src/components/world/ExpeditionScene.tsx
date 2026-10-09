@@ -11,7 +11,7 @@ import { DioramaCamp } from './DioramaCamp';
 import { DioramaParty } from './DioramaParty';
 import { SnowLayer } from './SnowLayer';
 import { TiltShift } from './TiltShift';
-import { dayPhase, expeditionHour, groundFor, partyLabel, partyPoses, routeProgress, snowDensity, type GroundId } from './scene';
+import { dayPhase, expeditionHour, groundFor, partyLabel, partyPoses, routeProgress, snowDensity, type GroundId, type PartyId, type Pose } from './scene';
 
 const PLATES: Record<GroundId, number> = {
   valley: require('../../../assets/world/diorama-valley.jpg'),
@@ -33,15 +33,26 @@ export type WorldInput = {
   energy: number;
   /** The first mountain is Kilimanjaro. Everest keeps the older plates. */
   mountain?: 'kilimanjaro' | 'everest';
+  poses?: readonly Pose[];
 };
 
-export function ExpeditionScene({ world, still = false }: { world: WorldInput; still?: boolean }) {
+export function ExpeditionScene({
+  world,
+  still = false,
+  selected = null,
+  onSelectMember,
+}: {
+  world: WorldInput;
+  still?: boolean;
+  selected?: PartyId | null;
+  onSelectMember?: (id: PartyId) => void;
+}) {
   const kilimanjaro = world.mountain !== 'everest';
   const progress = kilimanjaro ? routeProgress(world.altitude, KILI_GATE, KILI_SUMMIT) : routeProgress(world.altitude);
   const shift = useSharedValue(progress);
   const focus = useSharedValue(0);
   const terrain = terrainFor(world.checkpoint, world.altitude);
-  const poses = partyPoses(world.teamCondition, world.energy);
+  const poses = world.poses ?? partyPoses(world.teamCondition, world.energy);
   const phase = dayPhase(expeditionHour(world.elapsedHours));
   const retreating = world.retreating || world.checkpoint === 'descent';
   const kneeling = poses[1] === 'kneel';
@@ -65,7 +76,14 @@ export function ExpeditionScene({ world, still = false }: { world: WorldInput; s
       <Animated.View style={[styles.world, camera]}>
         <Image source={PLATES[ground]} style={styles.plate} resizeMode="cover" accessibilityIgnoresInvertColors />
         <DioramaCamp visible={camping && !still} />
-        <DioramaParty poses={poses} retreating={retreating} progress={progress} camping={camping} />
+        <DioramaParty
+          poses={poses}
+          retreating={retreating}
+          progress={progress}
+          camping={camping}
+          selected={selected}
+          onSelect={still ? undefined : onSelectMember}
+        />
         <SnowLayer density={still ? 0 : snowDensity(world.altitude, world.weatherRisk)} />
         <TiltShift phase={phase} storm={world.weatherRisk} />
       </Animated.View>

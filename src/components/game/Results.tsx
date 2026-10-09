@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExpeditionScene } from '@/components/world/ExpeditionScene';
 import { KILI_DISCLAIMER, scoreKilimanjaro } from '@/expeditions/kilimanjaro';
+import { membersOf } from '@/expeditions/kilimanjaro/party';
 import type { ExpeditionState } from '@/game/types';
 import { body, danger, font, line, muted, paper, spruce, spruceInk } from '@/theme';
 import { formatMeters, formatSeed } from '@/utils/number';
@@ -11,6 +12,7 @@ import { formatMeters, formatSeed } from '@/utils/number';
 export function Results({ state, onAgain }: { state: ExpeditionState; onAgain: () => void }) {
   const insets = useSafeAreaInsets();
   const score = scoreKilimanjaro(state);
+  const party = membersOf(state);
   const title = score.returnedSafely ? 'Expedition complete' : 'Expedition ended';
   const verdict = verdictLine(score.summitReached, score.returnedSafely);
 
@@ -62,6 +64,14 @@ export function Results({ state, onAgain }: { state: ExpeditionState; onAgain: (
         ))}
 
         <View style={styles.scores}>
+          {party.map((member) => (
+            <View key={member.id} style={styles.scoreRow}>
+              <Text style={styles.scoreLabel}>
+                {member.name} · {member.role}
+              </Text>
+              <Text style={styles.scoreValue}>{member.spirits}</Text>
+            </View>
+          ))}
           {parts.map(([label, value]) => (
             <View key={label} style={styles.scoreRow}>
               <Text style={styles.scoreLabel}>{label}</Text>

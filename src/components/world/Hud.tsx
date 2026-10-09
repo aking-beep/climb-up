@@ -2,11 +2,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { checkpointName, kiliCamping } from '@/expeditions/kilimanjaro';
+import { membersOf } from '@/expeditions/kilimanjaro/party';
 import type { ExpeditionState } from '@/game/types';
 import { font, spruceInk } from '@/theme';
 import { formatElapsed, formatMeters } from '@/utils/number';
 
-import { partyCaption, partyPoses } from './scene';
+import { partyCaption } from './scene';
 
 const READOUTS = [
   ['health', 'Health'],
@@ -17,7 +18,7 @@ const READOUTS = [
 
 export function Hud({ state, top }: { state: ExpeditionState; top: number }) {
   const caption =
-    partyCaption(partyPoses(state.teamCondition, state.energy)) ??
+    partyCaption(membersOf(state).map((member) => member.pose)) ??
     (kiliCamping(state.checkpoint, state.altitude) ? 'The tents are up.' : null);
   return (
     <View style={styles.wrap}>

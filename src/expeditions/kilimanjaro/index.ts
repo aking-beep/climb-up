@@ -1,5 +1,5 @@
-import { applyDecision, createExpedition, currentEvent, scoreExpedition } from '@/game/engine';
-import type { ExpeditionDefinition, ExpeditionScore, ExpeditionState } from '@/game/types';
+import { applyDecision, applyEffect, createExpedition, currentEvent, scoreExpedition } from '@/game/engine';
+import type { Effect, ExpeditionDefinition, ExpeditionScore, ExpeditionState } from '@/game/types';
 
 import { KILI_EVENTS } from './events';
 import { KILI_DESCENT, KILI_DISCLAIMER, KILI_ROUTE } from './route';
@@ -29,6 +29,12 @@ export function chooseKilimanjaro(state: ExpeditionState, index: number): Expedi
 
 export function scoreKilimanjaro(state: ExpeditionState): ExpeditionScore {
   return scoreExpedition(state);
+}
+
+/** A morning or night beat. It does not spend the decision card. */
+export function playKilimanjaro(state: ExpeditionState, effect: Effect | null): ExpeditionState {
+  if (!effect || state.status !== 'active') return state;
+  return applyEffect(state, effect, kilimanjaro);
 }
 
 export {

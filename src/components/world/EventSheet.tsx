@@ -4,6 +4,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Instruments } from '@/components/game/Instruments';
 import { KILI_DISCLAIMER, checkpointName } from '@/expeditions/kilimanjaro';
+import type { RoutineAction, RoutineId } from '@/expeditions/kilimanjaro/party';
 import type { EventCard, ExpeditionState, HistoryEntry } from '@/game/types';
 import { body, font, line, muted, paper, paperRaised } from '@/theme';
 
@@ -15,6 +16,8 @@ type Props = {
   journalOpen: boolean;
   onToggleJournal: () => void;
   onChoose: (index: number) => void;
+  routine: readonly RoutineAction[];
+  onRoutine: (id: RoutineId) => void;
   bottom: number;
 };
 
@@ -26,6 +29,8 @@ export function EventSheet({
   journalOpen,
   onToggleJournal,
   onChoose,
+  routine,
+  onRoutine,
   bottom,
 }: Props) {
   const [storesOpen, setStoresOpen] = useState(false);
@@ -37,6 +42,23 @@ export function EventSheet({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.routine}>
+          {routine.map((action) => (
+            <Pressable
+              key={action.id}
+              accessibilityRole="button"
+              accessibilityLabel={action.label}
+              accessibilityHint={action.detail}
+              accessibilityState={{ disabled: !action.enabled }}
+              onPress={() => {
+                if (action.enabled) onRoutine(action.id);
+              }}
+              style={({ pressed }) => [styles.routineButton, !action.enabled && styles.routineDone, pressed && action.enabled && styles.pressed]}
+            >
+              <Text style={styles.routineLabel}>{action.done ? 'Done' : action.label}</Text>
+            </Pressable>
+          ))}
+        </View>
         <Animated.View key={event.id} entering={FadeInDown.duration(420)}>
           {state.lastNote ? (
             <View style={styles.note}>
@@ -117,7 +139,21 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: line,
   },
-  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 },
+  content: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8 },
+  routine: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  routineButton: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    backgroundColor: paperRaised,
+    borderWidth: 1,
+    borderColor: line,
+  },
+  routineDone: { opacity: 0.45 },
+  routineLabel: { fontFamily: font.bodySemi, fontSize: 13, lineHeight: 16, textAlign: 'center', color: body },
   note: { marginBottom: 12 },
   kicker: {
     fontFamily: font.bodyMedium,

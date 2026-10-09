@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Image, StyleSheet, View, type ImageStyle } from 'react-native';
+import { Image, Pressable, StyleSheet, View, type ImageStyle } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
 import { PARTY, type PartyId, type Pose } from './scene';
@@ -43,6 +43,8 @@ function Sprite({
   towardCamera,
   progress,
   camping,
+  selected,
+  onSelect,
 }: {
   id: PartyId;
   pose: Pose;
@@ -50,6 +52,8 @@ function Sprite({
   towardCamera: boolean;
   progress: number;
   camping: boolean;
+  selected: boolean;
+  onSelect?: (id: PartyId) => void;
 }) {
   const bob = useSharedValue(0);
   const spot = camping ? CAMP_SPOTS[id] : place(depth, towardCamera, progress);
@@ -74,10 +78,17 @@ function Sprite({
   const height = 40 * spot.scale * (pose === 'kneel' || pitching ? 0.82 : 1);
   const width = height * (43 / 96);
 
+  const person = PARTY.find((member) => member.id === id);
   return (
-    <Animated.View
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${person?.name ?? id}, ${person?.role ?? 'party'}`}
+      accessibilityState={{ selected }}
+      hitSlop={10}
+      onPress={() => onSelect?.(id)}
       style={[
         styles.person,
+        selected && styles.selected,
         {
           left: `${spot.x}%`,
           top: `${spot.y}%`,
@@ -87,17 +98,18 @@ function Sprite({
           marginTop: -height,
           zIndex: Math.round((1 - spot.scale) * -10 + 20),
         },
-        style,
       ]}
     >
-      <View style={[styles.shadow, pose === 'kneel' && styles.shadowDown]} />
-      <Image
-        source={SPRITES[id]}
-        style={[styles.sprite, pose === 'lag' && styles.lag]}
-        resizeMode="contain"
-        accessibilityIgnoresInvertColors
-      />
-    </Animated.View>
+      <Animated.View style={[styles.fill, style]}>
+        <View style={[styles.shadow, pose === 'kneel' && styles.shadowDown]} />
+        <Image
+          source={SPRITES[id]}
+          style={[styles.sprite, pose === 'lag' && styles.lag]}
+          resizeMode="contain"
+          accessibilityIgnoresInvertColors
+        />
+      </Animated.View>
+    </Pressable>
   );
 }
 
@@ -106,11 +118,15 @@ export function DioramaParty({
   retreating,
   progress,
   camping = false,
+  selected = null,
+  onSelect,
 }: {
   poses: readonly Pose[];
   retreating: boolean;
   progress: number;
   camping?: boolean;
+  selected?: PartyId | null;
+  onSelect?: (id: PartyId) => void;
 }) {
   const order = [...PARTY].sort((a, b) => DEPTH[b.id] - DEPTH[a.id]);
   return (
@@ -124,6 +140,8 @@ export function DioramaParty({
           towardCamera={retreating}
           progress={progress}
           camping={camping}
+          selected={selected === person.id}
+          onSelect={onSelect}
         />
       ))}
     </View>
@@ -133,6 +151,8 @@ export function DioramaParty({
 const styles = StyleSheet.create({
   layer: StyleSheet.absoluteFill,
   person: { position: 'absolute' },
+  selected: { borderWidth: 1, borderColor: 'rgba(243, 226, 176, 0.95)' },
+  fill: { flex: 1 },
   sprite: { width: '100%', height: '100%', imageRendering: 'pixelated' } as ImageStyle,
   lag: { opacity: 0.9 },
   shadow: {
