@@ -15,11 +15,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExpeditionScene } from '@/components/world/ExpeditionScene';
 import { Screen } from '@/components/ui/Screen';
-import { EVEREST_DISCLAIMER, EVEREST_PROGRESS } from '@/expeditions/everest';
+import { KILI_DISCLAIMER, KILI_PROGRESS } from '@/expeditions/kilimanjaro';
 import { body, font, line, muted, paper, spruce, spruceInk } from '@/theme';
 import { formatSeed, parseSeed } from '@/utils/number';
 
-const ROUTE = EVEREST_PROGRESS.map((stop) => stop.name).join(' → ');
+const ROUTE = KILI_PROGRESS.map((stop) => stop.name).join(' → ');
 
 export default function TitleScreen() {
   const insets = useSafeAreaInsets();
@@ -38,13 +38,13 @@ export default function TitleScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={[styles.mast, { paddingTop: insets.top + 16 }]}>
-            <Text style={styles.kicker}>Mount Everest · Simplified</Text>
+            <Text style={styles.kicker}>Kilimanjaro · Ten days</Text>
             <View style={styles.world}>
               <ExpeditionScene
                 still
                 world={{
                   checkpoint: 'briefing',
-                  altitude: 1400,
+                  altitude: 2100,
                   retreating: false,
                   elapsedHours: 0,
                   weatherRisk: 12,
@@ -60,13 +60,13 @@ export default function TitleScreen() {
             </Text>
             <Text style={styles.tagline}>{"How high you climb isn't how you win."}</Text>
             <Text style={styles.lede}>
-              Lead one expedition. Health, energy, acclimatization, oxygen, supplies, weather, hazards, time, and the team are the work. A careful retreat can outscore a reckless summit. Coming back is the result.
+              Ten days on a simplified Lemosho. The team walks the forest, the plateau, and the desert, pitches camp, and keeps going only while the way down is still real. A careful retreat can outscore a reckless summit.
             </Text>
-            <Text style={styles.routeLabel}>Simplified South Col route</Text>
+            <Text style={styles.routeLabel}>Simplified 10-day Lemosho</Text>
             <Text style={styles.route}>{ROUTE}</Text>
             <View style={styles.notice}>
               <Text style={styles.noticeLabel}>Not a manual</Text>
-              <Text style={styles.noticeText}>{EVEREST_DISCLAIMER}</Text>
+              <Text style={styles.noticeText}>{KILI_DISCLAIMER}</Text>
             </View>
           </View>
         </ScrollView>

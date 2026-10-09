@@ -3,7 +3,7 @@ import type { TerrainId } from '@/expeditions/everest/terrain';
 
 export type DayPhase = 'night' | 'dawn' | 'day' | 'dusk';
 export type Pose = 'walk' | 'lag' | 'kneel';
-export type GroundId = 'valley' | 'forest' | 'rock' | 'snow';
+export type GroundId = 'valley' | 'forest' | 'rock' | 'snow' | 'rainforest' | 'moorland' | 'desert';
 export type PartyId = 'jun' | 'marco' | 'you' | 'lena';
 
 export const PARTY: readonly { id: PartyId; name: string; role: string }[] = [
@@ -32,9 +32,9 @@ export function skyColors(phase: DayPhase): readonly [string, string, string] {
   return ['#8fa6ae', '#d5ddd6', '#f3efe6'];
 }
 
-export function routeProgress(altitude: number): number {
-  const span = 8849 - 1400;
-  return Math.min(1, Math.max(0, (altitude - 1400) / span));
+export function routeProgress(altitude: number, low = 1400, high = 8849): number {
+  const span = high - low;
+  return Math.min(1, Math.max(0, (altitude - low) / span));
 }
 
 export function groundFor(terrainId: TerrainId): GroundId {
@@ -62,7 +62,7 @@ export function partyPoses(teamCondition: number, energy: number): Pose[] {
 }
 
 export function partyCaption(poses: readonly Pose[]): string | null {
-  if (poses[1] === 'kneel') return 'Marco is down on the rope.';
+  if (poses[1] === 'kneel') return 'Marco is down.';
   if (poses[1] === 'lag') return 'Marco is falling off the pace.';
   return null;
 }

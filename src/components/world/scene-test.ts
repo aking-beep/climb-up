@@ -36,7 +36,7 @@ describe('expedition world', () => {
     expect(partyPoses(60, 70)[1]).toBe('lag');
     expect(partyPoses(30, 80)[1]).toBe('kneel');
     expect(partyPoses(80, 20)[1]).toBe('kneel');
-    expect(partyCaption(partyPoses(30, 80))).toBe('Marco is down on the rope.');
+    expect(partyCaption(partyPoses(30, 80))).toBe('Marco is down.');
     expect(partyCaption(partyPoses(90, 88))).toBeNull();
   });
 

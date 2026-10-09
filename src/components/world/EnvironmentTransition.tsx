@@ -9,6 +9,9 @@ const GROUNDS: Record<GroundId, number> = {
   forest: require('../../../assets/world/ground-forest.png'),
   rock: require('../../../assets/world/ground-rock.png'),
   snow: require('../../../assets/world/ground-snow.png'),
+  rainforest: require('../../../assets/world/ground-forest.png'),
+  moorland: require('../../../assets/world/ground-valley.png'),
+  desert: require('../../../assets/world/ground-rock.png'),
 };
 
 export function EnvironmentTransition({

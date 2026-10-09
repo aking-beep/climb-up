@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { checkpointName } from '@/expeditions/everest';
+import { checkpointName, kiliCamping } from '@/expeditions/kilimanjaro';
 import type { ExpeditionState } from '@/game/types';
 import { font, spruceInk } from '@/theme';
 import { formatElapsed, formatMeters } from '@/utils/number';
@@ -16,7 +16,9 @@ const READOUTS = [
 ] as const;
 
 export function Hud({ state, top }: { state: ExpeditionState; top: number }) {
-  const caption = partyCaption(partyPoses(state.teamCondition, state.energy));
+  const caption =
+    partyCaption(partyPoses(state.teamCondition, state.energy)) ??
+    (kiliCamping(state.checkpoint, state.altitude) ? 'The tents are up.' : null);
   return (
     <View style={styles.wrap}>
       <LinearGradient
@@ -25,7 +27,7 @@ export function Hud({ state, top }: { state: ExpeditionState; top: number }) {
       />
       <View style={[styles.row, { paddingTop: top }]}>
         <View style={styles.placeBlock}>
-          <Text style={styles.kicker}>{state.retreating ? 'Descending' : 'Everest · South Col'}</Text>
+          <Text style={styles.kicker}>{state.retreating ? 'Descending' : 'Kilimanjaro · Lemosho'}</Text>
           <Text style={styles.place} accessibilityRole="header">
             {checkpointName(state.checkpoint)}
           </Text>

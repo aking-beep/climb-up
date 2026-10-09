@@ -3,14 +3,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExpeditionScene } from '@/components/world/ExpeditionScene';
-import { EVEREST_DISCLAIMER, scoreEverest } from '@/expeditions/everest';
+import { KILI_DISCLAIMER, scoreKilimanjaro } from '@/expeditions/kilimanjaro';
 import type { ExpeditionState } from '@/game/types';
 import { body, danger, font, line, muted, paper, spruce, spruceInk } from '@/theme';
 import { formatMeters, formatSeed } from '@/utils/number';
 
 export function Results({ state, onAgain }: { state: ExpeditionState; onAgain: () => void }) {
   const insets = useSafeAreaInsets();
-  const score = scoreEverest(state);
+  const score = scoreKilimanjaro(state);
   const title = score.returnedSafely ? 'Expedition complete' : 'Expedition ended';
   const verdict = verdictLine(score.summitReached, score.returnedSafely);
 
@@ -33,7 +33,7 @@ export function Results({ state, onAgain }: { state: ExpeditionState; onAgain: (
       contentInsetAdjustmentBehavior="never"
     >
       <View style={[styles.mast, { paddingTop: insets.top + 18 }]}>
-        <Text style={styles.kicker}>Everest · {formatSeed(state.seed)}</Text>
+        <Text style={styles.kicker}>Kilimanjaro · {formatSeed(state.seed)}</Text>
         <Text style={styles.title} accessibilityRole="header">
           {title}
         </Text>
@@ -42,7 +42,7 @@ export function Results({ state, onAgain }: { state: ExpeditionState; onAgain: (
           <ExpeditionScene
             world={{
               checkpoint: state.returnedSafely ? 'complete' : state.checkpoint,
-              altitude: state.returnedSafely ? 1400 : state.altitude,
+              altitude: state.altitude,
               retreating: state.returnedSafely || state.retreating,
               elapsedHours: state.elapsedHours,
               weatherRisk: state.weatherRisk,
@@ -81,7 +81,7 @@ export function Results({ state, onAgain }: { state: ExpeditionState; onAgain: (
         <Text style={styles.explanation}>{score.explanation}</Text>
 
         <View style={styles.notice}>
-          <Text style={styles.noticeText}>{EVEREST_DISCLAIMER}</Text>
+          <Text style={styles.noticeText}>{KILI_DISCLAIMER}</Text>
         </View>
 
         <Pressable

@@ -3,8 +3,11 @@ import { Image, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { terrainFor } from '@/expeditions/everest/terrain';
+import { KILI_GATE, KILI_SUMMIT, kiliCamping } from '@/expeditions/kilimanjaro/route';
+import { kiliGround } from '@/expeditions/kilimanjaro/zones';
 import type { CheckpointId } from '@/game/types';
 
+import { DioramaCamp } from './DioramaCamp';
 import { DioramaParty } from './DioramaParty';
 import { SnowLayer } from './SnowLayer';
 import { TiltShift } from './TiltShift';
@@ -15,6 +18,9 @@ const PLATES: Record<GroundId, number> = {
   forest: require('../../../assets/world/diorama-forest.jpg'),
   rock: require('../../../assets/world/diorama-rock.jpg'),
   snow: require('../../../assets/world/diorama-snow.jpg'),
+  rainforest: require('../../../assets/world/diorama-rainforest.jpg'),
+  moorland: require('../../../assets/world/diorama-moorland.jpg'),
+  desert: require('../../../assets/world/diorama-desert.jpg'),
 };
 
 export type WorldInput = {
@@ -25,10 +31,13 @@ export type WorldInput = {
   weatherRisk: number;
   teamCondition: number;
   energy: number;
+  /** The first mountain is Kilimanjaro. Everest keeps the older plates. */
+  mountain?: 'kilimanjaro' | 'everest';
 };
 
 export function ExpeditionScene({ world, still = false }: { world: WorldInput; still?: boolean }) {
-  const progress = routeProgress(world.altitude);
+  const kilimanjaro = world.mountain !== 'everest';
+  const progress = kilimanjaro ? routeProgress(world.altitude, KILI_GATE, KILI_SUMMIT) : routeProgress(world.altitude);
   const shift = useSharedValue(progress);
   const focus = useSharedValue(0);
   const terrain = terrainFor(world.checkpoint, world.altitude);
@@ -36,7 +45,8 @@ export function ExpeditionScene({ world, still = false }: { world: WorldInput; s
   const phase = dayPhase(expeditionHour(world.elapsedHours));
   const retreating = world.retreating || world.checkpoint === 'descent';
   const kneeling = poses[1] === 'kneel';
-  const ground = groundFor(terrain.id);
+  const ground = kilimanjaro ? kiliGround(world.checkpoint, world.altitude) : groundFor(terrain.id);
+  const camping = kilimanjaro && kiliCamping(world.checkpoint, world.altitude);
 
   useEffect(() => {
     shift.value = withTiming(progress, { duration: still ? 600 : 1500 });
@@ -54,7 +64,8 @@ export function ExpeditionScene({ world, still = false }: { world: WorldInput; s
     <View style={styles.scene} accessibilityLabel={partyLabel(poses)}>
       <Animated.View style={[styles.world, camera]}>
         <Image source={PLATES[ground]} style={styles.plate} resizeMode="cover" accessibilityIgnoresInvertColors />
-        <DioramaParty poses={poses} retreating={retreating} progress={progress} />
+        <DioramaCamp visible={camping && !still} />
+        <DioramaParty poses={poses} retreating={retreating} progress={progress} camping={camping} />
         <SnowLayer density={still ? 0 : snowDensity(world.altitude, world.weatherRisk)} />
         <TiltShift phase={phase} storm={world.weatherRisk} />
       </Animated.View>

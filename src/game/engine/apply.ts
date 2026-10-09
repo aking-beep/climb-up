@@ -37,9 +37,13 @@ function clampStats(state: ExpeditionState) {
   if (state.altitude > state.highestAltitude) state.highestAltitude = state.altitude;
 }
 
-function finish(state: ExpeditionState) {
+function homeMeters(def: ExpeditionDefinition): number {
+  return def.descentLadder[def.descentLadder.length - 1] ?? def.route[0].meters;
+}
+
+function finish(state: ExpeditionState, def: ExpeditionDefinition) {
   state.checkpoint = 'complete';
-  state.altitude = Math.min(state.altitude, 1400);
+  state.altitude = Math.min(state.altitude, homeMeters(def));
   if (state.health > 0 && state.teamCondition > 0) {
     state.returnedSafely = true;
     state.status = 'complete';
@@ -79,11 +83,11 @@ function stepDown(state: ExpeditionState, def: ExpeditionDefinition) {
   state.retreating = true;
   const lower = def.descentLadder.find((meters) => meters < state.altitude - 30);
   if (lower === undefined) {
-    finish(state);
+    finish(state, def);
     return;
   }
   state.altitude = lower;
-  if (lower <= def.route[0].meters) finish(state);
+  if (lower <= homeMeters(def) + 1) finish(state, def);
   else state.checkpoint = 'descent';
 }
 
@@ -146,14 +150,14 @@ function addScores(state: ExpeditionState, effect: Effect) {
   }
 }
 
-function evaluate(state: ExpeditionState) {
+function evaluate(state: ExpeditionState, def: ExpeditionDefinition) {
   if (state.status !== 'active') return;
   if (state.health <= 0 || state.teamCondition <= 0) {
     fail(state);
     return;
   }
   if (state.elapsedHours >= 24 * 36) {
-    if (state.altitude <= 3600 && state.health > 0 && state.teamCondition > 0) finish(state);
+    if (state.altitude <= 3600 && state.health > 0 && state.teamCondition > 0) finish(state, def);
     else fail(state);
   }
 }
@@ -179,12 +183,16 @@ export function applyEffect(
   next.teamCondition += effect.teamCondition ?? 0;
 
   resolveMove(next, effect.move ?? 'hold', def, notes);
+  if (effect.visitMeters !== undefined) {
+    const visited = boundAltitude(effect.visitMeters);
+    if (visited > next.highestAltitude) next.highestAltitude = visited;
+  }
   advanceTime(next, effect.hours ?? 6, notes);
   applyPressure(next, notes);
   addScores(next, effect);
   if (effect.mark) next.marks[effect.mark] = true;
   clampStats(next);
-  evaluate(next);
+  evaluate(next, def);
 
   const text = notes.filter(Boolean).join(' ');
   next.lastNote = text;

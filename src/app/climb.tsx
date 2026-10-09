@@ -12,10 +12,10 @@ import { ExpeditionScene } from '@/components/world/ExpeditionScene';
 import { Hud } from '@/components/world/Hud';
 import {
   checkpointName,
-  chooseEverest,
-  currentEverestEvent,
-  startEverest,
-} from '@/expeditions/everest';
+  chooseKilimanjaro,
+  currentKilimanjaroEvent,
+  startKilimanjaro,
+} from '@/expeditions/kilimanjaro';
 import type { ExpeditionState, StatKey } from '@/game/types';
 import { paper } from '@/theme';
 import { formatElapsed, formatMeters, parseSeed } from '@/utils/number';
@@ -50,7 +50,7 @@ export default function ClimbScreen() {
   const params = useLocalSearchParams<{ code?: string | string[] }>();
   const code = readCode(params.code);
   const insets = useSafeAreaInsets();
-  const [state, setState] = useState(() => startEverest(parseSeed(code)));
+  const [state, setState] = useState(() => startKilimanjaro(parseSeed(code)));
   const [prior, setPrior] = useState<ExpeditionState | null>(null);
   const [journalOpen, setJournalOpen] = useState(false);
   const choosing = useRef(false);
@@ -64,7 +64,7 @@ export default function ClimbScreen() {
     choosing.current = true;
     setPrior(state);
     setJournalOpen(false);
-    const next = chooseEverest(state, index);
+    const next = chooseKilimanjaro(state, index);
     setState(next);
     void Haptics.selectionAsync().catch(() => undefined);
     if (next.status !== 'active') {
@@ -85,14 +85,14 @@ export default function ClimbScreen() {
           onAgain={() => {
             setPrior(null);
             setJournalOpen(false);
-            setState(startEverest());
+            setState(startKilimanjaro());
           }}
         />
       </Screen>
     );
   }
 
-  const event = currentEverestEvent(state);
+  const event = currentKilimanjaroEvent(state);
   const delta = prior ? consequence(prior, state) : '';
 
   return (

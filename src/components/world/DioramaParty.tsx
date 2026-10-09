@@ -19,6 +19,13 @@ const DEPTH: Record<PartyId, number> = {
   lena: 0.66,
 };
 
+const CAMP_SPOTS: Record<PartyId, { x: number; y: number; scale: number }> = {
+  jun: { x: 42, y: 74, scale: 0.78 },
+  marco: { x: 50, y: 68, scale: 0.7 },
+  you: { x: 57, y: 63, scale: 0.64 },
+  lena: { x: 46, y: 58, scale: 0.56 },
+};
+
 function place(depth: number, towardCamera: boolean, progress: number) {
   const along = towardCamera ? 0.66 - depth : depth;
   const d = Math.min(0.9, Math.max(0, along + progress * 0.08));
@@ -35,15 +42,18 @@ function Sprite({
   depth,
   towardCamera,
   progress,
+  camping,
 }: {
   id: PartyId;
   pose: Pose;
   depth: number;
   towardCamera: boolean;
   progress: number;
+  camping: boolean;
 }) {
   const bob = useSharedValue(0);
-  const spot = place(depth, towardCamera, progress);
+  const spot = camping ? CAMP_SPOTS[id] : place(depth, towardCamera, progress);
+  const pitching = camping && id === 'jun' && pose === 'walk';
 
   useEffect(() => {
     if (pose === 'kneel') {
@@ -61,7 +71,7 @@ function Sprite({
     transform: [{ translateY: bob.value * (pose === 'lag' ? -1 : -2) }],
   }));
 
-  const height = 40 * spot.scale * (pose === 'kneel' ? 0.82 : 1);
+  const height = 40 * spot.scale * (pose === 'kneel' || pitching ? 0.82 : 1);
   const width = height * (43 / 96);
 
   return (
@@ -95,10 +105,12 @@ export function DioramaParty({
   poses,
   retreating,
   progress,
+  camping = false,
 }: {
   poses: readonly Pose[];
   retreating: boolean;
   progress: number;
+  camping?: boolean;
 }) {
   const order = [...PARTY].sort((a, b) => DEPTH[b.id] - DEPTH[a.id]);
   return (
@@ -111,6 +123,7 @@ export function DioramaParty({
           depth={DEPTH[person.id]}
           towardCamera={retreating}
           progress={progress}
+          camping={camping}
         />
       ))}
     </View>

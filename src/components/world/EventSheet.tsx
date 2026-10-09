@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Instruments } from '@/components/game/Instruments';
-import { EVEREST_DISCLAIMER, checkpointName } from '@/expeditions/everest';
+import { KILI_DISCLAIMER, checkpointName } from '@/expeditions/kilimanjaro';
 import type { EventCard, ExpeditionState, HistoryEntry } from '@/game/types';
 import { body, font, line, muted, paper, paperRaised } from '@/theme';
 
@@ -103,7 +103,7 @@ export function EventSheet({
             )}
           </View>
         ) : null}
-        <Text style={styles.disclaimer}>{EVEREST_DISCLAIMER}</Text>
+        <Text style={styles.disclaimer}>{KILI_DISCLAIMER}</Text>
         <Text style={styles.sketch}>Illustration, not a route</Text>
       </ScrollView>
     </View>

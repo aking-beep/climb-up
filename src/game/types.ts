@@ -34,6 +34,8 @@ export type Effect = {
   objectiveRisk?: number;
   teamCondition?: number;
   move?: Move;
+  /** A height the team touches and leaves. Raises the highest mark only. */
+  visitMeters?: number;
   scores?: Partial<Record<ScoreBucket, LedgerNote>>;
   mark?: string;
 };
