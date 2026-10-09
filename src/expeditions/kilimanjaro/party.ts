@@ -65,16 +65,20 @@ export function membersOf(state: ExpeditionState): MemberView[] {
       energy,
       spirits,
       pose,
-      line: memberLine(person.id, pose, care === 1),
+      line: memberLine(person.id, pose, care === 1, state),
     };
   });
 }
 
-function memberLine(id: PartyId, pose: Pose, care: boolean): string {
+function memberLine(id: PartyId, pose: Pose, care: boolean, state: ExpeditionState): string {
   if (pose === 'kneel') return care ? 'Down, but someone stayed with them.' : 'Down. The day can wait.';
   if (pose === 'lag') return 'Off the pace.';
-  if (id === 'lena') return 'Ready to set pole pole.';
-  if (id === 'jun') return 'Ready to walk the tents.';
+  if (id === 'lena') {
+    return state.marks[`pole-${state.checkpoint}`] === true ? 'Pole pole is set.' : 'Ready to set pole pole.';
+  }
+  if (id === 'jun') {
+    return state.marks[`head-${state.checkpoint}`] === true ? 'The party is counted.' : 'Ready to walk the tents.';
+  }
   if (id === 'marco') return care ? 'Back on his feet.' : 'Carrying his share.';
   return 'The decision is still yours.';
 }

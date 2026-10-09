@@ -47,6 +47,8 @@ describe('the party', () => {
     expect(state.supplies).toBe(start.supplies - 1);
     expect(routineActions(state).every((action) => action.done)).toBe(true);
     expect(routineEffect(state, 'pole-pole')).toBeNull();
+    expect(membersOf(state).find((person) => person.id === 'lena')?.line).toBe('Pole pole is set.');
+    expect(membersOf(state).find((person) => person.id === 'jun')?.line).toBe('The party is counted.');
   });
 
   test('the same jobs change their names in the dark', () => {
