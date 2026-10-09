@@ -60,7 +60,7 @@ export default function TitleScreen() {
             </Text>
             <Text style={styles.tagline}>{"How high you climb isn't how you win."}</Text>
             <Text style={styles.lede}>
-              Ten days on a simplified Lemosho. The team walks the forest, the plateau, and the desert, pitches camp, and keeps going only while the way down is still real. A careful retreat can outscore a reckless summit.
+              Ten days on a simplified Lemosho. Each camp arrives after dark, and the night is its own decision before the morning walk. The team keeps going only while the way down is still real. A careful retreat can outscore a reckless summit.
             </Text>
             <Text style={styles.routeLabel}>Simplified 10-day Lemosho</Text>
             <Text style={styles.route}>{ROUTE}</Text>

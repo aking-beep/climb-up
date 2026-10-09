@@ -10,8 +10,10 @@ import {
 } from '@/expeditions/kilimanjaro';
 import { KILI_ROUTE, KNOWN_CAMPS, kiliCamping } from '@/expeditions/kilimanjaro/route';
 import { kiliGround } from '@/expeditions/kilimanjaro/zones';
+import { dayPhase, expeditionHour } from '@/components/world/scene';
 import { applyEffect } from '@/game/engine';
 import type { ExpeditionState } from '@/game/types';
+import { routineEffect } from '@/expeditions/kilimanjaro/party';
 
 function chooseLabel(state: ExpeditionState, label: string): ExpeditionState {
   const card = currentKilimanjaroEvent(state);
@@ -24,25 +26,38 @@ function chooseLabel(state: ExpeditionState, label: string): ExpeditionState {
 
 const CAREFUL = [
   'Walk the forest and set camp',
+  'Sleep under the trees',
   'Break camp and keep a patient pace',
+  'Stake the tents and sleep',
   'Cross the plateau and pitch at Shira 2',
+  'Sleep before the tower',
   'Tag the tower, then sleep low',
+  'Sleep and leave the wall for morning',
   'Climb the wall and camp at Karanga',
+  'Lie down in the valley',
   'Take the extra day',
   'Break camp for Barafu',
+  'Lie down on the ridge',
   'Rest the day',
-  'Leave at midnight',
+  'Keep the pace through the dark',
   'Turn down while you still can',
+  'Sleep at Mweka',
   'Walk out to the gate',
 ];
 
 const RUSH = [
   'Push the forest to gain a day',
+  'Walk the mud in the dark',
   'Force the moorland before the team is ready',
+  'Walk above camp in the dark',
   'Race the plateau',
+  'Start for the tower in the dark',
   'Skip the tower and drop to Barranco',
+  'Try the wall tonight',
   'Climb the wall and camp at Karanga',
+  'Stay up and watch the ridge',
   'Push on tired to Barafu',
+  'Pace the ridge',
   'Start for the summit tonight',
   'A photograph, then down',
   'Push the forest in the dark',
@@ -100,7 +115,8 @@ describe('kilimanjaro route', () => {
   });
 
   test('the deck has a real decision at every camp, including scenes flagged for review', () => {
-    expect(KILI_EVENTS.length).toBeGreaterThanOrEqual(12);
+    expect(KILI_EVENTS.length).toBeGreaterThanOrEqual(18);
+    expect(KILI_EVENTS.filter((event) => event.category === 'night')).toHaveLength(7);
     for (const event of KILI_EVENTS) {
       expect(event.choices.length).toBeGreaterThanOrEqual(2);
       expect(event.choices.length).toBeLessThanOrEqual(3);
@@ -118,18 +134,30 @@ describe('a ten-day walk', () => {
     state = chooseLabel(state, 'Walk the forest and set camp');
     expect(state.checkpoint).toBe('approach');
     expect(state.altitude).toBe(2780);
+    expect(currentKilimanjaroEvent(state).id).toBe('kili-night-forest');
+    expect(dayPhase(expeditionHour(state.elapsedHours))).toBe('night');
+
+    state = chooseLabel(state, 'Sleep under the trees');
+    expect(currentKilimanjaroEvent(state).id).toBe('kili-big-tree');
+    expect(dayPhase(expeditionHour(state.elapsedHours))).toBe('day');
 
     state = chooseLabel(state, 'Break camp and keep a patient pace');
+    state = chooseLabel(state, 'Stake the tents and sleep');
     state = chooseLabel(state, 'Cross the plateau and pitch at Shira 2');
     expect(state.altitude).toBe(3850);
     expect(state.highestAltitude).toBe(4100);
+    expect(dayPhase(expeditionHour(state.elapsedHours))).toBe('night');
 
+    state = chooseLabel(state, 'Sleep before the tower');
     state = chooseLabel(state, 'Tag the tower, then sleep low');
     expect(state.checkpoint).toBe('camp2');
     expect(state.altitude).toBe(3960);
     expect(state.highestAltitude).toBe(4630);
 
-    for (const label of CAREFUL.slice(4)) state = chooseLabel(state, label);
+    for (const label of CAREFUL.slice(CAREFUL.indexOf('Sleep and leave the wall for morning'))) {
+      state = chooseLabel(state, label);
+    }
+    expect(dayPhase(expeditionHour(state.elapsedHours))).toBe('dusk');
     expect(state.status).toBe('complete');
     expect(state.summitReached).toBe(true);
     expect(state.returnedSafely).toBe(true);
@@ -156,7 +184,7 @@ describe('a ten-day walk', () => {
     expect(rushedScore.overall).toBeLessThan(carefulScore.overall);
 
     const stuck = applyEffect(
-      chooseLabel(play(CAREFUL.slice(0, 9)), 'Stay on the summit'),
+      chooseLabel(play(CAREFUL.slice(0, CAREFUL.indexOf('Turn down while you still can'))), 'Stay on the summit'),
       { note: 'The descent does not happen.', hours: 2, move: 'hold', health: -100, teamCondition: -100 },
       kilimanjaro,
     );
@@ -171,8 +199,11 @@ describe('a ten-day walk', () => {
   test('turning around on the plateau still brings the team home', () => {
     let state = startKilimanjaro(11);
     state = chooseLabel(state, 'Walk the forest and set camp');
+    state = chooseLabel(state, 'Sleep under the trees');
     state = chooseLabel(state, 'Break camp and keep a patient pace');
+    state = chooseLabel(state, 'Stake the tents and sleep');
     state = chooseLabel(state, 'Cross the plateau and pitch at Shira 2');
+    state = chooseLabel(state, 'Sleep before the tower');
     state = chooseLabel(state, 'Turn the plateau around');
     expect(state.summitReached).toBe(false);
     expect(state.retreating).toBe(true);
@@ -186,5 +217,23 @@ describe('a ten-day walk', () => {
     expect(state.returnedSafely).toBe(true);
     expect(scoreKilimanjaro(state).successful).toBe(true);
     expect(scoreKilimanjaro(state).summitReached).toBe(false);
+  });
+
+  test('a camp job during the night does not spend the night challenge', () => {
+    let state = chooseLabel(startKilimanjaro(4), 'Walk the forest and set camp');
+    expect(currentKilimanjaroEvent(state).id).toBe('kili-night-forest');
+    const effect = routineEffect(state, 'pole-pole');
+    expect(effect).not.toBeNull();
+    state = applyEffect(state, effect!, kilimanjaro);
+    expect(currentKilimanjaroEvent(state).id).toBe('kili-night-forest');
+    expect(dayPhase(expeditionHour(state.elapsedHours))).toBe('night');
+  });
+
+  test('the hard hour is a night, and it comes only after the Barafu rest', () => {
+    const state = play(CAREFUL.slice(0, CAREFUL.indexOf('Keep the pace through the dark')));
+    expect(currentKilimanjaroEvent(state).id).toBe('kili-hard-hour');
+    expect(dayPhase(expeditionHour(state.elapsedHours))).toBe('night');
+    expect(state.checkpoint).toBe('camp4');
+    expect(state.marks['barafu-rest']).toBe(true);
   });
 });

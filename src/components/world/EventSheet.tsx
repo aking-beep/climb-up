@@ -7,6 +7,7 @@ import { KILI_DISCLAIMER, checkpointName } from '@/expeditions/kilimanjaro';
 import type { RoutineAction, RoutineId } from '@/expeditions/kilimanjaro/party';
 import type { EventCard, ExpeditionState, HistoryEntry } from '@/game/types';
 import { body, font, line, muted, paper, paperRaised } from '@/theme';
+import { dayPhase, expeditionHour } from '@/components/world/scene';
 
 type Props = {
   state: ExpeditionState;
@@ -34,6 +35,9 @@ export function EventSheet({
   bottom,
 }: Props) {
   const [storesOpen, setStoresOpen] = useState(false);
+  const phase = dayPhase(expeditionHour(state.elapsedHours));
+  const category = event.category.replace(/-/g, ' ');
+  const kicker = event.category === 'night' ? 'Night challenge' : phase === 'day' ? category : `${phase} · ${category}`;
 
   return (
     <View style={[styles.sheet, { paddingBottom: bottom }]}>
@@ -67,7 +71,7 @@ export function EventSheet({
               {delta ? <Text style={styles.delta}>{delta}</Text> : null}
             </View>
           ) : null}
-          <Text style={styles.kicker}>{event.category.replace(/-/g, ' ')}</Text>
+          <Text style={styles.kicker}>{kicker}</Text>
           <Text style={styles.title} accessibilityRole="header">
             {event.title}
           </Text>

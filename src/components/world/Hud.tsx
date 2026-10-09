@@ -7,7 +7,14 @@ import type { ExpeditionState } from '@/game/types';
 import { font, spruceInk } from '@/theme';
 import { formatElapsed, formatMeters } from '@/utils/number';
 
-import { partyCaption } from './scene';
+import { dayPhase, expeditionHour, partyCaption } from './scene';
+
+const PHASE_LABEL = {
+  night: 'Night',
+  dawn: 'Dawn',
+  day: 'Day',
+  dusk: 'Dusk',
+} as const;
 
 const READOUTS = [
   ['health', 'Health'],
@@ -17,9 +24,11 @@ const READOUTS = [
 ] as const;
 
 export function Hud({ state, top }: { state: ExpeditionState; top: number }) {
-  const caption =
-    partyCaption(membersOf(state).map((member) => member.pose)) ??
-    (kiliCamping(state.checkpoint, state.altitude) ? 'The tents are up.' : null);
+  const phase = dayPhase(expeditionHour(state.elapsedHours));
+  const camping = kiliCamping(state.checkpoint, state.altitude);
+  const campLine =
+    phase === 'night' ? 'The camp is dark.' : phase === 'dusk' ? 'The light is going.' : 'The tents are up.';
+  const caption = partyCaption(membersOf(state).map((member) => member.pose)) ?? (camping ? campLine : null);
   return (
     <View style={styles.wrap}>
       <LinearGradient
@@ -35,6 +44,7 @@ export function Hud({ state, top }: { state: ExpeditionState; top: number }) {
         </View>
         <View style={styles.when}>
           <Text style={styles.altitude}>{formatMeters(state.altitude)} m</Text>
+          <Text style={styles.kicker}>{PHASE_LABEL[phase]}</Text>
           <Text style={styles.kicker}>{formatElapsed(state.elapsedHours)}</Text>
         </View>
       </View>
