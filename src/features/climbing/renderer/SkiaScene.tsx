@@ -9,7 +9,7 @@ import {
 } from '@/features/climbing/simulation/barranco';
 import type { ClimbWorld } from '@/features/climbing/simulation/types';
 
-import { cameraFor, cloudBands } from './camera';
+import { backdrop, cameraFor, cloudBands, rockCrop } from './camera';
 
 const FAR = require('../../../../assets/world/far-mountains.png');
 const VALLEY = require('../../../../assets/world/diorama-desert.jpg');
@@ -48,6 +48,7 @@ export function SkiaScene({
   const bob = reduced ? 0 : pose.dy;
   const marcoGone = world.hazards.some((hazard) => hazard.endsWith('marco'));
   const bands = cloudBands(world.seconds, cam, width, reduced);
+  const layers = backdrop(width, height, cam, scale);
 
   return (
     <Canvas style={{ width, height }}>
@@ -61,11 +62,11 @@ export function SkiaScene({
       {far ? (
         <Image
           image={far}
-          x={-cam * scale * 0.12}
-          y={height * 0.08}
-          width={width * 1.8}
-          height={height * 0.46}
-          fit="cover"
+          x={layers.range.left}
+          y={layers.range.top}
+          width={layers.range.width}
+          height={layers.range.height}
+          fit="fill"
         />
       ) : null}
       {clouds
@@ -85,12 +86,12 @@ export function SkiaScene({
       {valley ? (
         <Image
           image={valley}
-          x={-cam * scale * 0.28}
-          y={height * 0.22}
-          width={width * 1.45}
-          height={height * 0.5}
+          x={layers.valley.left}
+          y={layers.valley.top}
+          width={layers.valley.width}
+          height={layers.valley.height}
           fit="cover"
-          opacity={0.92}
+          opacity={0.94}
         />
       ) : null}
       <Rect x={0} y={height * 0.34} width={width} height={height * 0.22}>
@@ -101,32 +102,32 @@ export function SkiaScene({
         />
       </Rect>
       {PLATFORMS.map((platform) => {
-        const faceH = Math.min(platform.h * scale, height * 0.46);
+        const faceH = Math.min(platform.h * scale, height * 0.62);
+        const crop = rockCrop(faceH);
         const left = sx(platform.x);
         const top = platform.y * scale;
         const faceW = platform.w * scale;
         return (
           <Group key={`${platform.x}-${platform.y}`} clip={{ x: left, y: top, width: faceW, height: faceH }}>
+            <Rect x={left} y={top} width={faceW} height={faceH} color="#6d6458" />
             {rock ? (
               <Image
                 image={rock}
-                x={left - ((platform.x * 0.25) % 80)}
-                y={top - faceH * 1.2}
-                width={faceW * 1.5}
-                height={faceH * 2.6}
-                fit="cover"
+                x={left - ((platform.x * 0.2) % 120)}
+                y={top + crop.top}
+                width={faceW * 1.6}
+                height={crop.imageH}
+                fit="fill"
               />
-            ) : (
-              <Rect x={left} y={top} width={faceW} height={faceH} color="#3c332c" />
-            )}
+            ) : null}
             <Rect x={left} y={top} width={faceW} height={faceH}>
               <LinearGradient
                 start={vec(left, top)}
                 end={vec(left, top + faceH)}
-                colors={['rgba(196,176,140,0.2)', 'rgba(28,22,16,0.45)']}
+                colors={['rgba(28,22,16,0)', 'rgba(28,22,16,0.4)']}
               />
             </Rect>
-            <Rect x={left} y={top} width={faceW} height={Math.max(4, 6 * scale)} color="#d9c4a4" />
+            <Rect x={left} y={top} width={faceW} height={Math.max(5, 7 * scale)} color="#d9c4a4" />
           </Group>
         );
       })}
@@ -187,15 +188,16 @@ export function SkiaScene({
           ))
         : null}
       {!reduced && rock ? (
-        <Image
-          image={rock}
-          x={-cam * scale * 1.15}
-          y={height - height * 0.22}
-          width={width * 1.4}
-          height={height * 0.22}
-          fit="cover"
-          opacity={0.95}
-        />
+        <Group clip={{ x: 0, y: height * 0.86, width, height: height * 0.14 }}>
+          <Image
+            image={rock}
+            x={-cam * scale * 1.15}
+            y={height * 0.86 + rockCrop(height * 0.14).top}
+            width={width * 1.8}
+            height={rockCrop(height * 0.14).imageH}
+            fit="fill"
+          />
+        </Group>
       ) : null}
     </Canvas>
   );

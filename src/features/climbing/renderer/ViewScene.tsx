@@ -5,7 +5,7 @@ import { presentPose } from '@/features/climbing/animation/poses';
 import { PLATFORMS, PLAYER_H, PLAYER_W, groundTop } from '@/features/climbing/simulation/barranco';
 import type { ClimbWorld } from '@/features/climbing/simulation/types';
 
-import { cameraFor, cloudBands } from './camera';
+import { backdrop, cameraFor, cloudBands, rockCrop } from './camera';
 
 const FAR = require('../../../../assets/world/far-mountains.png');
 const VALLEY = require('../../../../assets/world/diorama-desert.jpg');
@@ -35,20 +35,12 @@ export function ViewScene({
   const marcoGone = world.hazards.some((hazard) => hazard.endsWith('marco'));
   const windy = world.hazards.includes('wind') && world.y < 180;
   const clouds = cloudBands(world.seconds, cam, width, reduced);
+  const layers = backdrop(width, height, cam, scale);
 
   return (
     <View style={styles.frame} accessibilityLabel={`Barranco scramble, stamina ${Math.round(world.stamina)}`}>
       <LinearGradient colors={['#f0ddc0', '#d7c4a2', '#8ea8ab', '#314047']} style={StyleSheet.absoluteFill} />
-      <Image
-        source={FAR}
-        style={{
-          position: 'absolute',
-          width: width * 1.8,
-          height: height * 0.46,
-          left: -cam * scale * 0.12,
-          top: height * 0.08,
-        }}
-      />
+      <Image source={FAR} style={{ position: 'absolute', ...layers.range }} />
       {clouds.map((cloud, index) => (
         <Image
           key={index}
@@ -63,26 +55,15 @@ export function ViewScene({
           }}
         />
       ))}
-      <Image
-        source={VALLEY}
-        style={[
-          pixel,
-          {
-            position: 'absolute',
-            width: width * 1.45,
-            height: height * 0.5,
-            left: -cam * scale * 0.28,
-            top: height * 0.22,
-            opacity: 0.92,
-          },
-        ]}
-      />
+      <Image source={VALLEY} style={[pixel, { position: 'absolute', opacity: 0.94, ...layers.valley }]} />
       <LinearGradient
         colors={['rgba(240,221,192,0)', 'rgba(49,64,71,0.25)']}
         style={{ position: 'absolute', left: 0, right: 0, top: height * 0.34, height: height * 0.22 }}
       />
       {PLATFORMS.map((platform) => {
-        const faceH = Math.min(platform.h * scale, height * 0.46);
+        const faceH = Math.min(platform.h * scale, height * 0.62);
+        const crop = rockCrop(faceH);
+        const faceW = platform.w * scale;
         return (
           <View
             key={`${platform.x}-${platform.y}`}
@@ -90,26 +71,24 @@ export function ViewScene({
               position: 'absolute',
               left: sx(platform.x),
               top: platform.y * scale,
-              width: platform.w * scale,
+              width: faceW,
               height: faceH,
               overflow: 'hidden',
+              backgroundColor: '#6d6458',
             }}
           >
             <Image
               source={ROCK}
               style={{
                 position: 'absolute',
-                width: platform.w * scale * 1.5,
-                height: faceH * 2.6,
-                top: -faceH * 1.2,
-                left: -((platform.x * 0.25) % 80),
+                width: faceW * 1.6,
+                height: crop.imageH,
+                top: crop.top,
+                left: -((platform.x * 0.2) % 120),
               }}
             />
-            <LinearGradient
-              colors={['rgba(196,176,140,0.2)', 'rgba(28,22,16,0.45)']}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={{ height: Math.max(4, 6 * scale), backgroundColor: '#d9c4a4' }} />
+            <LinearGradient colors={['rgba(28,22,16,0)', 'rgba(28,22,16,0.4)']} style={StyleSheet.absoluteFill} />
+            <View style={{ height: Math.max(5, 7 * scale), backgroundColor: '#d9c4a4' }} />
           </View>
         );
       })}
@@ -169,17 +148,18 @@ export function ViewScene({
           ))
         : null}
       {!reduced ? (
-        <Image
-          source={ROCK}
-          style={{
-            position: 'absolute',
-            left: -cam * scale * 1.15,
-            bottom: -8,
-            width: width * 1.4,
-            height: height * 0.22,
-            opacity: 0.95,
-          }}
-        />
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: height * 0.14, overflow: 'hidden' }}>
+          <Image
+            source={ROCK}
+            style={{
+              position: 'absolute',
+              left: -cam * scale * 1.15,
+              width: width * 1.8,
+              height: rockCrop(height * 0.14).imageH,
+              top: rockCrop(height * 0.14).top,
+            }}
+          />
+        </View>
       ) : null}
       <LinearGradient
         colors={['rgba(49,64,71,0)', 'rgba(18,17,15,0.28)']}
