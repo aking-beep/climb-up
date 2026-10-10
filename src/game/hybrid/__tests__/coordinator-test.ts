@@ -128,6 +128,17 @@ describe('hybrid coordinator', () => {
     expect(wrong.session).toBe(session);
   });
 
+  test('an outcome for a state that has moved on is discarded, and the attempt closed', () => {
+    const session = launched();
+    // Some other path (an old build, a hand-edited save) moved the expedition on.
+    const movedOn = { ...session, state: chooseKilimanjaro(session.state, byLabel(session.state, 'Rest beneath the wall')) };
+    const result = resolve(kilimanjaroHybrid, movedOn, outcome(session));
+    expect(result.status).toBe('stale');
+    expect(result.session.state).toBe(movedOn.state);
+    expect(result.session.pending).toBeNull();
+    expect(result.session.resolvedAttempts).toContain(session.pending!.attemptId);
+  });
+
   test('a malformed outcome is refused', () => {
     const session = launched();
     const bad = resolve(kilimanjaroHybrid, session, { ...outcome(session), result: 'teleport' as never });
