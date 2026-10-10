@@ -51,6 +51,8 @@ func _ready() -> void:
 	_button("brace", "BRACE", r + Vector2(-98, -38), 38.0)
 	_button("rest", "REST", r + Vector2(-44, -98), 38.0)
 	_button("pause", "II", Vector2(vp.x - 34, 6), 26.0)
+	# Rotating or resizing rebuilds the overlay against the new edges.
+	get_viewport().size_changed.connect(func() -> void: TouchControls.attach.call_deferred(level), CONNECT_ONE_SHOT)
 
 
 func _exit_tree() -> void:

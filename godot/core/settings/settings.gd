@@ -17,6 +17,21 @@ var master_volume := 0.8
 
 func _ready() -> void:
 	load_settings()
+	get_tree().root.size_changed.connect(_fit_view)
+	_fit_view()
+
+
+## Pixel art stays sharp at a whole-number scale. The scale is the one that
+## makes the view closest to 270 pixels tall, and the view is then sized to
+## fill the whole screen at that scale: no blurry fractional pixels, and no
+## black bars on phones whose height is not a multiple of 270.
+func _fit_view() -> void:
+	var root := get_tree().root
+	var screen := Vector2(root.size)
+	if screen.y <= 0:
+		return
+	var k := maxf(1.0, roundf(screen.y / 270.0))
+	root.content_scale_size = Vector2i(ceili(screen.x / k), ceili(screen.y / k))
 
 
 func touch_enabled() -> bool:

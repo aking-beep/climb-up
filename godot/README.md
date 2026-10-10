@@ -1,7 +1,9 @@
 # CLIMB UP: Godot prototype
 
-The Barranco Wall as a side-scrolling mountaineering adventure, built in
-Godot 4 alongside the Expo app (which it does not touch). Why and how:
+The whole Kilimanjaro expedition in Godot 4, built alongside the Expo app
+(which it does not touch): the strategy game at camp, ported from the Expo
+engine and checked against it, and three climbs you play as a
+side-scrolling adventure. Why and how:
 [architecture](../docs/godot-migration/architecture.md) and
 [comparison with Expo](../docs/godot-migration/comparison.md).
 
@@ -17,21 +19,47 @@ Godot 4 alongside the Expo app (which it does not touch). Why and how:
 - **iOS:** not built. It needs the Godot editor on a Mac with Xcode
   (Project > Export > iOS).
 
-Landscape, 480 × 270 pixel-art viewport scaled to the window.
+Landscape. The view is about 270 pixels tall, drawn at a whole-number
+scale (3× on a 1080p window, 4× on most phones) and widened to fill the
+screen, so pixel art stays sharp with no black bars.
 
 | Action | Keys | Gamepad | Touch |
 | --- | --- | --- | --- |
-| Walk | ← → / A D | d-pad, left stick | pad |
-| Climb (on rock), pull over (at the top) | ↑ / W | up | ▲ |
-| Climb down, let go | ↓ / S | down | ▼ |
-| Talk, read, choose | E / Space / Enter | A | ACT |
-| Brace against the wind | Shift / B | shoulders | BRACE |
+| Walk (analog on the stick) | ← → / A D | d-pad, left stick | left thumb, anywhere on the left half |
+| Climb (on rock), pull over (at the top) | ↑ / W | up | push the stick up, or tap CLIMB |
+| Climb down, let go | ↓ / S | down | pull the stick down |
+| Talk, read, help | E / Space / Enter | A | the context button (TALK, READ, HELP) |
+| Brace against the wind | Shift / B | shoulders | BRACE (hold) |
 | Sit and rest | R | Y | REST |
 | Pause (turn back, settings, save and quit) | Esc / P | Start | II |
 
 Touch controls appear automatically on phones; the pause menu toggles them.
+Grabs, slips and gusts buzz the phone (off with reduced motion). Walking
+never carries you off a drop: you stop at the edge, and walking onto a face
+from a ledge grabs it.
 
-## The climb
+## The game
+
+**At camp** (the strategy half): the diorama shows where the party is, the
+time of day and who is struggling; the paper shows the day's decision card
+from the Expo game, the camp beats (pole pole, water, head count), the
+party (sit with someone who is down), and what the last decision did. At
+the end it becomes the scorecard. Cards and rules are the Expo game's, run
+by a GDScript port of its engine (`modes/expedition/engine/`).
+
+**The three climbs** (the playable half), launched by the choice that
+leaves their camp, easiest first:
+
+| Climb | From | Asks | Teammate |
+| --- | --- | --- | --- |
+| Lava Tower | Shira 2 | scramble, a loose scree face, a windy ledge, a chimney; 4 slips allowed | none |
+| Barranco Wall | Barranco | the full wall below; 3 slips | Marco |
+| Summit night | Barafu, by headlamp | five frozen switchbacks, the cold halves recovery, a long windy rim, Stella Point at dawn; 2 slips | Jun |
+
+Each starts with a brief; backing off there (or turning back later) is a
+retreat that costs the day, not the expedition. The outcome lands once.
+
+## The Barranco Wall
 
 Barranco Camp (talk to Lena and Jun, read the signs) → the approach under
 the buttress → a scramble band → the first face → a traverse over a void →
@@ -41,9 +69,7 @@ Marco, stuck: help him, leave him for Lena, or step back → the loose gully
 in the wind → the upper face → the plateau → Karanga.
 
 Slips send you back to the last cairn; three end the attempt. Turning back
-is always in the pause menu. The outcome lands on the expedition once, with
-the same numbers as the Expo game's Barranco policy, and quitting mid-wall
-resumes at the last cairn.
+is always in the pause menu. Quitting mid-climb resumes at the last cairn.
 
 ## Layout
 
@@ -51,14 +77,19 @@ resumes at the last cairn.
 core/      shared systems: player, climbing, world, weather, camera,
            companions, input, audio, save, settings, ui
 modes/expedition/
-           the expedition prototype: state, flow screens, levels/
+           expedition.gd (the running game), engine/ (the port of the
+           Expo engine), data/ (Kilimanjaro, exported from Expo), camp/
+           (the strategy screen), levels/ (ClimbLevel and the three climbs)
 tests/     headless test runner and suites; shot/demo tools
 ```
 
-The level is `modes/expedition/levels/kilimanjaro/barranco/barranco.txt`,
-stamped by `tools/levels/barranco_map.py`. Art comes from
-`tools/art/godot_barranco.py` (tiles, props) plus the shared party sheets
-and scenery; sounds from `tools/audio/placeholders.py` (placeholders).
+Levels are ASCII maps stamped by `tools/levels/barranco_map.py` and
+`tools/levels/kili_maps.py`. Card content comes from the Expo source via
+`tools/godot/export_content.ts`, which also records scripted playthroughs
+of the TypeScript engine for the parity test. Art: `tools/art/godot_barranco.py`
+(tiles, props), `tools/art/godot_backwalls.py` (rock strata),
+`tools/art/godot_kili.py` (diorama plates, map sprites, scenery from the
+Expo game); sounds from `tools/audio/placeholders.py` (placeholders).
 
 ## Tests
 
@@ -68,10 +99,13 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-22 tests: the rules (stamina, wind, outcome shape, expedition consequences,
-saves), the expedition flow (outcome lands once, resume from a cairn,
-screens, quality never changes the climb), and the level played by a
-scripted climber through the real input actions, start to finish.
+33 tests: the engine replaying seven expeditions recorded from the
+TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
+climb consequences, outcomes land once, saves); the flow (a played choice
+opens its climb without spending the card, back off at the brief, resume
+from a cairn, a saved game plays on identically, the screens build); and all
+three climbs played start to finish by a scripted climber through the real
+input actions, plus their order of difficulty.
 
 Tools (need a display; under Linux CI use `xvfb-run`):
 
@@ -90,6 +124,9 @@ godot --path godot --write-movie /tmp/climb.avi --fixed-fps 30 res://tests/demo.
 - **Weather** has wind only; the `Weather` states (fog, rain, snow) are
   designed in the architecture doc, not built.
 - **Export**: web and Android (debug) builds exist. They were checked in
-  desktop Chromium and in Chromium emulating a phone (touch, landscape),
-  **not on a real phone**. No iOS build. The APK is debug-signed, not for
+  desktop Chromium and in Chromium emulating a phone (touch stick,
+  landscape, menu → camp → cards → the Lava Tower), **not on a real
+  phone**: thumb feel, haptics and frame rate are unmeasured. No iOS build. The APK is debug-signed, not for
   the Play Store.
+- **Only Kilimanjaro.** Everest and the other mountains in the Expo app
+  are not ported.
