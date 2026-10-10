@@ -488,6 +488,7 @@ export const KILI_EVENTS: readonly EventCard[] = [
     text: 'The tents at Barranco come down after breakfast. The wall is a steep morning walk, not a climb, and cloud builds on it by early afternoon. The day is short on purpose. Karanga is where the tents go up, as the light goes.',
     choices: [
       {
+        id: 'kili-wall-climb',
         label: 'Climb the wall and camp at Karanga',
         detail: 'A short day. Camp pitched in the valley beyond.',
         effect: {

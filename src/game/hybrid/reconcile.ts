@@ -42,7 +42,7 @@ export function boundModifier(modifier: OutcomeModifier): OutcomeModifier {
     note: modifier.note,
     stats,
     hours: Math.round(clamp(modifier.hours ?? 0, 0, MODIFIER_LIMITS.hoursMax)),
-    move: modifier.move === 'hold' ? 'hold' : undefined,
+    move: modifier.move === 'wait' ? 'wait' : undefined,
     keepBaseScores: modifier.keepBaseScores,
     scores,
   };
@@ -58,8 +58,8 @@ export function combineEffect(base: Effect, raw: OutcomeModifier): Effect {
     combined[key] = (base[key] ?? 0) + extra;
   }
   combined.hours = (base.hours ?? 6) + (modifier.hours ?? 0);
-  if (modifier.move === 'hold') {
-    combined.move = 'hold';
+  if (modifier.move === 'wait') {
+    combined.move = 'wait';
     // A retreat off the wall touches no new height.
     delete combined.visitMeters;
   }

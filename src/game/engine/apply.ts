@@ -100,6 +100,7 @@ function resolveMove(state: ExpeditionState, move: Move, def: ExpeditionDefiniti
     stepDown(state, def);
     return;
   }
+  // Camp rest only. `wait` holds position without this benefit.
   if (move === 'hold' && state.altitude >= 3000) {
     state.acclimatization += 8;
     state.energy += 5;

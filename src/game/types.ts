@@ -12,7 +12,12 @@ export type CheckpointId =
 
 export type ExpeditionStatus = 'active' | 'complete' | 'failed';
 
-export type Move = 'up' | 'down' | 'hold' | 'retreat' | 'summit';
+/**
+ * `hold` is a camp rest: above 3000 m it buys acclimatization and energy.
+ * `wait` keeps the party where it is with no rest benefit (a failed or
+ * abandoned challenge, time lost on the mountain).
+ */
+export type Move = 'up' | 'down' | 'hold' | 'wait' | 'retreat' | 'summit';
 
 export type ScoreBucket = 'judgment' | 'riskManagement' | 'teamwork' | 'preparation';
 
@@ -42,6 +47,8 @@ export type Effect = {
 };
 
 export type Choice = {
+  /** Stable id for a choice that launches a playable challenge. Labels can change. */
+  id?: string;
   label: string;
   detail: string;
   effect: Effect | ((state: ExpeditionState) => Effect);

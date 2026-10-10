@@ -46,8 +46,11 @@ export type OutcomeModifier = {
   stats?: Partial<Record<StatKey, number>>;
   /** Extra hours on top of the card's hours. */
   hours?: number;
-  /** A challenge can only take height away, never add it. */
-  move?: 'hold';
+  /**
+   * A challenge can only take height away, never add it. `wait` keeps the
+   * party where it is without the camp-rest benefit of `hold`.
+   */
+  move?: 'wait';
   /** false drops the card's own score notes (a retreat did not earn them). */
   keepBaseScores: boolean;
   scores?: Partial<Record<ScoreBucket, LedgerNote>>;
@@ -56,9 +59,9 @@ export type OutcomeModifier = {
 export type ChallengeDefinition = {
   id: ChallengeId;
   title: string;
-  /** The card and the choice that launch this challenge. */
+  /** The card and the choice (by its stable `id`) that launch this challenge. */
   eventId: string;
-  choiceLabel: string;
+  choiceId: string;
   modifier: (outcome: ChallengeOutcome, base: Effect, state: ExpeditionState) => OutcomeModifier;
 };
 

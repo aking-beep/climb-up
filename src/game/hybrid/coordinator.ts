@@ -29,7 +29,8 @@ export function challengeFor(
 ): ChallengeDefinition | null {
   const choice = card.choices[index];
   if (!choice) return null;
-  return game.challenges.find((item) => item.eventId === card.id && item.choiceLabel === choice.label) ?? null;
+  if (!choice.id) return null;
+  return game.challenges.find((item) => item.eventId === card.id && item.choiceId === choice.id) ?? null;
 }
 
 /**
