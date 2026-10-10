@@ -39,7 +39,7 @@ export const CLIMBER_CLIPS: Record<Pose, Clip> = {
   celebrate: { frames: [{ index: 21, ms: 300 }, { index: 22, ms: 300 }], loop: true },
 };
 
-const SHEET = { frameWidth: 24, frameHeight: 32, columns: 8, anchor: { x: 12, y: 32 }, placeholder: false };
+const SHEET = { frameWidth: 32, frameHeight: 40, columns: 8, anchor: { x: 16, y: 40 }, placeholder: false };
 
 /** Side-view party sheets from tools/art/characters.py. */
 export const SHEETS = {

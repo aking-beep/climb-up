@@ -81,6 +81,8 @@ export type ClimbSim = {
   level: Level;
   seed: number;
   maxStamina: number;
+  /** Fraction of normal stamina recovery (cold slows it). */
+  recovery: number;
   gustPeriod: number;
   tick: number;
   /** Ticks the party spent off the clock (regrouping). */
@@ -117,6 +119,8 @@ export type SimOptions = {
   energy: number;
   /** Expedition weather risk, 0–100. More weather, more frequent gusts. */
   weatherRisk: number;
+  /** 0–1: how much of the usual stamina recovery the cold allows. Default 1. */
+  recovery?: number;
 };
 
 const EPS = 1e-3;
@@ -125,12 +129,13 @@ export function maxStaminaFor(energy: number): number {
   return Math.round(clamp(55 + energy * 0.45, 55, 100));
 }
 
-export function createSim({ level, seed, energy, weatherRisk }: SimOptions): ClimbSim {
+export function createSim({ level, seed, energy, weatherRisk, recovery = 1 }: SimOptions): ClimbSim {
   const maxStamina = maxStaminaFor(energy);
   return {
     level,
     seed: seed >>> 0,
     maxStamina,
+    recovery: clamp(recovery, 0.2, 1),
     gustPeriod: Math.round(clamp(330 - weatherRisk * 1.2, 210, 330)),
     tick: 0,
     extraTicks: 0,
@@ -348,7 +353,7 @@ function stepWalking(sim: ClimbSim, input: ClimbInput) {
   if (sim.grounded) {
     const rest = touches(sim, (tile) => tile === Tile.Rest);
     const still = Math.abs(sim.vx) < 0.2;
-    sim.stamina += (rest && still ? TUNING.regenRest : still ? TUNING.regenStill : TUNING.regenWalking) * STEP;
+    sim.stamina += (rest && still ? TUNING.regenRest : still ? TUNING.regenStill : TUNING.regenWalking) * sim.recovery * STEP;
   }
   if (exposed && sim.gust === 'blow' && (Math.abs(input.x) > 0.2 || Math.abs(sim.vx) > 0.3)) slip(sim);
 }

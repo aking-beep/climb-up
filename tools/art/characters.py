@@ -1,31 +1,39 @@
 """
 Side-view party sprites for the climbing scenes: You, Marco, Lena and Jun.
-24 x 32 px frames, 8 columns, 27 frames in the order the clip table in
-src/features/climbing/sprites.ts expects. Drawn from a small joint skeleton
-with three-tone shading (light from the upper left) and a soft outline.
+32 x 40 px frames, 8 columns, 27 frames in the order the clip table in
+src/features/climbing/sprites.ts expects.
+
+HD-2D proportions: a large head (about a third of the figure) on a compact
+body, so faces and gear read at phone size. Three-tone shading lit from the
+upper left, a warm rim light on lit edges, and a soft selective outline.
+Every beanie carries a headlamp for the summit night.
 
     python3 tools/art/characters.py
 """
 
+import numpy as np
 from PIL import Image, ImageDraw
 
 from pixel import OUT, hex_rgb, selective_outline
 
-W, H, COLS = 24, 32, 8
-GROUND = 31
-S = 1.5  # pose table is authored at the old 16 x 24 scale
+W, H, COLS = 32, 40, 8
+GROUND = 39
+CX = 16
 
-SKIN = [hex_rgb("#f0c890"), hex_rgb("#d9a46e"), hex_rgb("#b17a4c")]
-PANTS = [hex_rgb("#6b5a48"), hex_rgb("#4f4236"), hex_rgb("#3a3028")]
-BOOT = [hex_rgb("#8a5530"), hex_rgb("#5e3519"), hex_rgb("#3b2010")]
-PACK = [hex_rgb("#9a7a4c"), hex_rgb("#735733"), hex_rgb("#4d3a21")]
-GLOVE = [hex_rgb("#4a4440"), hex_rgb("#322e2b")]
+SKIN = [hex_rgb("#f6d2a0"), hex_rgb("#e0aa76"), hex_rgb("#b87c4e")]
+PANTS = [hex_rgb("#7a6754"), hex_rgb("#594a3c"), hex_rgb("#3d332a")]
+BOOT = [hex_rgb("#a0683a"), hex_rgb("#6e4020"), hex_rgb("#3e2210")]
+SOLE = hex_rgb("#2a2420")
+PACK = [hex_rgb("#a8864f"), hex_rgb("#7d5f36"), hex_rgb("#4f3b22")]
+MAT = [hex_rgb("#5aa0b8"), hex_rgb("#3a7086")]
+GLOVE = [hex_rgb("#55504b"), hex_rgb("#383431")]
+LAMP = [hex_rgb("#d8dde0"), hex_rgb("#8c949a"), hex_rgb("#ffe58a")]
 
 PARTY = {
-    "you": {"jacket": ("#8a9448", "#66702f", "#454d1d"), "hat": ("#ecebe2", "#c9c6b8"), "hair": "#6a3a18", "trim": "#d8d4c4"},
-    "marco": {"jacket": ("#d9572a", "#a83a14", "#6f2208"), "hat": ("#2f3a4a", "#1d2530"), "hair": "#2a1a10", "trim": "#f0c060"},
-    "lena": {"jacket": ("#4f8a3a", "#346624", "#1f4416"), "hat": ("#e8d9b8", "#c2ae86"), "hair": "#8a4a22", "trim": "#e8e2d0", "braid": True},
-    "jun": {"jacket": ("#3a54c8", "#25389a", "#152466"), "hat": ("#c03a2a", "#8a2418"), "hair": "#151515", "trim": "#e0e4f0"},
+    "you": {"jacket": ("#9aa451", "#727c36", "#4c5422"), "hat": ("#f0efe6", "#cfccbe", "#a8a596"), "hair": ("#7a4520", "#56301a"), "trim": "#ece6d0"},
+    "marco": {"jacket": ("#e8663a", "#b8441c", "#7c2a0c"), "hat": ("#3a4a5e", "#283444", "#1a222e"), "hair": ("#3a2416", "#22140c"), "trim": "#f6cd6a"},
+    "lena": {"jacket": ("#5c9a44", "#3e742c", "#264c1a"), "hat": ("#efe2c2", "#cdb990", "#a69064"), "hair": ("#9a5428", "#6c3818"), "trim": "#f0ead8", "braid": True},
+    "jun": {"jacket": ("#4864d8", "#2e46a8", "#1a2a70"), "hat": ("#d4483a", "#9a2c20", "#6a1c14"), "hair": ("#1e1e22", "#101012"), "trim": "#e6eaf4"},
 }
 
 
@@ -33,7 +41,7 @@ def frame(hip, lean=0, arms=((2, 5), (-1, 5)), legs=((2, 0), (-2, 0)), knees=Non
     return dict(hip=hip, lean=lean, arms=arms, legs=legs, knees=knees, head_tilt=head_tilt)
 
 
-# Order matters. Same poses as the first placeholder sheet, refined.
+# Order matters; the pose table is authored in the original 16 x 24 units.
 FRAMES = [
     frame((8, 16)),  # 0 idle
     frame((8, 16), arms=((2, 6), (-1, 6))),  # 1 idle breath
@@ -64,99 +72,139 @@ FRAMES = [
     frame((8, 17), lean=2, arms=((1, 6), (2, 6)), legs=((-1, 0), (1, 0)), head_tilt=1),
 ]
 
-
-def sx(x: float) -> int:
-    return round(12 + (x - 8) * S)
-
-
-def sy(y: float) -> int:
-    return round(GROUND - (23 - y) * S)
+LEG = 1.45  # leg offsets, old units to px
+ARM = 1.2
+LEAN = 1.5
+DROP = 1.6  # crouch depth: how far the hip sinks per old unit
 
 
-def limb(d: ImageDraw.ImageDraw, ox, oy, points, colors, width):
-    pts = [(ox + x, oy + y) for x, y in points]
-    d.line(pts, fill=colors[1] + (255,), width=width, joint="curve")
-    # A one-pixel highlight on the lit (upper-left) side.
-    lit = [(x - 1, y - 1) for x, y in pts] if width > 2 else pts
-    d.line(lit, fill=colors[0] + (255,), width=1)
+def rgba(c):
+    return tuple(c) + (255,)
+
+
+def limb(d, ox, oy, pts, light, mid, dark, width=3):
+    p = [(ox + x, oy + y) for x, y in pts]
+    d.line(p, fill=rgba(dark), width=width, joint="curve")
+    d.line([(x - 0.5, y - 0.5) for x, y in p], fill=rgba(mid), width=max(1, width - 1), joint="curve")
+    d.line([(x - 1, y - 1) for x, y in p], fill=rgba(light), width=1)
 
 
 def draw(d: ImageDraw.ImageDraw, ox: int, oy: int, f: dict, who: dict):
-    jacket = [hex_rgb(c) for c in who["jacket"]]
-    hat = [hex_rgb(c) for c in who["hat"]]
-    hair = hex_rgb(who["hair"])
+    jl, jm, jd = [hex_rgb(c) for c in who["jacket"]]
+    hl, hm, hd = [hex_rgb(c) for c in who["hat"]]
+    hair, hair_d = [hex_rgb(c) for c in who["hair"]]
     trim = hex_rgb(who["trim"])
-    hx, hy = sx(f["hip"][0]), sy(f["hip"][1])
-    lean = round(f["lean"] * S)
-    shx, shy = hx + lean, hy - 9  # shoulder
+
+    hx = CX + round((f["hip"][0] - 8) * 1.4)
+    hy = GROUND - 10 - round((16 - f["hip"][1]) * -DROP) if f["hip"][1] >= 16 else GROUND - 10 - round((16 - f["hip"][1]) * 1.2)
+    lean = round(f["lean"] * LEAN)
+    sx, sy = hx + lean, hy - 8  # shoulder
 
     def foot(i):
         fx, fy = f["legs"][i]
-        return hx + round(fx * S), GROUND + round(fy * S)
+        return hx + round(fx * LEG), GROUND + round(fy * LEG)
 
     def knee(i):
         k = f["knees"][i] if f["knees"] and f["knees"][i] else None
         if k:
-            return hx + round(k[0] * S), hy + 6 + round(k[1] * S)
+            return hx + round(k[0] * LEG), hy + 5 + round(k[1] * LEG)
         fx, fy = foot(i)
         return (hx + fx) // 2 + 1, (hy + fy) // 2
 
     def hand(i):
         ax, ay = f["arms"][i]
-        return shx + 1 + round(ax * S), shy + 2 + round(ay * S)
+        # Reaching up clears the big head; hanging arms stay short.
+        return sx + 1 + round(ax * ARM), sy + 2 + round(ay * (2.0 if ay < 0 else ARM))
 
     def elbow(i):
         hx2, hy2 = hand(i)
-        return (shx + 1 + hx2) // 2 - (1 if hy2 < shy else 0), (shy + 2 + hy2) // 2 + (1 if hy2 > shy else 0)
+        bend = 1 if hy2 > sy else -1
+        return (sx + 1 + hx2) // 2 - (1 if bend < 0 else 0), (sy + 2 + hy2) // 2 + bend
 
-    # Back leg, back arm (shaded).
+    def boot(px, py, tone):
+        d.rectangle([ox + px - 2, oy + py - 3, ox + px + 2, oy + py - 1], fill=rgba(BOOT[tone]))
+        d.line([(ox + px - 2, oy + py), (ox + px + 3, oy + py)], fill=rgba(SOLE))
+        d.line([(ox + px - 1, oy + py - 3), (ox + px + 1, oy + py - 3)], fill=rgba(BOOT[0] if tone == 1 else BOOT[1]))
+
+    # Back leg and back arm, in shade.
     bf = foot(1)
-    limb(d, ox, oy, [(hx - 1, hy), knee(1), bf], [PANTS[1], PANTS[2]], 3)
-    d.rectangle([ox + bf[0] - 1, oy + bf[1] - 2, ox + bf[0] + 2, oy + bf[1]], fill=BOOT[2] + (255,))
-    limb(d, ox, oy, [(shx, shy + 2), elbow(1), hand(1)], [jacket[2], jacket[2]], 3)
+    limb(d, ox, oy, [(hx - 1, hy), knee(1), (bf[0], bf[1] - 3)], PANTS[1], PANTS[2], PANTS[2], 4)
+    boot(bf[0], bf[1], 2)
+    limb(d, ox, oy, [(sx - 1, sy + 2), elbow(1), hand(1)], jd, jd, jd, 3)
     bh = hand(1)
-    d.rectangle([ox + bh[0], oy + bh[1], ox + bh[0] + 1, oy + bh[1] + 1], fill=GLOVE[1] + (255,))
+    d.rectangle([ox + bh[0], oy + bh[1], ox + bh[0] + 1, oy + bh[1] + 1], fill=rgba(GLOVE[1]))
 
-    # Pack.
-    d.rounded_rectangle([ox + shx - 6, oy + shy - 1, ox + shx - 2, oy + shy + 8], radius=1, fill=PACK[1] + (255,))
-    d.line([(ox + shx - 6, oy + shy), (ox + shx - 6, oy + shy + 7)], fill=PACK[0] + (255,))
-    d.line([(ox + shx - 5, oy + shy - 2), (ox + shx - 3, oy + shy - 2)], fill=PACK[2] + (255,))
+    # Pack with a lid, side strap, and a rolled mat on top.
+    px0, py0 = sx - 7, sy
+    d.rounded_rectangle([ox + px0, oy + py0, ox + px0 + 4, oy + py0 + 8], radius=2, fill=rgba(PACK[1]))
+    d.line([(ox + px0, oy + py0 + 2), (ox + px0, oy + py0 + 6)], fill=rgba(PACK[0]))
+    d.line([(ox + px0 + 1, oy + py0 + 3), (ox + px0 + 3, oy + py0 + 3)], fill=rgba(PACK[2]))
+    d.rounded_rectangle([ox + px0, oy + py0 - 2, ox + px0 + 4, oy + py0], radius=1, fill=rgba(MAT[0]))
+    d.point((ox + px0 + 4, oy + py0 - 1), fill=rgba(MAT[1]))
 
-    # Torso: jacket with a lit front panel, shaded back, hem and zip.
-    torso = [(shx - 2, shy), (shx + 3, shy), (hx + 3, hy + 1), (hx - 2, hy + 1)]
-    d.polygon([(ox + x, oy + y) for x, y in torso], fill=jacket[1] + (255,))
-    d.line([(ox + shx - 1, oy + shy + 1), (ox + hx - 1, oy + hy)], fill=jacket[0] + (255,), width=1)
-    d.line([(ox + shx + 2, oy + shy + 1), (ox + hx + 2, oy + hy)], fill=jacket[2] + (255,), width=1)
-    d.line([(ox + hx - 2, oy + hy + 1), (ox + hx + 3, oy + hy + 1)], fill=jacket[2] + (255,))
-    d.line([(ox + shx + 1, oy + shy + 1), (ox + hx + 1, oy + hy - 1)], fill=trim + (255,))
-    # Shoulder strap.
-    d.line([(ox + shx - 1, oy + shy), (ox + shx + 1, oy + shy + 5)], fill=PACK[2] + (255,))
+    # Torso: lit front, shaded back, hem, zip, collar, chest strap.
+    torso = [(sx - 3, sy), (sx + 4, sy), (hx + 4, hy + 2), (hx - 3, hy + 2)]
+    d.polygon([(ox + x, oy + y) for x, y in torso], fill=rgba(jm))
+    d.line([(ox + sx - 2, oy + sy + 1), (ox + hx - 2, oy + hy + 1)], fill=rgba(jl), width=2)
+    d.line([(ox + sx + 4, oy + sy + 1), (ox + hx + 4, oy + hy + 1)], fill=rgba(jd), width=1)
+    d.line([(ox + hx - 3, oy + hy + 2), (ox + hx + 4, oy + hy + 2)], fill=rgba(jd))
+    d.line([(ox + sx + 2, oy + sy + 2), (ox + hx + 2, oy + hy)], fill=rgba(trim))
+    d.line([(ox + sx - 2, oy + sy), (ox + sx + 3, oy + sy)], fill=rgba(trim))
+    d.line([(ox + sx - 3, oy + sy + 4), (ox + sx + 3, oy + sy + 4)], fill=rgba(PACK[2]))
 
     # Front leg and boot.
     ff = foot(0)
-    limb(d, ox, oy, [(hx + 1, hy), knee(0), ff], PANTS, 3)
-    d.rectangle([ox + ff[0] - 1, oy + ff[1] - 2, ox + ff[0] + 2, oy + ff[1]], fill=BOOT[1] + (255,))
-    d.line([(ox + ff[0] - 1, oy + ff[1] - 2), (ox + ff[0] + 1, oy + ff[1] - 2)], fill=BOOT[0] + (255,))
+    limb(d, ox, oy, [(hx + 1, hy), knee(0), (ff[0], ff[1] - 3)], PANTS[0], PANTS[1], PANTS[2], 4)
+    boot(ff[0], ff[1], 1)
 
-    # Head: face, hair at the back, beanie with a band and a bobble.
-    tilt = round(f["head_tilt"] * S)
-    cx, cy = shx + 1 + tilt, shy - 4
-    d.rectangle([ox + cx - 2, oy + cy - 2, ox + cx + 2, oy + cy + 2], fill=SKIN[0] + (255,))
-    d.line([(ox + cx - 2, oy + cy + 2), (ox + cx + 1, oy + cy + 2)], fill=SKIN[1] + (255,))
-    d.rectangle([ox + cx - 3, oy + cy - 1, ox + cx - 2, oy + cy + 2], fill=hair + (255,))
+    # Head: big and readable.
+    tilt = round(f["head_tilt"] * 1.5)
+    cx, cy = sx + 1 + tilt, sy - 6  # face centre
+    d.rounded_rectangle([ox + cx - 4, oy + cy - 3, ox + cx + 4, oy + cy + 4], radius=2, fill=rgba(SKIN[0]))
+    d.line([(ox + cx + 4, oy + cy - 1), (ox + cx + 4, oy + cy + 3)], fill=rgba(SKIN[1]))
+    d.line([(ox + cx - 2, oy + cy + 4), (ox + cx + 3, oy + cy + 4)], fill=rgba(SKIN[1]))
+    # Hair behind and over the ear.
+    d.rectangle([ox + cx - 5, oy + cy - 2, ox + cx - 2, oy + cy + 3], fill=rgba(hair))
+    d.line([(ox + cx - 5, oy + cy + 3), (ox + cx - 3, oy + cy + 3)], fill=rgba(hair_d))
     if who.get("braid"):
-        d.line([(ox + cx - 3, oy + cy + 2), (ox + cx - 4, oy + cy + 6)], fill=hair + (255,), width=2)
-    d.point((ox + cx + 1, oy + cy), fill=(30, 22, 20, 255))  # eye
-    d.point((ox + cx + 3, oy + cy + 1), fill=SKIN[1] + (255,))  # nose
-    d.rectangle([ox + cx - 3, oy + cy - 5, ox + cx + 2, oy + cy - 2], fill=hat[0] + (255,))
-    d.line([(ox + cx - 3, oy + cy - 2), (ox + cx + 2, oy + cy - 2)], fill=hat[1] + (255,))
-    d.point((ox + cx - 2, oy + cy - 6), fill=hat[1] + (255,))
-    d.point((ox + cx - 1, oy + cy - 6), fill=hat[0] + (255,))
+        d.line([(ox + cx - 5, oy + cy + 3), (ox + cx - 6, oy + cy + 9)], fill=rgba(hair), width=2)
+        d.point((ox + cx - 6, oy + cy + 9), fill=rgba(trim))
+    d.point((ox + cx - 2, oy + cy + 1), fill=rgba(SKIN[2]))  # ear
+    # Eye with a catch-light, brow, nose, cheek.
+    d.rectangle([ox + cx + 1, oy + cy, ox + cx + 2, oy + cy + 1], fill=(34, 26, 24, 255))
+    d.point((ox + cx + 1, oy + cy), fill=(250, 246, 240, 255))
+    d.line([(ox + cx + 1, oy + cy - 2), (ox + cx + 3, oy + cy - 2)], fill=rgba(hair_d))
+    d.point((ox + cx + 5, oy + cy + 2), fill=rgba(SKIN[1]))
+    d.point((ox + cx + 2, oy + cy + 3), fill=(222, 140, 120, 255))
+    # Beanie: crown, folded band, bobble, and a headlamp on the band.
+    d.rounded_rectangle([ox + cx - 5, oy + cy - 8, ox + cx + 4, oy + cy - 2], radius=3, fill=rgba(hm))
+    d.line([(ox + cx - 4, oy + cy - 7), (ox + cx + 1, oy + cy - 7)], fill=rgba(hl))
+    d.rectangle([ox + cx - 5, oy + cy - 3, ox + cx + 4, oy + cy - 2], fill=rgba(hd))
+    d.rectangle([ox + cx - 2, oy + cy - 10, ox + cx, oy + cy - 8], fill=rgba(hl))
+    d.rectangle([ox + cx + 3, oy + cy - 4, ox + cx + 5, oy + cy - 2], fill=rgba(LAMP[1]))
+    d.point((ox + cx + 5, oy + cy - 3), fill=rgba(LAMP[2]))
 
     # Front arm last, with a glove.
-    limb(d, ox, oy, [(shx + 1, shy + 2), elbow(0), hand(0)], jacket, 3)
+    limb(d, ox, oy, [(sx + 1, sy + 2), elbow(0), hand(0)], jl, jm, jd, 3)
     fh = hand(0)
-    d.rectangle([ox + fh[0], oy + fh[1], ox + fh[0] + 1, oy + fh[1] + 1], fill=GLOVE[0] + (255,))
+    d.rectangle([ox + fh[0], oy + fh[1], ox + fh[0] + 2, oy + fh[1] + 1], fill=rgba(GLOVE[0]))
+    d.point((ox + fh[0], oy + fh[1]), fill=rgba(GLOVE[1]))
+
+
+def rim_light(image: Image.Image, cell: tuple[int, int]) -> Image.Image:
+    """Warm light on edges facing the upper left."""
+    a = np.array(image).astype(int)
+    out = a.copy()
+    h, w, _ = a.shape
+    for y in range(1, h):
+        for x in range(1, w):
+            if a[y, x, 3] == 0:
+                continue
+            if x % cell[0] == 0 or y % cell[1] == 0:
+                continue
+            if a[y, x - 1, 3] == 0 or a[y - 1, x, 3] == 0:
+                out[y, x, :3] = np.minimum(255, a[y, x, :3] * 1.12 + np.array([18, 12, 0]))
+    return Image.fromarray(out.astype(np.uint8), "RGBA")
 
 
 def main():
@@ -168,7 +216,8 @@ def main():
         d = ImageDraw.Draw(sheet)
         for index, f in enumerate(FRAMES):
             draw(d, (index % COLS) * W, (index // COLS) * H, f, who)
-        selective_outline(sheet, cell=(W, H)).save(out / f"{name}.png")
+        sheet = rim_light(sheet, (W, H))
+        selective_outline(sheet, cell=(W, H), darken=0.32).save(out / f"{name}.png")
         print(f"wrote {out / f'{name}.png'} ({len(FRAMES)} frames)")
 
 

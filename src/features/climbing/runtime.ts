@@ -19,6 +19,8 @@ export type RuntimeOptions = {
   seed: number;
   energy: number;
   weatherRisk: number;
+  /** Fraction of normal stamina recovery; the summit night is cold. */
+  recovery?: number;
   view: View;
   onEvents?: (events: readonly SimEvent[]) => void;
   now?: () => number;

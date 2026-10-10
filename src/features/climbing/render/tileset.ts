@@ -25,6 +25,7 @@ export const TILE = {
   signTop: 20,
   signBottom: 21,
   underShade: 22,
+  snowLip: [23, 24],
 } as const;
 
 function source(index: number): SkRect {
@@ -39,7 +40,7 @@ export type AtlasBatch = { sprites: SkRect[]; transforms: SkRSXform[] };
  * `tile` is the on-screen tile size in points; it should be a multiple of 16
  * so pixels land on whole points.
  */
-export function buildTileBatch(level: Level, tile: number): AtlasBatch {
+export function buildTileBatch(level: Level, tile: number, snow = false): AtlasBatch {
   const scale = tile / TILE_PX;
   const base: AtlasBatch = { sprites: [], transforms: [] };
   const over: AtlasBatch = { sprites: [], transforms: [] };
@@ -55,7 +56,7 @@ export function buildTileBatch(level: Level, tile: number): AtlasBatch {
       const kind = tileAt(level, x, y);
       if (isSolid(kind)) {
         put(base, pick(TILE.rock, x, y), x, y);
-        if (!isSolid(tileAt(level, x, y - 1))) put(over, pick(TILE.lip, x, y), x, y);
+        if (!isSolid(tileAt(level, x, y - 1))) put(over, pick(snow ? TILE.snowLip : TILE.lip, x, y), x, y);
         if (y + 1 < level.height && !isSolid(tileAt(level, x, y + 1))) put(over, TILE.shade, x, y);
         if (x > 0 && !isSolid(tileAt(level, x - 1, y))) put(over, TILE.edgeLeft, x, y);
         if (x + 1 < level.width && !isSolid(tileAt(level, x + 1, y))) put(over, TILE.edgeRight, x, y);

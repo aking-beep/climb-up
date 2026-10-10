@@ -133,9 +133,17 @@ def valley(width=1400, height=520) -> Image.Image:
     return img.resize((width, height), Image.LANCZOS)
 
 
-def cliff(size=256) -> Image.Image:
+CLIFF_TONES = {
+    "barranco": ("#2e2620", "#86735f", None),
+    "lava": ("#331d16", "#9a5a3e", None),
+    "frost": ("#1c2028", "#5c6270", "#dfe8f0"),
+}
+
+
+def cliff(size=256, tone="barranco") -> Image.Image:
     """Tileable layered lava with columnar fractures, for the wall behind the play space."""
     rng = np.random.default_rng(RNG_SEED + 2)
+    dark, light, frost = CLIFF_TONES[tone]
     warp = fbm(size, size, 2, 3, rng)
     grain = fbm(size, size, 24, 3, rng)
     blotch = fbm(size, size, 6, 2, rng)
@@ -149,16 +157,19 @@ def cliff(size=256) -> Image.Image:
     cols = fbm(size, size, 9, 1, rng)
     cracks = (np.abs(((xx / size * 9 + warp * 0.6) % 1.0) - 0.5) < 0.025) & (cols > 0.45)
     v = np.where(cracks, v - 0.28, v)
-    rgb = mix(hex_rgb("#2e2620"), hex_rgb("#86735f"), np.clip(v, 0, 1))
+    rgb = mix(hex_rgb(dark), hex_rgb(light), np.clip(v, 0, 1))
+    if frost:
+        # Rime on the tops of each flow and scattered in the grain.
+        rime = (flow < 0.06) | ((grain > 0.66) & (blotch > 0.5))
+        rgb = np.where(rime[..., None], mix(rgb, hex_rgb(frost), 0.7), rgb)
     return Image.fromarray(np.dstack([rgb, np.full((size, size), 255)]).astype(np.uint8), "RGBA")
 
 
-def foreground(width=1400, height=420) -> Image.Image:
-    """Near, out-of-focus plants and rock; drawn dark with a warm rim."""
+def foreground(width=1400, height=420, plants=True, dark=(24, 19, 16, 255), rim=(58, 46, 36, 255)) -> Image.Image:
+    """Near, out-of-focus plants and rock; drawn dark with a lit rim."""
     rng = np.random.default_rng(RNG_SEED + 3)
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    dark, rim = (24, 19, 16, 255), (58, 46, 36, 255)
     colors = (dark, dark, dark, rim, dark)
     def rock(x0, x1, peak):
         xs = np.linspace(x0, x1, 40)
@@ -170,8 +181,9 @@ def foreground(width=1400, height=420) -> Image.Image:
 
     rock(-20, width * 0.44, 0.55)
     rock(width * 0.6, width + 20, 0.48)
-    groundsel(d, width * 0.1, height * 0.55, height * 0.36, 2.2, colors, rng)
-    groundsel(d, width * 0.9, height * 0.6, height * 0.28, 1.8, colors, rng)
+    if plants:
+        groundsel(d, width * 0.1, height * 0.55, height * 0.36, 2.2, colors, rng)
+        groundsel(d, width * 0.9, height * 0.6, height * 0.28, 1.8, colors, rng)
     for _ in range(40):
         x = rng.uniform(0, width)
         y = height - rng.uniform(0, height * 0.18)
@@ -179,11 +191,77 @@ def foreground(width=1400, height=420) -> Image.Image:
     return img
 
 
+def plateau(width=1400, height=520) -> Image.Image:
+    """The Shira plateau: open heath and heather, the tower's foot in haze."""
+    rng = np.random.default_rng(RNG_SEED + 5)
+    s = 2
+    W, H = width * s, height * s
+    ground_top = ridge_line(W, rng, H * 0.3, H * 0.05, 4)
+    yy, xx = np.mgrid[0:H, 0:W]
+    inside = yy >= ground_top[None, :]
+    heath = fbm(W, H, 70, 3, rng, wrap=False)
+    depth = np.clip((yy - ground_top[None, :]) / (H * 0.7), 0, 1)
+    rgb = mix(hex_rgb("#9c8a62"), hex_rgb("#6b5e40"), np.clip(heath * 0.9 - 0.15, 0, 1))
+    rgb = mix(rgb, hex_rgb("#4e4330"), depth * 0.55)
+    rgb = mix(rgb, hex_rgb("#c8c4b8"), np.clip(0.5 - depth * 1.3, 0, 0.5))
+    img = Image.fromarray(np.dstack([rgb, np.where(inside, 255, 0)]).astype(np.uint8), "RGBA")
+    d = ImageDraw.Draw(img)
+    for layer, (count, scale, haze) in enumerate([(40, 0.6, 0.5), (26, 1.0, 0.28), (14, 1.6, 0.08)]):
+        def tone(c):
+            return tuple(int(v) for v in mix(hex_rgb(c), hex_rgb("#c8c4b8"), haze)) + (255,)
+        for _ in range(count):
+            x = rng.uniform(0, W)
+            base = ground_top[int(min(W - 1, max(0, x)))] + H * (0.06 + layer * 0.2) + rng.uniform(0, H * 0.08)
+            r = rng.uniform(10, 26) * scale
+            if rng.random() < 0.25:
+                d.ellipse([x - r * 1.4, base - r, x + r * 1.4, base + r * 0.3], fill=tone("#5d4a3e"))
+                d.ellipse([x - r, base - r, x + r * 0.6, base - r * 0.4], fill=tone("#86665a"))
+            else:
+                d.ellipse([x - r * 1.3, base - r * 0.9, x + r * 1.3, base + r * 0.2], fill=tone("#5f6a3e"))
+                d.ellipse([x - r, base - r * 0.9, x + r * 0.5, base - r * 0.3], fill=tone("#8a9056"))
+                for _ in range(4):
+                    fx = x + rng.uniform(-r, r)
+                    d.point((fx, base - r * rng.uniform(0.4, 0.9)), fill=tone("#c4a0c8"))
+    return img.resize((width, height), Image.LANCZOS)
+
+
+def cloud_sea(width=1400, height=560) -> Image.Image:
+    """Night view from the summit slope: Mawenzi's jagged peak over a sea of cloud."""
+    rng = np.random.default_rng(RNG_SEED + 6)
+    yy, xx = np.mgrid[0:height, 0:width]
+    peak_x = width * 0.72
+    t = np.abs(xx[0] - peak_x) / (width * 0.22)
+    spires = ridge_line(width, rng, 0, height * 0.18, 60)
+    top = height * 0.62 - np.clip(1 - t, 0, 1) ** 1.3 * height * 0.42 + np.abs(spires)
+    mountain = yy >= top[None, :]
+    rock = mix(hex_rgb("#2c3346"), hex_rgb("#1a1e2c"), np.clip(fbm(width, height, 50, 3, rng, wrap=False) * 1.2 - 0.2, 0, 1))
+    rock = mix(rock, hex_rgb("#6c7896"), np.clip((top[None, :] + 30 - yy) / 30, 0, 1) * 0.5)  # moonlit edges
+    sea_top = height * 0.66 + ridge_line(width, rng, 0, height * 0.03, 12)
+    puff = fbm(width, height, 18, 4, rng, wrap=False)
+    sea = yy >= (sea_top[None, :] - puff * height * 0.08)
+    cloud = mix(hex_rgb("#5a6684"), hex_rgb("#a8b4cc"), np.clip(puff * 1.3 - 0.2 - (yy - height * 0.66) / height, 0, 1))
+    rgb = np.where(sea[..., None], cloud, rock)
+    alpha = np.where(mountain | sea, 255, 0)
+    img = Image.fromarray(np.dstack([rgb, alpha]).astype(np.uint8), "RGBA")
+    return img.filter(ImageFilter.GaussianBlur(0.8))
+
+
 def main():
     out = OUT / "scenery"
     out.mkdir(parents=True, exist_ok=True)
-    for name, make in [("kibo", kibo), ("valley", valley), ("cliff", cliff), ("foreground", foreground)]:
-        path = out / f"barranco-{name}.png"
+    for name, make in [
+        ("kibo", kibo),
+        ("valley", valley),
+        ("cliff", cliff),
+        ("foreground", foreground),
+        ("lava-cliff", lambda: cliff(tone="lava")),
+        ("plateau", plateau),
+        ("lava-foreground", lambda: foreground(plants=False, dark=(30, 18, 14, 255), rim=(92, 52, 36, 255))),
+        ("summit-cliff", lambda: cliff(tone="frost")),
+        ("summit-sea", cloud_sea),
+        ("summit-foreground", lambda: foreground(plants=False, dark=(16, 18, 26, 255), rim=(120, 136, 164, 255))),
+    ]:
+        path = out / (f"{name}.png" if name.startswith(("lava", "plateau", "summit")) else f"barranco-{name}.png")
         make().save(path, optimize=True)
         print(f"wrote {path}")
 

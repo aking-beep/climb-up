@@ -13,7 +13,7 @@ from pixel import OUT, fbm, hex_rgb, lit, quantize, ramp, rgba
 
 T = 16
 COLS = 8
-ROWS = 3
+ROWS = 4
 
 ROCK = ramp("#1b1613", "#29221d", "#382f28", "#4a3f35", "#5e5144", "#766554", "#917d67")
 FACE = ramp("#251f1a", "#342b24", "#463b31", "#5a4c40", "#705f50", "#8a7663", "#a48e77")
@@ -92,6 +92,20 @@ def lip_overlay(seed: int) -> Image.Image:
             for k in range(height):
                 if 0 <= gx + i < T:
                     px[gx + i, max(0, 0 - k)] = GRASS[k % len(GRASS)] + (255,)
+    return img
+
+
+def snow_lip(seed: int) -> Image.Image:
+    """A snow cap on a ledge top, for the summit night."""
+    rng = np.random.default_rng(5000 + seed)
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    px = img.load()
+    snow = [(246, 248, 252), (214, 224, 236), (168, 184, 204)]
+    for x in range(T):
+        depth = 2 + int(rng.integers(0, 3))
+        for y in range(depth):
+            px[x, y] = snow[0 if y == 0 else 1] + (255,)
+        px[x, depth] = snow[2] + (255,)
     return img
 
 
@@ -183,6 +197,7 @@ def main():
         + [loose_tile(i) for i in range(4)]
         + [lip_overlay(0), lip_overlay(1), shade_overlay(), exposed_lip()]
         + [edge("left"), edge("right"), cairn(), rest_stone(), signpost("top"), signpost("bottom"), under_ao()]
+        + [snow_lip(0), snow_lip(1)]
     )
     for index, tile in enumerate(tiles):
         sheet.alpha_composite(tile, ((index % COLS) * T, (index // COLS) * T))
