@@ -1,4 +1,4 @@
-import { applyEffect, currentEvent, resolveDecision } from '@/game/engine';
+import { applyEffect, currentEvent, effectOf, resolveDecision } from '@/game/engine';
 import type { Effect, EventCard, ExpeditionDefinition, ExpeditionState } from '@/game/types';
 import { hash } from '@/utils/number';
 
@@ -21,16 +21,23 @@ export function createSession(game: HybridExpedition, state: ExpeditionState): H
   return { expeditionId: game.def.id, state, prior: null, pending: null, resolvedAttempts: [] };
 }
 
-/** The challenge a card choice launches, if it launches one. */
+/**
+ * The climb a card choice launches, if any: a choice that would move the
+ * party up out of a gated camp. Turning back, holding, and camp beats are
+ * never gated.
+ */
 export function challengeFor(
   game: HybridExpedition,
+  state: ExpeditionState,
   card: EventCard,
   index: number,
 ): ChallengeDefinition | null {
   const choice = card.choices[index];
-  if (!choice) return null;
-  if (!choice.id) return null;
-  return game.challenges.find((item) => item.eventId === card.id && item.choiceId === choice.id) ?? null;
+  if (!choice || state.status !== 'active' || state.retreating) return null;
+  const challenge = game.challenges.find((item) => item.gate === state.checkpoint);
+  if (!challenge) return null;
+  const move = effectOf(choice.effect, state).move;
+  return move === 'up' || move === 'summit' ? challenge : null;
 }
 
 /**
@@ -52,7 +59,7 @@ export function choose(game: HybridExpedition, session: HybridSession, index: nu
   if (state.status !== 'active') return { session, launched: null };
   if (session.pending) return { session, launched: session.pending };
   const card = currentEvent(state, game.def);
-  const challenge = challengeFor(game, card, index);
+  const challenge = challengeFor(game, state, card, index);
   if (challenge) {
     const pending: PendingChallenge = {
       attemptId: attemptIdFor(game.def.id, state, card.id),

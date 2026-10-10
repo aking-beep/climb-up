@@ -211,7 +211,7 @@ export default function ClimbScreen() {
             journalOpen={journalOpen}
             onToggleJournal={() => setJournalOpen((open) => !open)}
             onChoose={choose}
-            playable={(index) => challengeFor(kilimanjaroHybrid, event, index) !== null}
+            playable={(index) => challengeFor(kilimanjaroHybrid, state, event, index) !== null}
             routine={routine}
             onRoutine={(id: RoutineId) => apply(routineEffect(state, id))}
             bottom={insets.bottom + 10}

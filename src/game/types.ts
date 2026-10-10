@@ -47,8 +47,6 @@ export type Effect = {
 };
 
 export type Choice = {
-  /** Stable id for a choice that launches a playable challenge. Labels can change. */
-  id?: string;
   label: string;
   detail: string;
   effect: Effect | ((state: ExpeditionState) => Effect);
