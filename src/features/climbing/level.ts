@@ -54,6 +54,8 @@ export type Level = {
   start: Point;
   checkpoints: Point[];
   mate: Point | null;
+  /** Outline, in tiles, of the cliff behind the play space. Visual only. */
+  backdrop: readonly Point[];
 };
 
 export function tileAt(level: Level, x: number, y: number): TileCode {
@@ -114,7 +116,12 @@ function groups(width: number, height: number, tiles: TileCode[], kind: TileCode
   return out;
 }
 
-export function parseLevel(id: string, title: string, rows: readonly string[]): Level {
+export function parseLevel(
+  id: string,
+  title: string,
+  rows: readonly string[],
+  backdrop: readonly Point[] = [],
+): Level {
   const width = rows[0]?.length ?? 0;
   if (width === 0) throw new Error(`Level ${id} is empty.`);
   const tiles: TileCode[] = [];
@@ -145,5 +152,6 @@ export function parseLevel(id: string, title: string, rows: readonly string[]): 
     start,
     checkpoints: [start, ...checkpoints],
     mate: mates.length > 0 ? feetOf(mates[0]) : null,
+    backdrop,
   };
 }

@@ -49,4 +49,21 @@ export const BARRANCO_ROWS = [
   '######################',
 ] as const;
 
-export const BARRANCO_LEVEL = parseLevel('barranco-wall', 'The Barranco Wall', BARRANCO_ROWS);
+/** The cliff face behind the play space: open valley at the camp, sky over the top. */
+const BACKDROP = [
+  { x: -4, y: 9 },
+  { x: 0, y: 7.4 },
+  { x: 3.5, y: 4.2 },
+  { x: 13.6, y: 3.6 },
+  { x: 15.2, y: 0.6 },
+  { x: 19, y: 1.4 },
+  { x: 26, y: 0 },
+  { x: 26, y: 40 },
+  { x: 16.6, y: 40 },
+  { x: 16.6, y: 27.5 },
+  { x: 12, y: 26.4 },
+  { x: 5, y: 25.9 },
+  { x: -4, y: 26.2 },
+];
+
+export const BARRANCO_LEVEL = parseLevel('barranco-wall', 'The Barranco Wall', BARRANCO_ROWS, BACKDROP);

@@ -7,8 +7,9 @@ import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from '@expo-g
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
+import { hydrateGame } from '@/game/session';
 import { inkDeep } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -23,13 +24,22 @@ export default function RootLayout() {
     OutfitSemi: Outfit_600SemiBold,
   });
 
+  const [restored, setRestored] = useState(false);
+
   useEffect(() => {
-    if (loaded || error) {
+    // A broken save never blocks the app: hydrate records it and starts fresh.
+    void hydrateGame().finally(() => setRestored(true));
+  }, []);
+
+  const ready = (loaded || error) && restored;
+
+  useEffect(() => {
+    if (ready) {
       SplashScreen.hideAsync();
     }
-  }, [loaded, error]);
+  }, [ready]);
 
-  if (!loaded && !error) {
+  if (!ready) {
     return null;
   }
 

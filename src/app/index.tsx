@@ -15,9 +15,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ExpeditionScene } from '@/components/world/ExpeditionScene';
 import { Screen } from '@/components/ui/Screen';
-import { KILI_DISCLAIMER, KILI_PROGRESS } from '@/expeditions/kilimanjaro';
+import { KILI_DISCLAIMER, KILI_PROGRESS, checkpointName } from '@/expeditions/kilimanjaro';
+import { gameStore, useGameSession } from '@/game/session';
 import { body, font, line, muted, paper, spruce, spruceInk } from '@/theme';
-import { formatSeed, parseSeed } from '@/utils/number';
+import { formatElapsed, formatSeed, parseSeed } from '@/utils/number';
 
 const ROUTE = KILI_PROGRESS.map((stop) => stop.name).join(' → ');
 
@@ -26,10 +27,18 @@ export default function TitleScreen() {
   const [code, setCode] = useState('');
   const parsed = parseSeed(code);
   const invalid = code.trim().length > 0 && parsed === undefined;
+  const session = useGameSession();
+  const saved = session && session.state.status === 'active' ? session : null;
 
   function begin() {
     const seed = parsed ?? (Math.floor(Math.random() * 1_000_000_000) || 1);
+    gameStore.start(seed);
     router.push({ pathname: '/climb', params: { code: formatSeed(seed) } });
+  }
+
+  function resume() {
+    if (!saved) return;
+    router.push({ pathname: '/climb', params: { code: formatSeed(saved.state.seed) } });
   }
 
   return (
@@ -71,6 +80,21 @@ export default function TitleScreen() {
           </View>
         </ScrollView>
         <View style={[styles.dock, { paddingBottom: insets.bottom + 14 }]}>
+          {saved ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Continue the saved expedition"
+              onPress={resume}
+              style={({ pressed }) => [styles.go, styles.resume, pressed && styles.pressed]}
+            >
+              <Text style={styles.goText}>
+                {saved.pending ? 'Return to the Barranco Wall' : 'Continue the expedition'}
+              </Text>
+              <Text style={styles.resumeDetail}>
+                {checkpointName(saved.state.checkpoint)} · {formatElapsed(saved.state.elapsedHours)} · {formatSeed(saved.state.seed)}
+              </Text>
+            </Pressable>
+          ) : null}
           <Text style={styles.label}>Expedition code</Text>
           <TextInput
             value={code}
@@ -94,7 +118,7 @@ export default function TitleScreen() {
             onPress={begin}
             style={({ pressed }) => [styles.go, pressed && styles.pressed]}
           >
-            <Text style={styles.goText}>Start the expedition</Text>
+            <Text style={styles.goText}>{saved ? 'Start a new expedition' : 'Start the expedition'}</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -220,6 +244,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   pressed: { opacity: 0.84 },
+  resume: { marginTop: 0, marginBottom: 14, paddingVertical: 10 },
+  resumeDetail: { marginTop: 2, fontFamily: font.body, fontSize: 13, color: spruceInk, opacity: 0.8 },
   goText: {
     fontFamily: font.display,
     fontSize: 20,

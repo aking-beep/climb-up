@@ -17,6 +17,8 @@ type Props = {
   journalOpen: boolean;
   onToggleJournal: () => void;
   onChoose: (index: number) => void;
+  /** True for a choice that opens a playable challenge. */
+  playable?: (index: number) => boolean;
   routine: readonly RoutineAction[];
   onRoutine: (id: RoutineId) => void;
   bottom: number;
@@ -30,6 +32,7 @@ export function EventSheet({
   journalOpen,
   onToggleJournal,
   onChoose,
+  playable,
   routine,
   onRoutine,
   bottom,
@@ -89,6 +92,7 @@ export function EventSheet({
                 onPress={() => onChoose(index)}
                 style={({ pressed }) => [styles.choice, pressed && styles.pressed]}
               >
+                {playable?.(index) ? <Text style={styles.playable}>Playable climb</Text> : null}
                 <Text style={styles.choiceLabel}>{choice.label}</Text>
                 <Text style={styles.choiceDetail}>{choice.detail}</Text>
               </Pressable>
@@ -211,6 +215,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pressed: { opacity: 0.82 },
+  playable: {
+    marginBottom: 4,
+    fontFamily: font.bodySemi,
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: '#1f3d34',
+  },
   choiceLabel: {
     fontFamily: font.display,
     fontSize: 17,

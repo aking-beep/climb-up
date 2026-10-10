@@ -147,6 +147,30 @@ describe('hybrid coordinator', () => {
     expect(currentKilimanjaroEvent(after.state).id).not.toBe('kili-wall');
   });
 
+  test('backing off is never better than resting beneath the wall', () => {
+    for (const seed of [7, 11, 23, 99, 1234]) {
+      const session = launched(seed);
+      const backedOff = resolve(kilimanjaroHybrid, session, outcome(session, { result: 'retreat' })).session.state;
+      const before = session.state;
+      const rested = chooseKilimanjaro(before, byLabel(before, 'Rest beneath the wall'));
+      expect(backedOff.elapsedHours).toBeGreaterThanOrEqual(rested.elapsedHours);
+      expect(backedOff.energy).toBeLessThanOrEqual(rested.energy);
+      expect(backedOff.acclimatization).toBeLessThanOrEqual(rested.acclimatization);
+      expect(backedOff.teamCondition).toBeLessThanOrEqual(rested.teamCondition);
+      const total = (state: ExpeditionState) =>
+        Object.values(state.ledger).flat().reduce((sum, note) => sum + note.delta, 0);
+      expect(total(backedOff)).toBeLessThanOrEqual(total(rested));
+    }
+  });
+
+  test('a failed climb is worse than backing off', () => {
+    const session = launched();
+    const failed = resolve(kilimanjaroHybrid, session, outcome(session, { result: 'fail', slips: 3 })).session.state;
+    const backedOff = resolve(kilimanjaroHybrid, session, outcome(session, { result: 'retreat' })).session.state;
+    expect(failed.health).toBeLessThan(backedOff.health);
+    expect(failed.teamCondition).toBeLessThanOrEqual(backedOff.teamCondition);
+  });
+
   test('a failed climb costs the team and stays low', () => {
     const session = launched();
     const { session: after } = resolve(kilimanjaroHybrid, session, outcome(session, { result: 'fail', slips: 3 }));

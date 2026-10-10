@@ -16,16 +16,20 @@ export const BARRANCO_WALL: ChallengeDefinition = {
   choiceLabel: 'Climb the wall and camp at Karanga',
   modifier(outcome): OutcomeModifier {
     if (outcome.result === 'retreat') {
+      // Backing off costs the day, like resting beneath the wall, and is never
+      // better than resting: choosing the wall and walking away is not a shortcut.
       return {
         note: 'You back off the wall and the party walks down to the Barranco tents again.',
         move: 'hold',
+        hours: 12,
         keepBaseScores: false,
-        // The card spent 8 energy on the whole wall. Half a wall costs half.
-        stats: { energy: 4, teamCondition: -2 },
+        // The card spent 8 energy on the whole wall; half a wall costs half.
+        // It gained 4 acclimatization for height you did not reach.
+        stats: { energy: 4, acclimatization: -4, teamCondition: -2 },
         scores: {
           judgment: {
             label: 'You backed off the wall while it was still your choice',
-            delta: 5,
+            delta: 3,
             mark: 'wall-backoff',
           },
         },
@@ -35,8 +39,9 @@ export const BARRANCO_WALL: ChallengeDefinition = {
       return {
         note: 'The wall takes more than the party has. You climb down to Barranco, slowly.',
         move: 'hold',
+        hours: 12,
         keepBaseScores: false,
-        stats: { health: -6, energy: -4, teamCondition: -4 },
+        stats: { health: -6, energy: -4, acclimatization: -4, teamCondition: -4 },
         scores: {
           riskManagement: { label: 'The wall took more than the team had', delta: -6, mark: 'wall-fail' },
         },
