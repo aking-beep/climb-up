@@ -3,8 +3,8 @@ import type { Pose } from './sim';
 /**
  * Sprite-sheet animation. A clip is an explicit list of sheet frames, each
  * with its own duration. Frame indices refer to the order written by
- * tools/sprites/placeholder_sheet.py; a hand-drawn replacement sheet must
- * keep the same frame size and order, or ship its own clip table.
+ * tools/art/characters.py; a hand-drawn replacement sheet must keep the same
+ * frame size and order, or ship its own clip table.
  */
 export type ClipFrame = { index: number; ms: number };
 export type Clip = { frames: readonly ClipFrame[]; loop: boolean };
@@ -17,7 +17,7 @@ export type SpriteSheet = {
   /** Pixels from the frame's left edge to the feet, and from its top to the feet. */
   anchor: { x: number; y: number };
   clips: Record<Pose, Clip>;
-  /** True while the art is programmer placeholder art. */
+  /** True while the art is a stand-in, not the intended final art. */
   placeholder: boolean;
 };
 
@@ -39,11 +39,14 @@ export const CLIMBER_CLIPS: Record<Pose, Clip> = {
   celebrate: { frames: [{ index: 21, ms: 300 }, { index: 22, ms: 300 }], loop: true },
 };
 
-const SHEET = { frameWidth: 16, frameHeight: 24, columns: 8, anchor: { x: 8, y: 24 }, placeholder: true };
+const SHEET = { frameWidth: 24, frameHeight: 32, columns: 8, anchor: { x: 12, y: 32 }, placeholder: false };
 
+/** Side-view party sheets from tools/art/characters.py. */
 export const SHEETS = {
-  you: { ...SHEET, source: require('../../../assets/hd2d/characters/you-placeholder.png'), clips: CLIMBER_CLIPS },
-  marco: { ...SHEET, source: require('../../../assets/hd2d/characters/marco-placeholder.png'), clips: CLIMBER_CLIPS },
+  you: { ...SHEET, source: require('../../../assets/hd2d/characters/you.png'), clips: CLIMBER_CLIPS },
+  marco: { ...SHEET, source: require('../../../assets/hd2d/characters/marco.png'), clips: CLIMBER_CLIPS },
+  lena: { ...SHEET, source: require('../../../assets/hd2d/characters/lena.png'), clips: CLIMBER_CLIPS },
+  jun: { ...SHEET, source: require('../../../assets/hd2d/characters/jun.png'), clips: CLIMBER_CLIPS },
 } satisfies Record<string, SpriteSheet>;
 
 /** The sheet frame to show `elapsedMs` into a clip. */

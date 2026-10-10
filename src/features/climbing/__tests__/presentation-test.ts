@@ -53,6 +53,11 @@ describe('camera', () => {
     expect(snapped.y).toBe(22);
   });
 
+  test('shows a little sky above the top of the wall, never more', () => {
+    const top = createCamera({ x: 10, y: 1 }, view, level);
+    expect(top.y).toBe(view.height / 2 - 3);
+  });
+
   test('reduced motion has no shake', () => {
     const camera = createCamera({ x: 10, y: 30 }, view, level);
     expect(kick(camera, 0.5, true).shake).toBe(0);

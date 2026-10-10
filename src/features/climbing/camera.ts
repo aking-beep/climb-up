@@ -2,9 +2,13 @@ import { clamp } from '@/utils/number';
 
 /**
  * A camera in tile units. It follows the climber with a little lag, looks
- * ahead up the wall while climbing, and never shows past the level edge.
+ * ahead up the wall while climbing, and stays inside the level except for a
+ * little open sky above its top.
  */
 export type Camera = { x: number; y: number; shake: number };
+
+/** Tiles of open sky the camera may show above the top of a level. */
+const SKY_ABOVE = 3;
 
 export type View = {
   /** Visible size in tiles. */
@@ -21,7 +25,8 @@ function bound(x: number, y: number, view: View, level: View) {
   const halfH = view.height / 2;
   return {
     x: level.width <= view.width ? level.width / 2 : clamp(x, halfW, level.width - halfW),
-    y: level.height <= view.height ? level.height / 2 : clamp(y, halfH, level.height - halfH),
+    // Sky is allowed above the wall, so the top ledge clears the HUD.
+    y: level.height <= view.height ? level.height / 2 : clamp(y, halfH - SKY_ABOVE, level.height - halfH),
   };
 }
 

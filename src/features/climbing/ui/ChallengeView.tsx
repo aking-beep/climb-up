@@ -61,7 +61,8 @@ function buzz(events: readonly SimEvent[]) {
 export function ChallengeView({ pending, state, settings, onSettings, onFinish, onBackOff }: Props) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const tile = Math.floor(width / TILES_ACROSS);
+  // Whole multiples of the 16 px art, so every art pixel is a whole number of points.
+  const tile = Math.max(16, Math.floor(width / TILES_ACROSS / 16) * 16);
   // Room for the pad under the playfield, so the climber is never under a thumb.
   const playHeight = Math.max(height * 0.55, height - (CONTROLS_HEIGHT + insets.bottom));
   const [runtime] = useState(() =>
