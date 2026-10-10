@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ExpeditionScene } from '@/components/world/ExpeditionScene';
 import { Screen } from '@/components/ui/Screen';
 import { KILI_DISCLAIMER, KILI_PROGRESS } from '@/expeditions/kilimanjaro';
+import { readSave, type SaveFile } from '@/game/save/persistence';
+import { resumeExpedition, startExpedition } from '@/game/save/session';
 import { body, font, line, muted, paper, spruce, spruceInk } from '@/theme';
 import { formatSeed, parseSeed } from '@/utils/number';
 
@@ -24,12 +26,27 @@ const ROUTE = KILI_PROGRESS.map((stop) => stop.name).join(' → ');
 export default function TitleScreen() {
   const insets = useSafeAreaInsets();
   const [code, setCode] = useState('');
+  const [saved, setSaved] = useState<SaveFile | null>(null);
   const parsed = parseSeed(code);
   const invalid = code.trim().length > 0 && parsed === undefined;
 
+  useEffect(() => {
+    void readSave().then(setSaved);
+  }, []);
+
   function begin() {
     const seed = parsed ?? (Math.floor(Math.random() * 1_000_000_000) || 1);
+    startExpedition(seed);
     router.push({ pathname: '/climb', params: { code: formatSeed(seed) } });
+  }
+
+  function resume() {
+    if (!saved) return;
+    resumeExpedition(saved);
+    router.push({
+      pathname: saved.pending ? '/challenge' : '/climb',
+      params: { code: formatSeed(saved.state.seed) },
+    });
   }
 
   return (
@@ -60,8 +77,18 @@ export default function TitleScreen() {
             </Text>
             <Text style={styles.tagline}>{"How high you climb isn't how you win."}</Text>
             <Text style={styles.lede}>
-              Ten days on a simplified Lemosho. Each camp arrives after dark, and the night is its own decision before the morning walk. The team keeps going only while the way down is still real. A careful retreat can outscore a reckless summit.
+              Ten days on a simplified Lemosho. Each camp arrives after dark, and the night is its own decision before the morning walk. The Barranco Wall is a scramble you walk yourself. The team keeps going only while the way down is still real. A careful retreat can outscore a reckless summit.
             </Text>
+            {saved ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Resume the expedition"
+                onPress={resume}
+                style={styles.resume}
+              >
+                <Text style={styles.resumeText}>Resume the expedition</Text>
+              </Pressable>
+            ) : null}
             <Text style={styles.routeLabel}>Simplified 10-day Lemosho</Text>
             <Text style={styles.route}>{ROUTE}</Text>
             <View style={styles.notice}>
@@ -151,6 +178,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 23,
     color: body,
+  },
+  resume: {
+    marginTop: 16,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: spruce,
+  },
+  resumeText: {
+    fontFamily: font.display,
+    fontSize: 18,
+    color: spruce,
   },
   routeLabel: {
     marginTop: 22,

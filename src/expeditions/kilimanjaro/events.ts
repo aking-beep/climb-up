@@ -489,7 +489,7 @@ export const KILI_EVENTS: readonly EventCard[] = [
     choices: [
       {
         label: 'Climb the wall and camp at Karanga',
-        detail: 'A short day. Camp pitched in the valley beyond.',
+        detail: 'You walk the scramble. Then the tents go up at Karanga.',
         effect: {
           note: 'You take the wall in the morning and pitch at Karanga as the light goes.',
           hours: EVENING,

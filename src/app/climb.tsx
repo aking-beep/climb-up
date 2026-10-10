@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
@@ -18,8 +18,9 @@ import {
   chooseKilimanjaro,
   currentKilimanjaroEvent,
   playKilimanjaro,
-  startKilimanjaro,
 } from '@/expeditions/kilimanjaro';
+import { beginChallenge } from '@/game/hybrid/coordinator';
+import { ensureBoot, startExpedition, updateSession, useSession } from '@/game/save/session';
 import { membersOf, routineActions, routineEffect, tendEffect, type RoutineId } from '@/expeditions/kilimanjaro/party';
 import type { Effect, ExpeditionState, StatKey } from '@/game/types';
 import { paper } from '@/theme';
@@ -55,7 +56,8 @@ export default function ClimbScreen() {
   const params = useLocalSearchParams<{ code?: string | string[] }>();
   const code = readCode(params.code);
   const insets = useSafeAreaInsets();
-  const [state, setState] = useState(() => startKilimanjaro(parseSeed(code)));
+  const session = useSession();
+  const state = session.state;
   const [prior, setPrior] = useState<ExpeditionState | null>(null);
   const [journalOpen, setJournalOpen] = useState(false);
   const [selected, setSelected] = useState<PartyId | null>(null);
@@ -65,23 +67,39 @@ export default function ClimbScreen() {
     choosing.current = false;
   }, [state]);
 
+  useEffect(() => {
+    ensureBoot(parseSeed(code));
+  }, [code]);
+
+  function commit(next: ExpeditionState) {
+    setPrior(state);
+    updateSession({ state: next, pending: null });
+  }
+
   function apply(effect: Effect | null) {
     if (choosing.current || state.status !== 'active' || !effect) return;
     choosing.current = true;
-    setPrior(state);
     setJournalOpen(false);
-    setState(playKilimanjaro(state, effect));
+    commit(playKilimanjaro(state, effect));
     void Haptics.selectionAsync().catch(() => undefined);
   }
 
   function choose(index: number) {
     if (choosing.current || state.status !== 'active') return;
+    const pending = beginChallenge(state, index);
+    if (pending) {
+      setJournalOpen(false);
+      setSelected(null);
+      updateSession({ state, pending });
+      router.push('/challenge');
+      return;
+    }
     choosing.current = true;
-    setPrior(state);
     setJournalOpen(false);
     setSelected(null);
     const next = chooseKilimanjaro(state, index);
-    setState(next);
+    setPrior(state);
+    updateSession({ state: next, pending: null });
     void Haptics.selectionAsync().catch(() => undefined);
     if (next.status !== 'active') {
       void Haptics.notificationAsync(
@@ -91,6 +109,8 @@ export default function ClimbScreen() {
       ).catch(() => undefined);
     }
   }
+
+  if (!session.booted) return null;
 
   if (state.status !== 'active') {
     return (
@@ -102,7 +122,7 @@ export default function ClimbScreen() {
             setPrior(null);
             setJournalOpen(false);
             setSelected(null);
-            setState(startKilimanjaro());
+            startExpedition();
           }}
         />
       </Screen>
