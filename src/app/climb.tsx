@@ -1,8 +1,8 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Results } from '@/components/game/Results';
@@ -13,16 +13,13 @@ import { Hud } from '@/components/world/Hud';
 import { MemberSheet } from '@/components/world/MemberSheet';
 import { PartyStrip } from '@/components/world/PartyStrip';
 import type { PartyId } from '@/components/world/scene';
-import {
-  checkpointName,
-  chooseKilimanjaro,
-  currentKilimanjaroEvent,
-  playKilimanjaro,
-  startKilimanjaro,
-} from '@/expeditions/kilimanjaro';
+import { checkpointName, currentKilimanjaroEvent } from '@/expeditions/kilimanjaro';
+import { kilimanjaroHybrid } from '@/expeditions/kilimanjaro/challenges';
 import { membersOf, routineActions, routineEffect, tendEffect, type RoutineId } from '@/expeditions/kilimanjaro/party';
+import { challengeFor } from '@/game/hybrid/coordinator';
+import { gameStore, useGameSession } from '@/game/session';
 import type { Effect, ExpeditionState, StatKey } from '@/game/types';
-import { paper } from '@/theme';
+import { body, font, line, muted, paper, spruce, spruceInk } from '@/theme';
 import { formatElapsed, formatMeters, parseSeed } from '@/utils/number';
 
 const DELTAS: readonly (readonly [StatKey, string])[] = [
@@ -55,35 +52,48 @@ export default function ClimbScreen() {
   const params = useLocalSearchParams<{ code?: string | string[] }>();
   const code = readCode(params.code);
   const insets = useSafeAreaInsets();
-  const [state, setState] = useState(() => startKilimanjaro(parseSeed(code)));
-  const [prior, setPrior] = useState<ExpeditionState | null>(null);
+  const session = useGameSession();
   const [journalOpen, setJournalOpen] = useState(false);
   const [selected, setSelected] = useState<PartyId | null>(null);
   const choosing = useRef(false);
+  const state = session?.state ?? null;
+
+  // Arriving by link with no saved expedition: start the one in the link.
+  useEffect(() => {
+    if (!gameStore.get()) gameStore.start(parseSeed(code));
+  }, [code]);
 
   useEffect(() => {
     choosing.current = false;
   }, [state]);
 
+  if (!session || !state) return <Screen>{null}</Screen>;
+  const expedition: ExpeditionState = state;
+  const prior = session.prior;
+  const pending = session.pending;
+
   function apply(effect: Effect | null) {
-    if (choosing.current || state.status !== 'active' || !effect) return;
+    if (choosing.current || !state || state.status !== 'active' || !effect) return;
     choosing.current = true;
-    setPrior(state);
     setJournalOpen(false);
-    setState(playKilimanjaro(state, effect));
+    gameStore.play(effect);
     void Haptics.selectionAsync().catch(() => undefined);
   }
 
   function choose(index: number) {
-    if (choosing.current || state.status !== 'active') return;
+    if (choosing.current || !state || state.status !== 'active') return;
     choosing.current = true;
-    setPrior(state);
     setJournalOpen(false);
     setSelected(null);
-    const next = chooseKilimanjaro(state, index);
-    setState(next);
+    const launched = gameStore.choose(index);
     void Haptics.selectionAsync().catch(() => undefined);
-    if (next.status !== 'active') {
+    if (launched) {
+      choosing.current = false;
+      router.push('/challenge');
+      return;
+    }
+    const next = gameStore.get()?.state;
+    if (next && next.status !== 'active') {
       void Haptics.notificationAsync(
         next.returnedSafely
           ? Haptics.NotificationFeedbackType.Success
@@ -99,10 +109,9 @@ export default function ClimbScreen() {
         <Results
           state={state}
           onAgain={() => {
-            setPrior(null);
             setJournalOpen(false);
             setSelected(null);
-            setState(startKilimanjaro());
+            gameStore.start();
           }}
         />
       </Screen>
@@ -120,17 +129,17 @@ export default function ClimbScreen() {
   }
 
   function memberAction(id: PartyId): { label: string; effect: Effect } | null {
-    const care = tendEffect(state, id);
+    const care = tendEffect(expedition, id);
     if (care) {
       const name = party.find((person) => person.id === id)?.name ?? 'them';
       return { label: `Sit with ${name}`, effect: care };
     }
     if (id === 'lena') {
-      const effect = routineEffect(state, 'pole-pole');
+      const effect = routineEffect(expedition, 'pole-pole');
       return effect ? { label: routine.find((action) => action.id === 'pole-pole')?.label ?? 'Pole pole', effect } : null;
     }
     if (id === 'jun') {
-      const effect = routineEffect(state, 'head-count');
+      const effect = routineEffect(expedition, 'head-count');
       return effect ? { label: routine.find((action) => action.id === 'head-count')?.label ?? 'Head count', effect } : null;
     }
     return null;
@@ -163,7 +172,29 @@ export default function ClimbScreen() {
           <Hud state={state} top={insets.top + 10} />
         </View>
         <PartyStrip members={party} selected={selected} onSelect={select} />
-        {member ? (
+        {pending ? (
+          <View style={[styles.pending, { paddingBottom: insets.bottom + 14 }]}>
+            <Text style={styles.pendingKicker}>Playable climb · in progress</Text>
+            <Text style={styles.pendingTitle}>The Barranco Wall is waiting</Text>
+            <Text style={styles.pendingBody}>
+              You chose to climb it. Nothing has been spent yet: the expedition moves on when the climb ends, once.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/challenge')}
+              style={({ pressed }) => [styles.pendingGo, pressed && styles.pendingPressed]}
+            >
+              <Text style={styles.pendingGoText}>Return to the wall</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => gameStore.abandon()}
+              style={({ pressed }) => [styles.pendingBack, pressed && styles.pendingPressed]}
+            >
+              <Text style={styles.pendingBackText}>Back off and stay at Barranco</Text>
+            </Pressable>
+          </View>
+        ) : member ? (
           <MemberSheet
             member={member}
             actionLabel={personal?.label ?? null}
@@ -180,6 +211,7 @@ export default function ClimbScreen() {
             journalOpen={journalOpen}
             onToggleJournal={() => setJournalOpen((open) => !open)}
             onChoose={choose}
+            playable={(index) => challengeFor(kilimanjaroHybrid, event, index) !== null}
             routine={routine}
             onRoutine={(id: RoutineId) => apply(routineEffect(state, id))}
             bottom={insets.bottom + 10}
@@ -193,4 +225,13 @@ export default function ClimbScreen() {
 const styles = StyleSheet.create({
   play: { flex: 1, backgroundColor: paper },
   world: { flex: 1 },
+  pending: { backgroundColor: paper, borderTopWidth: 1, borderTopColor: line, paddingHorizontal: 16, paddingTop: 14, gap: 8 },
+  pendingKicker: { fontFamily: font.bodyMedium, fontSize: 11, letterSpacing: 1.1, textTransform: 'uppercase', color: muted },
+  pendingTitle: { fontFamily: font.display, fontSize: 24, lineHeight: 28, color: body },
+  pendingBody: { fontFamily: font.body, fontSize: 15, lineHeight: 21, color: body },
+  pendingGo: { backgroundColor: spruce, minHeight: 52, justifyContent: 'center', paddingHorizontal: 14 },
+  pendingGoText: { fontFamily: font.display, fontSize: 18, color: spruceInk },
+  pendingBack: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 14, borderWidth: 1, borderColor: line },
+  pendingBackText: { fontFamily: font.display, fontSize: 16, color: body },
+  pendingPressed: { opacity: 0.82 },
 });

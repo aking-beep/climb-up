@@ -1,4 +1,4 @@
-import type { Effect, ExpeditionDefinition, ExpeditionState, Move, ScoreBucket } from '@/game/types';
+import type { Effect, ExpeditionDefinition, ExpeditionState, LedgerNote, Move, ScoreBucket } from '@/game/types';
 import { hash } from '@/utils/number';
 
 import { altitudeStrain, boundAltitude, boundStat, pressure } from './rules';
@@ -142,11 +142,14 @@ function applyPressure(state: ExpeditionState, notes: string[]) {
 function addScores(state: ExpeditionState, effect: Effect) {
   if (!effect.scores) return;
   for (const bucket of BUCKETS) {
-    const note = effect.scores[bucket];
-    if (!note) continue;
-    if (note.mark && state.marks[note.mark]) continue;
-    if (note.mark) state.marks[note.mark] = true;
-    state.ledger[bucket].push({ label: note.label, delta: note.delta, mark: note.mark });
+    const entry = effect.scores[bucket];
+    if (!entry) continue;
+    const notes: readonly LedgerNote[] = Array.isArray(entry) ? entry : [entry as LedgerNote];
+    for (const note of notes) {
+      if (note.mark && state.marks[note.mark]) continue;
+      if (note.mark) state.marks[note.mark] = true;
+      state.ledger[bucket].push({ label: note.label, delta: note.delta, mark: note.mark });
+    }
   }
 }
 

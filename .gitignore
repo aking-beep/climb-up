@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# copied by setup-skia-web for the web build
+public/canvaskit.wasm
