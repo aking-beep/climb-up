@@ -292,15 +292,6 @@ def main():
         atlas.paste(deep(900 + v), ((8 + v) * T, 3 * T))
     atlas.save(OUT / "barranco_tiles.png")
     props(OUT / "props")
-    # The painted cliff from scenery.py, for deep rock: darker, a little greyer.
-    from PIL import ImageEnhance
-    import shutil
-    source = ROOT / "assets" / "hd2d" / "scenery" / "barranco-cliff.png"
-    scenery = ROOT / "godot" / "assets" / "scenery"
-    shutil.copyfile(source, scenery / "barranco-cliff.png")
-    cliff = Image.open(source).convert("RGBA")
-    darker = ImageEnhance.Brightness(ImageEnhance.Color(cliff).enhance(0.75)).enhance(0.48)
-    darker.save(scenery / "barranco-cliff-deep.png")
     print("wrote", OUT / "barranco_tiles.png", "and props")
 
 

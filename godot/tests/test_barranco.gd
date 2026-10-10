@@ -15,13 +15,14 @@ var log: Array[String] = []
 
 
 func _load() -> void:
-	Expedition.state = ExpeditionState.new()
-	Expedition.climb = {}
+	Expedition.new_expedition(7)
 	Settings.touch_controls = false
 	level = load(LEVEL).instantiate()
 	root.add_child(level)
 	level.finished.connect(func(o: ChallengeOutcome) -> void: outcome = o)
 	await physics_frames(2)
+	level.panel.choose("start")
+	await physics_frames(1)
 	c = level.climber
 
 

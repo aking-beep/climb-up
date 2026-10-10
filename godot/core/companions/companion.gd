@@ -66,3 +66,4 @@ func record(feet: Vector2, anim: String, flip: bool) -> void:
 func catch_up(feet: Vector2) -> void:
 	_trail.clear()
 	global_position = feet + Vector2(-10, 0)
+	reset_physics_interpolation()

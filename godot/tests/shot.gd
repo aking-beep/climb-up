@@ -18,6 +18,19 @@ func _ready() -> void:
 			path = arg.substr(6)
 		elif arg.begins_with("hold="):
 			hold = float(arg.substr(5))
+		elif arg == "touch":
+			Settings.touch_controls = true
+		elif arg.begins_with("park="):
+			# The expedition at a climb's gate; "park=barranco-wall:card" shows
+			# the card with the climb's choice instead of the pending climb.
+			var bits := arg.substr(5).split(":")
+			Expedition.navigate = false
+			Expedition.session = TestSessions.at(bits[0])
+			if bits.size() > 1:
+				Expedition.session["pending"] = null
+			else:
+				Expedition.resume_climb()
+			Expedition.last = {}
 	var scene: Node = load(path).instantiate()
 	add_child(scene)
 	await get_tree().create_timer(0.5).timeout
@@ -28,6 +41,7 @@ func _ready() -> void:
 		var climber: Node = scene.get("climber")
 		if climber:
 			scene.panel.hide_panel()
+			scene.briefed = true
 			scene.mate_cooldown = true
 			climber.lock(false)
 			climber.global_position = Terrain.feet(Vector2i(spots[i]))

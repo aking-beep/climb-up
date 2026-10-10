@@ -47,3 +47,12 @@ func calm_for(t: float, seconds: float) -> bool:
 			return false
 		s += step
 	return true
+
+
+## In words, for the climb's brief.
+func describe() -> String:
+	if period <= 3.6:
+		return "strong: a gust every few seconds on open ground"
+	if period <= 4.6:
+		return "steady on open ground"
+	return "light, with long calms"

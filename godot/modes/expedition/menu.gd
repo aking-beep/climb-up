@@ -5,31 +5,34 @@ extends Screen
 func _ready() -> void:
 	super._ready()
 	var has_save := Expedition.load_saved()
-	kicker("Kilimanjaro · Godot prototype")
+	kicker("Kilimanjaro · Lemosho route, as a game")
 	title("Climb Up", 22)
 	text("How high you climb isn't how you win.", 9, MUTED)
-	text("Barranco Camp, day five. The wall above the tents is the way to Karanga. Climb it, help who needs helping, and know when to turn around.")
+	text("Ten days on the mountain with Lena, Marco and Jun. Make the calls at camp. Three of them you climb yourself: the Lava Tower, the Barranco Wall, and the summit night.")
 	if has_save:
-		var label := "Return to the wall (cairn %d)" % int(Expedition.climb.get("checkpoint", 0)) if not Expedition.climb.is_empty() else "Continue the expedition"
+		var s: Dictionary = Expedition.state()
+		var label := "Continue · %s, day %d" % [Kili.checkpoint_name(s["checkpoint"]), ExpeditionEngine.day_of(s)]
+		if Expedition.pending() != null and int(Expedition.climb.get("checkpoint", 0)) > 0:
+			label = "Continue the climb (cairn %d)" % int(Expedition.climb["checkpoint"])
 		button(label, _continue, true).grab_focus()
 	var fresh := button("New expedition", _new, not has_save)
 	if not has_save:
 		fresh.grab_focus()
 	button("Graphics: %s" % ["Full", "Reduced", "Low power"][Settings.quality], _quality)
 	button("Reduced motion: %s" % ("On" if Settings.reduced_motion else "Off"), _motion)
-	text("Keys: arrows or WASD · UP on rock climbs · E talk / choose · Shift brace · R rest · Esc pause", 7, MUTED)
+	text("Keys: arrows or WASD · UP on rock climbs · E talk / climb · Shift brace · R rest · Esc pause. Phones: left thumb moves, right thumb acts.", 7, MUTED)
 
 
 func _continue() -> void:
-	if not Expedition.climb.is_empty():
-		Expedition.start_climb()
+	if Expedition.pending() != null:
+		Expedition.resume_climb()
 	else:
-		Expedition.go(Expedition.BRIEFING)
+		Expedition.go(Expedition.CAMP)
 
 
 func _new() -> void:
-	Expedition.new_expedition(7)
-	Expedition.go(Expedition.BRIEFING)
+	Expedition.new_expedition(int(Time.get_unix_time_from_system()) % 100000 + 1)
+	Expedition.go(Expedition.CAMP)
 
 
 func _quality() -> void:

@@ -4,11 +4,11 @@ extends RefCounted
 ## corrupt, unknown-newer or wrong-shaped file loads as "no save", and an
 ## older version is migrated forward step by step.
 
-const VERSION := 1
+## 2: the whole expedition (the ported engine's session). Version 1 saves
+## came from the one-wall prototype and cannot be carried forward.
+const VERSION := 2
 const PATH := "user://climb_up_save.json"
 
-## Each entry upgrades data saved at version N to N + 1.
-const MIGRATIONS := {}
 
 
 static func write(data: Dictionary, path: String = PATH) -> bool:
@@ -49,9 +49,18 @@ static func validate(parsed: Variant, reason: Array = []) -> Variant:
 		reason.append("corrupt")
 		return null
 	while version < VERSION:
-		var step: Callable = MIGRATIONS.get(version)
-		data = step.call(data)
+		data = _migrate(version, data)
 		version += 1
+	return data
+
+
+## Upgrades data saved at `version` to `version + 1`.
+static func _migrate(version: int, data: Dictionary) -> Dictionary:
+	match version:
+		1:
+			# Settings carry over as they were. A version 1 expedition has no
+			# session, so Expedition.load_saved() declines it: a new game.
+			return data
 	return data
 
 

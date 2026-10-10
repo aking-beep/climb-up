@@ -21,6 +21,8 @@ var _zoom_target := 1.0
 
 func _ready() -> void:
 	enabled = true
+	# Moved in physics frames, drawn interpolated between them.
+	process_callback = Camera2D.CAMERA2D_PROCESS_PHYSICS
 	position_smoothing_enabled = false
 	_apply_limits()
 
@@ -38,6 +40,7 @@ func snap() -> void:
 	_lead = _wanted_lead()
 	global_position = target.global_position + _lead + Vector2(0, -24)
 	reset_smoothing()
+	reset_physics_interpolation()
 
 
 func kick(strength: float) -> void:

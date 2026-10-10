@@ -22,11 +22,11 @@ const T := Terrain.TILE
 const SIZE := Vector2(10, 26)
 
 # Movement, in pixels per second. One tile is 16 px.
-const WALK := 58.0
-const TIRED_WALK := 38.0
-const EXPOSED_WALK := 26.0
-const ACCEL := 520.0
-const DECEL := 900.0
+const WALK := 64.0
+const TIRED_WALK := 40.0
+const EXPOSED_WALK := 28.0
+const ACCEL := 720.0
+const DECEL := 1100.0
 const GRAVITY := 900.0
 const MAX_FALL := 420.0
 const CLIMB_UP := 34.0
@@ -121,6 +121,7 @@ func lock(on: bool) -> void:
 ## Back at a cairn after a slip. A caught slip leaves more in the arms.
 func respawn(feet: Vector2) -> void:
 	global_position = feet
+	reset_physics_interpolation()
 	velocity = Vector2.ZERO
 	state = State.GROUND
 	fall_from = feet.y
@@ -173,6 +174,8 @@ func _ground(delta: float, input: Vector2) -> void:
 	if input.y > 0.5 and terrain.touches_climbable(body_rect()):
 		_grab()
 		return
+	if input.y < -0.5 and _climb_down_from_top():
+		return
 	if GameInput.held("brace"):
 		state = State.BRACE
 		velocity.x = 0.0
@@ -185,6 +188,14 @@ func _ground(delta: float, input: Vector2) -> void:
 	var target := input.x * limit
 	var rate := ACCEL if absf(target) > absf(velocity.x) else DECEL
 	velocity.x = move_toward(velocity.x, target, rate * delta)
+	# The edge guard: walking never carries you off a drop that would be a
+	# slip. Going down is a choice (DOWN onto the rock), not a stumble.
+	# Walking off a ledge onto a face grabs the face instead.
+	if absf(velocity.x) > 0.0 and drop_ahead(int(signf(velocity.x))):
+		if _face_ahead(int(signf(velocity.x))):
+			_grab()
+			return
+		velocity.x = 0.0
 	velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL)
 	var before := global_position
 	move_and_slide()
@@ -216,6 +227,62 @@ func _air(delta: float, input: Vector2) -> void:
 			state = State.GROUND
 			if drop > T:
 				Audio.play("step_dirt", -4.0)
+
+
+## The floor row under the feet, and the column a step ahead in `dir`.
+func _ahead(dir: int) -> Vector2i:
+	return Vector2i(Terrain.cell_of(Vector2(global_position.x + dir * 3.0, 0)).x, Terrain.cell_of(global_position + Vector2(0, 2)).y)
+
+
+## True when a step in `dir` would walk off a drop longer than a safe step.
+func drop_ahead(dir: int) -> bool:
+	var at := _ahead(dir)
+	for k in int(SAFE_FALL / T) + 1:
+		if terrain.is_solid(at + Vector2i(0, k)):
+			return false
+	return true
+
+
+## Rock to hold at chest height a step ahead.
+func _face_ahead(dir: int) -> bool:
+	var chest := global_position + Vector2(dir * (SIZE.x / 2.0 + 1.0), -SIZE.y * 0.5)
+	return terrain.is_climbable(Terrain.cell_of(chest))
+
+
+## The climbable column under the feet or a step ahead, for climbing down
+## from the top of a face. (-1, -1) when there is none.
+func _rock_below() -> Vector2i:
+	var row := Terrain.cell_of(global_position + Vector2(0, 2)).y
+	for dir in [0, facing]:
+		var col := Terrain.cell_of(Vector2(global_position.x + dir * 3.0, 0)).x
+		if terrain.is_climbable(Vector2i(col, row)):
+			return Vector2i(col, row)
+	return Vector2i(-1, -1)
+
+
+## What the context button would do on rock: grab it (or climb down onto it).
+func can_grab() -> bool:
+	if state != State.GROUND:
+		return false
+	return terrain.touches_climbable(body_rect()) or _rock_below().x >= 0
+
+
+func grab_now() -> void:
+	if state != State.GROUND:
+		return
+	if terrain.touches_climbable(body_rect()):
+		_grab()
+	else:
+		_climb_down_from_top()
+
+
+func _climb_down_from_top() -> bool:
+	var cell := _rock_below()
+	if cell.x < 0:
+		return false
+	global_position = Vector2(cell.x * T + T / 2.0, global_position.y + 6.0)
+	_grab()
+	return true
 
 
 func _grab() -> void:
@@ -311,7 +378,7 @@ func _try_mantle(input: Vector2) -> bool:
 		if not dirs.has(d):
 			dirs.append(d)
 	for d in dirs:
-		for reach in [0.9, 1.6, 2.3]:
+		for reach in [0.9, 1.6, 2.3, 3.0]:
 			if _mantle_to_side(d, reach):
 				return true
 	return false

@@ -10,6 +10,7 @@ var _flash: Label
 var _prompt: Label
 var _wind: Label
 var _flash_time := 0.0
+var title := "Climb"
 
 
 func _ready() -> void:
@@ -32,22 +33,22 @@ func _ready() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 1)
 	box.add_child(v)
-	var kicker := _label(6, Color(0.95, 0.94, 0.91, 0.8))
-	kicker.text = "BARRANCO WALL"
+	var kicker := _label(8, Color(0.95, 0.94, 0.91, 0.8))
+	kicker.text = title.to_upper()
 	v.add_child(kicker)
 	_bar = ProgressBar.new()
-	_bar.custom_minimum_size = Vector2(110, 5)
+	_bar.custom_minimum_size = Vector2(140, 6)
 	_bar.show_percentage = false
 	_bar.max_value = 100
 	v.add_child(_bar)
-	_stats = _label(7, Color(0.95, 0.94, 0.91))
+	_stats = _label(9, Color(0.95, 0.94, 0.91))
 	v.add_child(_stats)
-	_wind = _label(7, Color(1.0, 0.85, 0.55))
+	_wind = _label(9, Color(1.0, 0.85, 0.55))
 	v.add_child(_wind)
-	_hint = _label(7, Color(0.95, 0.94, 0.91))
-	_hint.position = Vector2(8, 52)
+	_hint = _label(9, Color(0.95, 0.94, 0.91))
+	_hint.position = Vector2(8, 66)
 	root.add_child(_hint)
-	_flash = _label(9, Color(1, 0.97, 0.88))
+	_flash = _label(11, Color(1, 0.97, 0.88))
 	_flash.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_flash.anchor_left = 0.2
 	_flash.anchor_right = 0.8
@@ -55,7 +56,7 @@ func _ready() -> void:
 	_flash.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_flash.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_flash)
-	_prompt = _label(8, Color(1, 0.97, 0.88))
+	_prompt = _label(10, Color(1, 0.97, 0.88))
 	_prompt.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_prompt.anchor_left = 0.3
 	_prompt.anchor_right = 0.7
@@ -89,8 +90,8 @@ func update_from(level: Node) -> void:
 	_bar.add_theme_stylebox_override("fill", fill)
 	var mate := ""
 	if level.mate_state == "helped":
-		mate = " · Marco: has your back" if c.spotter else " · Marco with you"
-	_stats.text = "Stamina %d%% · Slips %d/%d · Cairn %d/%d%s" % [pct, c.slips, level.MAX_SLIPS, level.checkpoint, level.cairns.size() - 1, mate]
+		mate = " · %s: has your back" % level.mate_name() if c.spotter else " · %s with you" % level.mate_name()
+	_stats.text = "Stamina %d%% · Slips %d/%d · Cairn %d/%d%s" % [pct, c.slips, level.max_slips, level.checkpoint, level.cairns.size() - 1, mate]
 	match c.gust:
 		WindSchedule.Phase.WARN:
 			_wind.text = "Wind rising: stop and brace"
@@ -99,8 +100,8 @@ func update_from(level: Node) -> void:
 		_:
 			_wind.text = "Exposed: walk between gusts" if c.exposed else ""
 	_hint.text = _hint_for(level)
-	var key := "ACT:" if Settings.touch_enabled() else "E:"
-	_prompt.text = ("%s %s" % [key, level.prompt]) if level.prompt != "" else ""
+	# On touch the context button says what it does; keys need the reminder.
+	_prompt.text = ("E: %s" % level.prompt) if level.prompt != "" and not Settings.touch_enabled() else ""
 
 
 func _hint_for(level: Node) -> String:
@@ -110,13 +111,13 @@ func _hint_for(level: Node) -> String:
 	if c.state == Climber.State.REST:
 		return "Resting. Move to get up."
 	if c.stamina.fraction() < 0.2:
-		return "Arms are going. Get onto a ledge." if c.is_climbing() else "Out of breath. Sit and rest (REST)."
+		return "Arms are going. Get onto a ledge." if c.is_climbing() else "Out of breath. Sit and REST."
 	if c.state == Climber.State.CLIMB:
 		if c.terrain.hold_at(c.body_rect(c.global_position + Vector2(0, -4))) == Terrain.Kind.AIR:
-			return "Top of the face. Hold UP to pull over."
+			return "Top of the face. Keep pushing UP to pull over."
 		return ""
-	if c.state == Climber.State.GROUND and c.terrain.touches_climbable(c.body_rect()):
-		return "Rock. Hold UP to climb."
+	if c.state == Climber.State.GROUND and c.can_grab():
+		return "Rock. Tap CLIMB, or push UP." if Settings.touch_enabled() else "Rock. Hold UP to climb (DOWN to climb down)."
 	return ""
 
 

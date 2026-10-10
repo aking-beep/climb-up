@@ -11,8 +11,10 @@ const SKY_TOP := Color("#7f98a6")
 const SKY_LOW := Color("#efe6d6")
 
 
-static func build(level: Node2D, terrain: Terrain, camera: Camera2D) -> void:
+## `theme`: {night, far, mid, foreground, snow, haze} (see ClimbLevel).
+static func build(level: Node2D, terrain: Terrain, camera: Camera2D, theme: Dictionary = {}) -> void:
 	var size := terrain.pixel_size()
+	var night: bool = theme.get("night", false)
 
 	# Sky: a screen-space gradient behind everything.
 	var sky_layer := CanvasLayer.new()
@@ -21,9 +23,9 @@ static func build(level: Node2D, terrain: Terrain, camera: Camera2D) -> void:
 	level.add_child(sky_layer)
 	var sky := TextureRect.new()
 	var grad := Gradient.new()
-	grad.set_color(0, SKY_TOP)
-	grad.set_color(1, SKY_LOW)
-	grad.add_point(0.62, Color("#d9d6cc"))
+	grad.set_color(0, Color("#0a1024") if night else SKY_TOP)
+	grad.set_color(1, Color("#3a3f5c") if night else SKY_LOW)
+	grad.add_point(0.62, Color("#1c2440") if night else Color("#d9d6cc"))
 	var gt := GradientTexture2D.new()
 	gt.gradient = grad
 	gt.fill_from = Vector2(0, 0)
@@ -34,6 +36,13 @@ static func build(level: Node2D, terrain: Terrain, camera: Camera2D) -> void:
 	sky.stretch_mode = TextureRect.STRETCH_SCALE
 	sky.set_anchors_preset(Control.PRESET_FULL_RECT)
 	sky_layer.add_child(sky)
+	if night:
+		var stars := TextureRect.new()
+		stars.name = "Stars"
+		stars.texture = _stars(480, 270)
+		stars.set_anchors_preset(Control.PRESET_FULL_RECT)
+		stars.stretch_mode = TextureRect.STRETCH_TILE
+		sky_layer.add_child(stars)
 
 	# Kibo far away, then the valley of groundsels: painted layers that sink
 	# toward the horizon as you climb.
@@ -43,11 +52,13 @@ static func build(level: Node2D, terrain: Terrain, camera: Camera2D) -> void:
 	far.name = "Distance"
 	far.follow_viewport_enabled = false
 	level.add_child(far)
-	var kibo := _layer("Kibo", "res://assets/scenery/barranco-kibo.png", Vector2(0.04, 0.1), Vector2(size.x * 0.45, camp_floor), 185.0, 0.62, Color(0.9, 0.93, 0.98))
-	kibo.repeat = false
+	var dim := Color(0.45, 0.5, 0.68) if night else Color(1, 1, 1)
+	var kibo := _layer("Kibo", theme.get("far", "res://assets/scenery/barranco-kibo.png"), Vector2(0.04, 0.1), Vector2(size.x * 0.45, camp_floor), 185.0, theme.get("farScale", 0.62), Color(0.9, 0.93, 0.98) * dim)
+	kibo.repeat = theme.get("farRepeat", false)
 	far.add_child(kibo)
-	far.add_child(_layer("Valley", "res://assets/scenery/barranco-valley.png", Vector2(0.16, 0.32), Vector2(size.x / 2.0, camp_floor), 250.0, 0.42, Color(0.84, 0.87, 0.86)))
-	var haze := _layer("FarFog", "res://assets/scenery/fog.png", Vector2(0.3, 0.25), Vector2(0, camp_floor), 230.0, 1.6, Color(1, 0.98, 0.95, 0.35))
+	if theme.get("mid", "res://assets/scenery/barranco-valley.png") != "":
+		far.add_child(_layer("Valley", theme.get("mid", "res://assets/scenery/barranco-valley.png"), Vector2(0.16, 0.32), Vector2(size.x / 2.0, camp_floor), 250.0, theme.get("midScale", 0.42), Color(0.84, 0.87, 0.86) * dim))
+	var haze := _layer("FarFog", "res://assets/scenery/fog.png", Vector2(0.3, 0.25), Vector2(0, camp_floor), 230.0, 1.6, Color(1, 0.98, 0.95, 0.12 if night else 0.28))
 	haze.drift = 4.0
 	far.add_child(haze)
 
@@ -57,6 +68,7 @@ static func build(level: Node2D, terrain: Terrain, camera: Camera2D) -> void:
 	tint.color = Color(1.0, 0.985, 0.95)
 	tint.set_script(load("res://core/world/daylight.gd"))
 	tint.set("terrain", terrain)
+	tint.set("night", night)
 	level.add_child(tint)
 	# The climber's own pool of light: in the open it is lost in daylight;
 	# under the overhangs it is what you see by.
@@ -65,8 +77,8 @@ static func build(level: Node2D, terrain: Terrain, camera: Camera2D) -> void:
 		var lamp := PointLight2D.new()
 		lamp.name = "Lamp"
 		lamp.texture = _radial(256, Color(1.0, 0.93, 0.8))
-		lamp.texture_scale = 1.6
-		lamp.energy = 0.55
+		lamp.texture_scale = 2.6 if night else 1.6
+		lamp.energy = 1.15 if night else 0.55
 		lamp.position = Vector2(0, -14)
 		climber.add_child(lamp)
 	var fire: Node2D = level.get_node_or_null("Props/Fire")
@@ -93,6 +105,7 @@ static func build(level: Node2D, terrain: Terrain, camera: Camera2D) -> void:
 		p.color = Color(1.0, 0.92, 0.75, 0.045)
 		p.material = add
 		shafts.add_child(p)
+	shafts.visible = theme.get("sunShafts", not night)
 	level.add_child(shafts)
 
 	# Fog banks drifting in front of the wall, at a few depths.
@@ -101,7 +114,9 @@ static func build(level: Node2D, terrain: Terrain, camera: Camera2D) -> void:
 	near_air.name = "Fog"
 	level.add_child(near_air)
 	for i in 3:
-		var bank := _layer("Fog%d" % i, "res://assets/scenery/fog.png", Vector2(0.7 + i * 0.25, 0.8 + i * 0.2), Vector2(0, size.y * (0.3 + i * 0.25)), 220.0, 1.4 + i * 0.4, Color(1, 0.98, 0.95, 0.16 - i * 0.03))
+		# Kept faint: fog in front of the rock softens the very edges the
+		# player reads, so it never covers the route.
+		var bank := _layer("Fog%d" % i, "res://assets/scenery/fog.png", Vector2(0.7 + i * 0.25, 0.8 + i * 0.2), Vector2(0, size.y * (0.3 + i * 0.25)), 220.0, 1.4 + i * 0.4, Color(1, 0.98, 0.95, 0.08 - i * 0.02) * (Color(0.5, 0.55, 0.75) if night else Color(1, 1, 1)))
 		bank.drift = 6.0 + i * 5.0
 		near_air.add_child(bank)
 
@@ -121,6 +136,14 @@ static func build(level: Node2D, terrain: Terrain, camera: Camera2D) -> void:
 	dust.scale_amount_min = 0.6
 	dust.scale_amount_max = 1.4
 	dust.color = Color(1, 0.96, 0.86, 0.5)
+	if theme.get("snow", false):
+		dust.name = "Dust"
+		dust.amount = 70
+		dust.direction = Vector2(0.6, 1)
+		dust.initial_velocity_min = 14.0
+		dust.initial_velocity_max = 30.0
+		dust.gravity = Vector2(4, 10)
+		dust.color = Color(0.92, 0.95, 1.0, 0.85)
 	dust.z_index = 5
 	camera.add_child(dust)
 
@@ -156,7 +179,7 @@ static func build(level: Node2D, terrain: Terrain, camera: Camera2D) -> void:
 		level.add_child(streaks)
 
 	# Foreground: dark groundsels passing close to the lens at the camp.
-	var fg := _layer("Foreground", "res://assets/scenery/barranco-foreground.png", Vector2(1.35, 1.2), Vector2(cairns_x(terrain), camp_floor + 30), 330.0, 0.4, Color(0.42, 0.38, 0.36, 0.95))
+	var fg := _layer("Foreground", theme.get("foreground", "res://assets/scenery/barranco-foreground.png"), Vector2(1.35, 1.2), Vector2(cairns_x(terrain), camp_floor + 30), 330.0, 0.4, Color(0.42, 0.38, 0.36, 0.95))
 	fg.repeat = false
 	near_air.add_child(fg)
 
@@ -171,7 +194,7 @@ static func build(level: Node2D, terrain: Terrain, camera: Camera2D) -> void:
 	var sh := Shader.new()
 	sh.code = """
 shader_type canvas_item;
-uniform float strength = 0.55;
+uniform float strength = 0.38;
 void fragment() {
 	vec2 uv = UV - 0.5;
 	float v = smoothstep(0.38, 0.85, length(uv * vec2(1.25, 1.0)));
@@ -206,8 +229,8 @@ static func apply_quality(level: Node) -> void:
 	if lamp:
 		lamp.enabled = Settings.lights_enabled()
 	var shafts := level.get_node_or_null("SunShafts")
-	if shafts:
-		shafts.visible = Settings.quality == Settings.Quality.FULL
+	if shafts and Settings.quality != Settings.Quality.FULL:
+		shafts.visible = false
 
 
 static func cairns_x(terrain: Terrain) -> float:
@@ -224,6 +247,22 @@ static func _layer(name: String, path: String, factor: Vector2, anchor: Vector2,
 	b.scale_by = scale
 	b.modulate = tint
 	return b
+
+
+## A sky of small stars, a few bright: deterministic, drawn once.
+static func _stars(w: int, h: int) -> ImageTexture:
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242
+	for i in 160:
+		var x := rng.randi_range(0, w - 1)
+		var y := rng.randi_range(0, int(h * 0.7))
+		var a := rng.randf_range(0.25, 0.9)
+		img.set_pixel(x, y, Color(0.95, 0.96, 1.0, a))
+		if a > 0.82 and x > 0 and x < w - 1:
+			img.set_pixel(x - 1, y, Color(0.9, 0.92, 1.0, a * 0.35))
+			img.set_pixel(x + 1, y, Color(0.9, 0.92, 1.0, a * 0.35))
+	return ImageTexture.create_from_image(img)
 
 
 static func _radial(size: int, color: Color) -> GradientTexture2D:

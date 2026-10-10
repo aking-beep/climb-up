@@ -8,18 +8,18 @@ extends RefCounted
 ## scramble (12-15); 3 back wall (0-7), deep rock (8-15).
 
 const ATLAS := "res://assets/terrain/barranco_tiles.png"
-## The painted lava-strata cliff (tools/art/scenery.py), cut into a 16 × 16
-## grid of tiles and laid seamlessly over deep rock and the back wall.
-const CLIFF := "res://assets/scenery/barranco-cliff.png"
+## Pixel-art strata (tools/art/godot_backwalls.py), cut into a 16 × 16 grid
+## of tiles: the darker copy is the back wall behind open ledges, the lighter
+## one is solid rock you look straight into, so walls never read as space.
+const CLIFF := "res://assets/scenery/barranco-wall-deep.png"
 const CLIFF_SOURCE := 1
-## The same painting, darker: rock you are looking straight into.
-const DEEP := "res://assets/scenery/barranco-cliff-deep.png"
+const DEEP := "res://assets/scenery/barranco-wall.png"
 const DEEP_SOURCE := 2
 const T := Terrain.TILE
 const SOURCE := 0
 
 
-static func build_tileset() -> TileSet:
+static func build_tileset(cliff: String = CLIFF, deep: String = DEEP) -> TileSet:
 	var ts := TileSet.new()
 	ts.tile_size = Vector2i(T, T)
 	ts.add_physics_layer()
@@ -46,7 +46,7 @@ static func build_tileset() -> TileSet:
 			if not poly.is_empty():
 				data.add_collision_polygon(0)
 				data.set_collision_polygon_points(0, 0, poly)
-	for pair in [[CLIFF, CLIFF_SOURCE], [DEEP, DEEP_SOURCE]]:
+	for pair in [[cliff, CLIFF_SOURCE], [deep, DEEP_SOURCE]]:
 		var painted := TileSetAtlasSource.new()
 		painted.texture = load(pair[0])
 		painted.texture_region_size = Vector2i(T, T)
@@ -70,9 +70,18 @@ static func _variant(cell: Vector2i, count: int) -> int:
 	return posmod(cell.x * 73856093 ^ cell.y * 19349663, count)
 
 
+static func _faces_inside(terrain: Terrain, cell: Vector2i) -> bool:
+	for d in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+		var n: Vector2i = cell + d
+		if not terrain.is_solid(n) and terrain.is_inside(n):
+			return true
+	return false
+
+
 ## Fills `ground` (collision, faces) and `back` (recessed rock) from `terrain`.
-static func paint(terrain: Terrain, ground: TileMapLayer, back: TileMapLayer) -> void:
-	var ts := build_tileset()
+## `theme` may name its own cliff paintings ({cliff, deep}).
+static func paint(terrain: Terrain, ground: TileMapLayer, back: TileMapLayer, theme: Dictionary = {}) -> void:
+	var ts := build_tileset(theme.get("cliff", CLIFF), theme.get("deep", DEEP))
 	ground.tile_set = ts
 	back.tile_set = ts
 	back.collision_enabled = false
@@ -102,4 +111,8 @@ static func paint(terrain: Terrain, ground: TileMapLayer, back: TileMapLayer) ->
 				ground.set_cell(cell, SOURCE, at)
 			var open := not terrain.is_solid(cell) or k == Terrain.Kind.SLOPE_R or k == Terrain.Kind.SLOPE_L
 			if open and terrain.is_inside(cell):
+				back.set_cell(cell, CLIFF_SOURCE, _cliff(cell))
+			elif k == Terrain.Kind.ROCK and _faces_inside(terrain, cell):
+				# Edge tiles have rounded corners: inside the mountain, the
+				# back wall shows through them, not the sky.
 				back.set_cell(cell, CLIFF_SOURCE, _cliff(cell))

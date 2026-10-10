@@ -1,12 +1,17 @@
 extends CanvasModulate
 ## Open sky or under rock: the world dims as the camera moves in under an
 ## overhang or into the wall's ledges, and brightens again in the open.
-## The change is eased, never a flash.
+## At night the world is dark blue and pales toward dawn the higher the
+## climber gets. The change is eased, never a flash.
 
 const OPEN := Color(1.0, 0.985, 0.95)
-const UNDER := Color(0.6, 0.57, 0.58)
+const UNDER := Color(0.62, 0.59, 0.6)
+const NIGHT := Color(0.5, 0.55, 0.74)
+const DAWN := Color(0.86, 0.8, 0.8)
+const NIGHT_UNDER := Color(0.4, 0.44, 0.62)
 
 var terrain: Terrain
+var night := false
 var _cover := 0.0
 
 
@@ -27,4 +32,9 @@ func _process(delta: float) -> void:
 					inside += 1
 	var want := float(inside) / float(maxi(1, total))
 	_cover = lerpf(_cover, want, clampf(delta * 1.5, 0.0, 1.0))
-	color = OPEN.lerp(UNDER, _cover)
+	if night:
+		var dawn := 1.0 - clampf(center.y / terrain.pixel_size().y, 0.0, 1.0)
+		var open := NIGHT.lerp(DAWN, dawn * dawn)
+		color = open.lerp(NIGHT_UNDER, _cover * 0.5)
+	else:
+		color = OPEN.lerp(UNDER, _cover)

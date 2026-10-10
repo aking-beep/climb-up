@@ -35,6 +35,9 @@ const STICK := {
 
 ## Set by tests and the replay tool: when not empty, these override devices.
 var scripted: Dictionary = {}
+## The touch stick, -1 … 1 on both axes (up is +y). Analog: a small push
+## walks slowly.
+var touch_move := Vector2.ZERO
 
 
 func _enter_tree() -> void:
@@ -71,6 +74,8 @@ func held(action: String) -> bool:
 func move() -> Vector2:
 	var x := (1.0 if held("move_right") else 0.0) - (1.0 if held("move_left") else 0.0)
 	var y := (1.0 if held("climb_up") else 0.0) - (1.0 if held("climb_down") else 0.0)
+	if scripted.is_empty() and touch_move != Vector2.ZERO and x == 0.0 and y == 0.0:
+		return touch_move
 	return Vector2(x, y)
 
 

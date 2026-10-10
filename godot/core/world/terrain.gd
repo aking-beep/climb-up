@@ -15,7 +15,7 @@ const KIND_OF := {
 	"C": Kind.FACE, "L": Kind.LOOSE, "s": Kind.SCRAMBLE,
 	"E": Kind.EXPOSED, "R": Kind.REST,
 }
-const MARKERS := "PXMljpSTFgoVK"
+const MARKERS := "PXMljmpSTFgoVK"
 
 var width := 0
 var height := 0

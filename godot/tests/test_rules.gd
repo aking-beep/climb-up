@@ -70,53 +70,64 @@ func test_outcome_has_the_expo_shape() -> void:
 	check(ChallengeOutcome.from_dict("nonsense") == null, "non-dictionary refused")
 
 
-func _outcome(result: String, patch: Dictionary = {}) -> ChallengeOutcome:
-	var o := ChallengeOutcome.new()
-	o.attempt_id = "a"
-	o.result = result
-	o.stamina_left = 60
-	for k in patch:
-		o.set(k, patch[k])
-	return o
+func _at_the_wall() -> Dictionary:
+	return TestSessions.at("barranco-wall")
+
+
+func _land(result: String, patch: Dictionary = {}) -> Dictionary:
+	var session := _at_the_wall()
+	var p: Dictionary = session["pending"]
+	var o := {"attemptId": p["attemptId"], "challengeId": "barranco-wall", "result": result, "staminaLeft": 60, "slips": 0, "assisted": null, "regrouped": false, "seconds": 300}
+	o.merge(patch, true)
+	var r := Coordinator.resolve(session, o, Kili.def())
+	eq(r["status"], "applied", "outcome applied")
+	return r["session"]["state"]
+
+
+func test_the_wall_is_reachable_and_launches_a_climb() -> void:
+	var session := _at_the_wall()
+	check(session["pending"] != null, "a climb is pending at Barranco")
+	if session["pending"] != null:
+		eq(session["pending"]["challengeId"], "barranco-wall", "the wall")
 
 
 func test_helping_marco_beats_leaving_him() -> void:
-	var helped := ExpeditionState.new()
-	helped.apply_wall(_outcome("complete", {"assisted": true}))
-	var left := ExpeditionState.new()
-	left.apply_wall(_outcome("complete", {"assisted": false}))
-	check(helped.team_condition > left.team_condition, "team condition")
-	check(helped.energy > left.energy, "energy")
-	eq(helped.camp, "Karanga Camp", "a completed wall moves the party up")
+	var helped := _land("complete", {"assisted": true})
+	var left := _land("complete", {"assisted": false})
+	check(helped["teamCondition"] > left["teamCondition"], "team condition")
+	check(helped["energy"] > left["energy"], "energy")
+	eq(helped["checkpoint"], "camp3", "a completed wall moves the party up to Karanga")
 
 
 func test_backing_off_is_better_than_failing_and_stays_low() -> void:
-	var back := ExpeditionState.new()
-	back.apply_wall(_outcome("retreat"))
-	var fail := ExpeditionState.new()
-	fail.apply_wall(_outcome("fail"))
-	eq(back.camp, "Barranco Camp", "a retreat stays at Barranco")
-	eq(fail.camp, "Barranco Camp", "a failure stays at Barranco")
-	check(back.health > fail.health, "health")
-	check(back.energy > fail.energy, "energy")
-	check(back.team_condition > fail.team_condition, "team")
+	var back := _land("retreat")
+	var fail := _land("fail", {"slips": 3})
+	eq(back["checkpoint"], "camp2", "a retreat stays at Barranco")
+	eq(fail["checkpoint"], "camp2", "a failure stays at Barranco")
+	check(back["health"] > fail["health"], "health")
+	check(back["energy"] >= fail["energy"], "energy")
+	check(back["teamCondition"] > fail["teamCondition"], "team")
 
 
-func test_score_notes_land_once() -> void:
-	var s := ExpeditionState.new()
-	s.note("judgment", "x", 3, "m")
-	s.note("judgment", "x", 3, "m")
-	eq(s.ledger.size(), 1, "marked note counted once")
+func test_an_outcome_lands_once() -> void:
+	var def := Kili.def()
+	var session := _at_the_wall()
+	var p: Dictionary = session["pending"]
+	var o := {"attemptId": p["attemptId"], "challengeId": "barranco-wall", "result": "complete", "staminaLeft": 60, "slips": 0, "assisted": true, "regrouped": false, "seconds": 300}
+	var stale := o.duplicate()
+	stale["attemptId"] = "someone-else"
+	eq(Coordinator.resolve(session, stale, def)["status"], "stale", "another attempt is ignored")
+	var r := Coordinator.resolve(session, o, def)
+	eq(r["status"], "applied", "applied")
+	eq(Coordinator.resolve(r["session"], o, def)["status"], "duplicate", "and only once")
 
 
 func test_saves_round_trip_and_refuse_bad_files() -> void:
 	var path := "user://test_save.json"
-	var s := ExpeditionState.new()
-	s.energy = 51
-	check(SaveGame.write({"expedition": s.to_dict()}, path), "written")
+	check(SaveGame.write({"energy": 51}, path), "written")
 	var data: Variant = SaveGame.read(path)
 	check(data != null, "read back")
-	eq(ExpeditionState.from_dict(data["expedition"]).energy, 51, "energy kept")
+	eq(int(data["energy"]), 51, "kept")
 	var reason: Array = []
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	f.store_string("{not json")
@@ -129,8 +140,9 @@ func test_saves_round_trip_and_refuse_bad_files() -> void:
 	f.close()
 	check(SaveGame.read(path, reason) == null, "a save from a newer game is not loaded")
 	eq(reason, ["newer"], "reason")
-	var repaired := ExpeditionState.from_dict({"camp": "x", "energy": 900, "health": -5, "ledger": [{"mark": "m", "delta": 99}]})
-	eq(repaired.energy, 100, "energy clamped")
-	eq(repaired.health, 0, "health clamped")
-	eq(repaired.ledger[0]["delta"], 8, "note delta bounded")
+	var repaired := Coordinator.sanitize({"attemptId": "a", "result": "complete", "staminaLeft": 900, "slips": -5, "assisted": "yes"})
+	eq(repaired["staminaLeft"], 100, "stamina clamped")
+	eq(repaired["slips"], 0, "slips clamped")
+	eq(repaired["assisted"], null, "assisted must be a bool")
+	check(Coordinator.sanitize({"result": "won", "attemptId": "a"}).is_empty(), "unknown result refused")
 	SaveGame.erase(path)
