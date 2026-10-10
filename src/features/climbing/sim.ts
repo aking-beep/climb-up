@@ -1,7 +1,7 @@
 import type { ChallengeOutcome, ChallengeId, ChallengeResult } from '@/game/hybrid/types';
 import { clamp } from '@/utils/number';
 
-import { Tile, isClimbable, isSolid, tileAt, type Level, type Point } from './level';
+import { Tile, isClimbable, isSolid, tileAt, type Level, type Point, type TileCode } from './level';
 
 /**
  * Deterministic climbing simulation. One call to `step` is one 60 Hz tick.
@@ -169,7 +169,7 @@ export function gustAt(sim: Pick<ClimbSim, 'seed' | 'gustPeriod'>, tick: number)
   return 'calm';
 }
 
-function bodyTiles(sim: ClimbSim, x: number, y: number, visit: (tile: Tile, tx: number, ty: number) => boolean): boolean {
+function bodyTiles(sim: ClimbSim, x: number, y: number, visit: (tile: TileCode, tx: number, ty: number) => boolean): boolean {
   const left = Math.floor(x - TUNING.width / 2 + EPS);
   const right = Math.floor(x + TUNING.width / 2 - EPS);
   const top = Math.floor(y - TUNING.height + EPS);
@@ -182,7 +182,7 @@ function bodyTiles(sim: ClimbSim, x: number, y: number, visit: (tile: Tile, tx: 
   return false;
 }
 
-function touches(sim: ClimbSim, test: (tile: Tile) => boolean): boolean {
+function touches(sim: ClimbSim, test: (tile: TileCode) => boolean): boolean {
   return bodyTiles(sim, sim.x, sim.y, (tile) => test(tile));
 }
 

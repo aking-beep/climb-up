@@ -27,9 +27,9 @@ export const Tile = {
   Exit: 9,
 } as const;
 
-export type Tile = (typeof Tile)[keyof typeof Tile];
+export type TileCode = (typeof Tile)[keyof typeof Tile];
 
-const CODES: Record<string, Tile> = {
+const CODES: Record<string, TileCode> = {
   '.': Tile.Air,
   '#': Tile.Rock,
   S: Tile.Face,
@@ -49,14 +49,14 @@ export type Level = {
   title: string;
   width: number;
   height: number;
-  tiles: Tile[];
+  tiles: TileCode[];
   /** Feet position: centre of the tile column, bottom of the lowest tile. */
   start: Point;
   checkpoints: Point[];
   mate: Point | null;
 };
 
-export function tileAt(level: Level, x: number, y: number): Tile {
+export function tileAt(level: Level, x: number, y: number): TileCode {
   const tx = Math.floor(x);
   const ty = Math.floor(y);
   if (tx < 0 || tx >= level.width) return Tile.Rock;
@@ -65,11 +65,11 @@ export function tileAt(level: Level, x: number, y: number): Tile {
   return level.tiles[ty * level.width + tx];
 }
 
-export function isSolid(tile: Tile): boolean {
+export function isSolid(tile: TileCode): boolean {
   return tile === Tile.Rock;
 }
 
-export function isClimbable(tile: Tile): boolean {
+export function isClimbable(tile: TileCode): boolean {
   return tile === Tile.Face || tile === Tile.Loose;
 }
 
@@ -80,7 +80,7 @@ function feetOf(cells: Point[]): Point {
   return { x: (Math.min(...xs) + Math.max(...xs) + 1) / 2, y: bottom + 1 };
 }
 
-function groups(width: number, height: number, tiles: Tile[], kind: Tile): Point[][] {
+function groups(width: number, height: number, tiles: TileCode[], kind: TileCode): Point[][] {
   const seen = new Set<number>();
   const out: Point[][] = [];
   for (let i = 0; i < tiles.length; i += 1) {
@@ -117,7 +117,7 @@ function groups(width: number, height: number, tiles: Tile[], kind: Tile): Point
 export function parseLevel(id: string, title: string, rows: readonly string[]): Level {
   const width = rows[0]?.length ?? 0;
   if (width === 0) throw new Error(`Level ${id} is empty.`);
-  const tiles: Tile[] = [];
+  const tiles: TileCode[] = [];
   rows.forEach((row, y) => {
     if (row.length !== width) throw new Error(`Level ${id} row ${y} is ${row.length} wide, expected ${width}.`);
     for (const char of row) {
