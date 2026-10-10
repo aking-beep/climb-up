@@ -49,10 +49,16 @@ function reshapes the choice's effect *before* it is applied. That is the only
 hook a challenge has into the engine: a challenge outcome is never applied as a
 second effect on top of the card.
 
-One engine change was needed: `Effect.scores` may now hold a list of notes per
-score bucket, so a challenge's teamwork note does not overwrite the card's own
-teamwork note. A single note is still accepted, so existing event data is
-unchanged.
+Three small engine changes support this:
+
+- `Effect.scores` may hold a list of notes per score bucket, so a challenge's
+  teamwork note does not overwrite the card's own. A single note is still
+  accepted, so existing event data is unchanged.
+- A new move, `wait`, keeps the party where it is **without** the camp-rest
+  benefit that `hold` gives above 3000 m. Failed and abandoned challenges use
+  it, so walking away from a climb can never be a disguised rest day.
+- `Choice.id` is an optional stable id. Challenges are registered by card id and
+  choice id, so editing a choice's wording cannot break or redirect a challenge.
 
 ## Playable choice flow
 
@@ -74,15 +80,16 @@ router.back() to climb.tsx (field note shows the change)
 ### Contracts (`src/game/hybrid/types.ts`)
 
 - `ChallengeDefinition`: which card (`eventId`) and which choice
-  (`choiceLabel`, matched by label so reordering choices cannot launch the
-  wrong thing) open the challenge, and a `modifier(outcome, baseEffect, state)`
+  (`choiceId`, the choice's stable id, so neither reordering nor rewording
+  choices can launch the wrong thing) open the challenge, and a `modifier(outcome, baseEffect, state)`
   function returning an `OutcomeModifier`.
 - `PendingChallenge`: `attemptId`, `eventId`, `choiceIndex`, `choiceLabel`,
   `historyLength`, and a deterministic `seed` for the simulation.
 - `ChallengeOutcome`: `result` (`complete | retreat | fail`), `staminaLeft`,
   `slips`, `assisted`, `regrouped`, `seconds`. Plain data; savable.
 - `OutcomeModifier`: bounded stat deltas, extra hours, an optional
-  `move: 'hold'` (a challenge can take height away, never add it),
+  `move: 'wait'` (a challenge can take height away, never add it, and never
+  turns into a rest),
   `keepBaseScores`, and its own score notes.
 
 ### Invariants
@@ -184,6 +191,10 @@ platforms are iOS and Android.
 
 ## Native modules and Expo Go
 
+If Skia fails to load on a device, `ChallengeHost.tsx` catches it and shows an
+explanation with *Back off and stay at Barranco*, which resolves the attempt
+normally. The expedition never crashes because of the renderer.
+
 New native dependencies, installed at the versions pinned in
 `node_modules/expo/bundledNativeModules.json` for SDK 57:
 
@@ -204,8 +215,9 @@ npx expo start --dev-client
 ## Adding a challenge
 
 1. Author a level in `src/features/climbing/levels/` (tile map + backdrop).
-2. Add a `ChallengeDefinition` in the expedition's `challenges.ts` naming the
-   card id and choice label, with a modifier that respects the limits above.
+2. Give the launching choice an `id` in the event data, and add a
+   `ChallengeDefinition` in the expedition's `challenges.ts` naming the card id
+   and that choice id, with a modifier that respects the limits above.
 3. Add it to the expedition's `challenges` list. The coordinator, save, and
    expedition screen pick it up. `challenge.tsx` currently mounts the Barranco
    level directly; a second challenge needs a level lookup by `challengeId`.

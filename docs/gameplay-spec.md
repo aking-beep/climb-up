@@ -103,8 +103,8 @@ The card's effect (move up to Karanga, 12 h, −8 energy, +4 acclimatization,
 | Result | Modifier on top of the card |
 | --- | --- |
 | **Complete** | slips: −2 health each (max −6). Under 25 % stamina: −4 energy. Helped Marco: +3 team, *stopped for Marco* +4 teamwork. Left Marco: −4 team, *left Marco for Lena* −4 teamwork. Regrouped: +2 energy, +1 h, *regrouped halfway* +3 judgment. |
-| **Retreat** | stays at Barranco (`hold`), +12 h, +4 energy, −4 acclimatization, −2 team; card scores dropped; *backed off while it was your choice* +3 judgment |
-| **Fail** (3 slips) | stays at Barranco, +12 h, −6 health, −4 energy, −4 acclimatization, −4 team; card scores dropped; *the wall took more than the team had* −6 risk management |
+| **Retreat** | stays at Barranco (`wait`: no camp-rest bonus), +12 h, +4 energy, −4 acclimatization, −2 team; card scores dropped; *backed off while it was your choice* +3 judgment |
+| **Fail** (3 slips) | stays at Barranco (`wait`), +12 h, −6 health, −4 energy, −4 acclimatization, −4 team; card scores dropped; *the wall took more than the team had* −6 risk management |
 
 Balance rules, enforced by tests:
 

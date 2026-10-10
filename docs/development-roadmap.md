@@ -35,7 +35,7 @@ covered by automated tests. Nothing has been run on a physical device yet.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
-| 1. Audit and architecture | **Done** | Audit above; [hybrid-architecture.md](hybrid-architecture.md), [gameplay-spec.md](gameplay-spec.md), [hd2d-art-direction.md](hd2d-art-direction.md), [asset-manifest.md](asset-manifest.md), [testing.md](testing.md) |
+| 1. Audit and architecture | **Done** | Audit above; [hybrid-architecture.md](hybrid-architecture.md), [gameplay-spec.md](gameplay-spec.md), [hd2d-art-direction.md](hd2d-art-direction.md), [asset-manifest.md](asset-manifest.md), [audio.md](audio.md), [testing.md](testing.md) |
 | 2. Hybrid coordinator | **Done** | Pending challenges, deterministic attempt ids, registry by card and choice label, bounded reconciliation, exactly-once resolution, versioned SQLite save with migrations table, interrupted-attempt restore |
 | 3. Graybox climbing | **Done** | 60 Hz deterministic sim, tile collision, scrambling, stamina, wind, checkpoints, teammate, complete, retreat, and fail; Barranco level with a scripted full ascent in tests; touch pad |
 | 4. HD-2D graphics | **Partial** | Skia scene with the full 10-layer stack, parallax, depth blur, mist, particles, gust streaks, grading, sprite-sheet animation controller with 11 states. **Art is placeholder**: procedural wall, programmer sprites, reused background PNGs |

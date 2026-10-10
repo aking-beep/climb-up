@@ -8,7 +8,7 @@ import {
 } from '@/expeditions/kilimanjaro';
 import { BARRANCO_WALL, kilimanjaroHybrid } from '@/expeditions/kilimanjaro/challenges';
 import { KILI_EVENTS } from '@/expeditions/kilimanjaro/events';
-import { abandon, choose, createSession, play, resolve } from '@/game/hybrid/coordinator';
+import { abandon, challengeFor, choose, createSession, play, resolve } from '@/game/hybrid/coordinator';
 import { MODIFIER_LIMITS, combineEffect } from '@/game/hybrid/reconcile';
 import type { ChallengeOutcome, HybridSession } from '@/game/hybrid/types';
 import type { ExpeditionState } from '@/game/types';
@@ -61,7 +61,16 @@ function outcome(session: HybridSession, patch: Partial<ChallengeOutcome> = {}):
 describe('hybrid coordinator', () => {
   test('the registry points at a real card and a real choice', () => {
     const card = KILI_EVENTS.find((event) => event.id === BARRANCO_WALL.eventId);
-    expect(card?.choices.map((choice) => choice.label)).toContain(BARRANCO_WALL.choiceLabel);
+    expect(card?.choices.find((choice) => choice.id === BARRANCO_WALL.choiceId)?.label).toBe(CLIMB);
+  });
+
+  test('a choice is matched by its stable id, not its label', () => {
+    const card = KILI_EVENTS.find((event) => event.id === BARRANCO_WALL.eventId)!;
+    const index = card.choices.findIndex((choice) => choice.id === BARRANCO_WALL.choiceId);
+    const relabelled = { ...card, choices: card.choices.map((choice, i) => (i === index ? { ...choice, label: 'Go up' } : choice)) };
+    expect(challengeFor(kilimanjaroHybrid, relabelled, index)?.id).toBe('barranco-wall');
+    const unmarked = { ...card, choices: card.choices.map((choice, i) => (i === index ? { ...choice, id: undefined } : choice)) };
+    expect(challengeFor(kilimanjaroHybrid, unmarked, index)).toBeNull();
   });
 
   test('a plain choice is spent immediately, exactly as before', () => {
@@ -154,6 +163,8 @@ describe('hybrid coordinator', () => {
     expect(after.state.marks['wall-short']).toBeUndefined();
     expect(after.state.marks['wall-backoff']).toBe(true);
     expect(after.state.seen).toContain('kili-wall');
+    // A retreat waits; it does not collect the camp-rest benefit.
+    expect(after.state.lastNote).not.toContain('catch the altitude');
     // The way on is the ordinary route card now, not another free wall attempt.
     expect(currentKilimanjaroEvent(after.state).id).not.toBe('kili-wall');
   });

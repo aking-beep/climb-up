@@ -107,6 +107,12 @@ describe('decisions', () => {
     );
     expect(rested.acclimatization).toBe(climbed.acclimatization + 8);
 
+    const waited = applyEffect(climbed, { note: 'The step failed.', hours: 1, move: 'wait' }, everest);
+    expect(waited.acclimatization).toBe(climbed.acclimatization);
+    expect(waited.altitude).toBe(climbed.altitude);
+    expect(waited.checkpoint).toBe(climbed.checkpoint);
+    expect(waited.lastNote).not.toContain('catch the altitude');
+
     const spent = applyEffect(
       start,
       { note: 'Cache opened.', hours: 4, move: 'hold', supplies: -8, oxygen: 5 },
