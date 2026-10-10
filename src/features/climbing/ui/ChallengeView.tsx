@@ -4,16 +4,17 @@ import { AppState, BackHandler, Platform, Pressable, StyleSheet, Text, View, use
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { dayPhase, expeditionHour } from '@/components/world/scene';
-import type { ChallengeOutcome, PendingChallenge } from '@/game/hybrid/types';
+import type { ChallengeOutcome, OutcomeModifier, PendingChallenge } from '@/game/hybrid/types';
 import type { Settings } from '@/game/save/settings';
 import type { ExpeditionState } from '@/game/types';
 import { body, font, line, muted, paper, paperRaised, spruce, spruceInk } from '@/theme';
 
 import { hintFor } from '../hints';
+import { describeImpact, stakesLine } from '../impact';
 import { ClimbCanvas } from '../render/ClimbCanvas';
 import { SCENES } from '../scenes';
 import { createRuntime, type HeldKey } from '../runtime';
-import { TUNING, outcomeOf, type Command, type SimEvent } from '../sim';
+import { TUNING, canHelp, outcomeOf, type Command, type SimEvent } from '../sim';
 import { Controls } from './Controls';
 
 type Phase = 'brief' | 'play' | 'paused';
@@ -27,6 +28,8 @@ type Props = {
   onFinish: (outcome: ChallengeOutcome) => void;
   /** Called when the player backs off from the briefing. */
   onBackOff: () => void;
+  /** What an outcome would do to the expedition, for showing the stakes. */
+  preview?: (outcome: ChallengeOutcome) => OutcomeModifier | null;
 };
 
 const TILES_ACROSS = 11;
@@ -46,11 +49,15 @@ const KEYS: Record<string, HeldKey> = {
 
 function buzz(events: readonly SimEvent[]) {
   for (const event of events) {
-    if (event === 'slip' || event === 'fail') {
+    if (event === 'caught') {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => undefined);
+    } else if (event === 'slip' || event === 'fail') {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
     } else if (event === 'complete') {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-    } else if (event === 'checkpoint' || event === 'helped') {
+    } else if (event === 'helped') {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+    } else if (event === 'checkpoint') {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     } else if (event === 'gust-warn' || event === 'mate') {
       void Haptics.selectionAsync().catch(() => undefined);
@@ -58,7 +65,7 @@ function buzz(events: readonly SimEvent[]) {
   }
 }
 
-export function ChallengeView({ pending, state, settings, onSettings, onFinish, onBackOff }: Props) {
+export function ChallengeView({ pending, state, settings, onSettings, onFinish, onBackOff, preview }: Props) {
   const insets = useSafeAreaInsets();
   const scene = SCENES[pending.challengeId];
   const copy = scene.copy;
@@ -71,7 +78,7 @@ export function ChallengeView({ pending, state, settings, onSettings, onFinish, 
   const [runtime] = useState(() =>
     createRuntime({
       level: SCENES[pending.challengeId].level,
-      recovery: SCENES[pending.challengeId].recovery,
+      difficulty: SCENES[pending.challengeId].difficulty,
       seed: pending.seed,
       energy: state.energy,
       weatherRisk: state.weatherRisk,
@@ -135,6 +142,8 @@ export function ChallengeView({ pending, state, settings, onSettings, onFinish, 
     const down = (event: KeyboardEvent) => {
       const key = KEYS[event.key];
       if (key) runtime.press(key, true);
+      // Space starts helping a teammate, the same as tapping the button.
+      if (key === 'act' && !event.repeat) runtime.order({ type: 'help' });
       if (event.key === 'Escape') setPhase((current) => (current === 'play' ? 'paused' : current));
     };
     const up = (event: KeyboardEvent) => {
@@ -164,7 +173,18 @@ export function ChallengeView({ pending, state, settings, onSettings, onFinish, 
   const sim = frame.sim;
   const mode = sim.mode;
   const gameHour = expeditionHour(state.elapsedHours + 3);
-  const hint = hintFor(sim);
+  const hint = hintFor(sim, mateName || undefined);
+  const helping = sim.helping || frame.acting;
+  const able = canHelp(sim);
+  // The stakes of the teammate choice, from the same rules that will land it.
+  const ifTopOut = (assisted: boolean) =>
+    stakesLine(
+      preview?.({ attemptId: pending.attemptId, challengeId: pending.challengeId, result: 'complete', staminaLeft: 100, slips: 0, assisted, regrouped: false, seconds: 0 }) ?? null,
+      'teamCondition',
+      'teamwork',
+    );
+  const ended = mode === 'done' ? outcomeOf(sim, pending.attemptId, pending.challengeId) : null;
+  const impact = ended ? describeImpact(preview?.(ended) ?? null) : [];
   const staminaPct = Math.round((sim.stamina / sim.maxStamina) * 100);
   const helpPct = Math.round((sim.helpTicks / TUNING.helpTicks) * 100);
 
@@ -200,8 +220,11 @@ export function ChallengeView({ pending, state, settings, onSettings, onFinish, 
               <View style={[styles.barFill, { width: `${staminaPct}%`, backgroundColor: staminaPct < 25 ? '#c0573e' : staminaPct < 50 ? '#d9a441' : '#7fa36b' }]} />
             </View>
             <Text style={styles.hudText}>
-              Stamina {staminaPct}% · Slips {sim.slips}/{TUNING.maxSlips} · Cairn {sim.checkpoint}/{sim.level.checkpoints.length - 1}
+              Stamina {staminaPct}% · Slips {sim.slips}/{sim.maxSlips} · Cairn {sim.checkpoint}/{sim.level.checkpoints.length - 1}
             </Text>
+            {sim.mate.state === 'helped' ? (
+              <Text style={styles.hudText}>{sim.spotter ? `${mateName} has your back: one slip caught` : `${mateName} is with you`}</Text>
+            ) : null}
             {showPerf ? (
               <Text style={styles.hudText}>
                 {frame.fps} fps · sim {frame.simMs.toFixed(2)} ms/frame{settings.lowPower ? ' · low power' : ''}
@@ -246,36 +269,34 @@ export function ChallengeView({ pending, state, settings, onSettings, onFinish, 
         <Sheet bottom={insets.bottom}>
           <Text style={styles.kicker}>Teammate</Text>
           <Text style={styles.title}>{copy.mateTitle}</Text>
-          <Text style={styles.body}>
-            {copy.mateBody} Helping costs you {TUNING.helpCost} stamina. Lena is behind and could bring {mateName} later.
+          <Text style={styles.body}>{copy.mateBody}</Text>
+          <Text style={styles.facts}>
+            Help: costs {sim.helpCost} stamina now. {mateName} climbs behind you and catches your next slip.
+            {ifTopOut(true) ? ` At camp: ${ifTopOut(true)}.` : ''}
+          </Text>
+          <Text style={styles.facts}>
+            Leave: free now. Lena brings {mateName} up later, and you climb on alone.
+            {ifTopOut(false) ? ` At camp: ${ifTopOut(false)}.` : ''}
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={settings.holdAsToggle ? `Help ${mateName}. Tap to start or stop` : `Help ${mateName}. Press and hold`}
-            accessibilityState={{ disabled: sim.stamina < TUNING.helpCost }}
-            onPressIn={() => {
-              if (!settings.holdAsToggle) runtime.press('act', true);
-            }}
-            onPressOut={() => {
-              if (!settings.holdAsToggle) runtime.press('act', false);
-            }}
-            onPress={() => {
-              if (settings.holdAsToggle) runtime.toggle('act');
-            }}
-            style={({ pressed }) => [styles.button, styles.primary, pressed && styles.pressed, sim.stamina < TUNING.helpCost && styles.disabled]}
+            accessibilityLabel={helping ? `Helping ${mateName}. Tap to stop` : `Help ${mateName} up`}
+            accessibilityState={{ disabled: !able, busy: helping }}
+            accessibilityValue={helping ? { min: 0, max: 100, now: helpPct } : undefined}
+            disabled={!able}
+            onPress={() => order({ type: helping ? 'stop-help' : 'help' })}
+            style={({ pressed }) => [styles.button, styles.primary, pressed && styles.pressed, !able && styles.disabled]}
           >
             <View style={[styles.holdFill, { width: `${helpPct}%` }]} />
             <Text style={[styles.buttonText, styles.primaryText]}>
-              {sim.stamina < TUNING.helpCost
-                ? 'Not enough stamina. Step back and rest first'
-                : settings.holdAsToggle
-                  ? frame.acting
-                    ? 'Helping… tap to stop'
-                    : `Tap to help ${mateName}`
-                  : `Hold to help ${mateName}`}
+              {!able
+                ? `Need ${sim.helpCost}% stamina. Step back and rest first`
+                : helping
+                  ? `Helping ${mateName} up… ${helpPct}%`
+                  : `Help ${mateName} up (−${sim.helpCost} stamina)`}
             </Text>
           </Pressable>
-          <Button label="Leave him for Lena" onPress={() => order({ type: 'leave-mate' })} />
+          <Button label={`Leave ${mateName} for Lena`} onPress={() => order({ type: 'leave-mate' })} />
           <Button label="Step back" onPress={() => order({ type: 'step-back' })} />
         </Sheet>
       ) : null}
@@ -284,7 +305,12 @@ export function ChallengeView({ pending, state, settings, onSettings, onFinish, 
         <Sheet bottom={insets.bottom}>
           <Text style={styles.kicker}>Halfway up</Text>
           <Text style={styles.title}>{sim.mate.state === 'helped' ? copy.decideTitleHelped : copy.decideTitleLeft}</Text>
-          <Text style={styles.body}>Stamina {staminaPct}%. {copy.decideBody}</Text>
+          <Text style={styles.body}>
+            {sim.mate.state === 'helped'
+              ? `${mateName} climbs behind you now and will catch your next slip. `
+              : `${mateName} waits for Lena. You are on your own from here. `}
+            Stamina {staminaPct}%. {copy.decideBody}
+          </Text>
           <Button primary label="Keep climbing" onPress={() => order({ type: 'continue' })} />
           <Button label="Regroup here (half an hour, full stamina)" onPress={() => order({ type: 'regroup' })} />
           <Button label={`Turn back to ${copy.returnTo}`} onPress={() => order({ type: 'retreat' })} />
@@ -300,8 +326,19 @@ export function ChallengeView({ pending, state, settings, onSettings, onFinish, 
           <Text style={styles.body}>
             {sim.slips === 0 ? 'No slips.' : `${sim.slips} slip${sim.slips === 1 ? '' : 's'}.`} Stamina {staminaPct}%.{' '}
             {sim.mate.state === 'helped' ? `You helped ${mateName}.` : sim.mate.state === 'left' && sim.level.mate ? `Lena brought ${mateName}.` : ''}
+            {sim.caught > 0 ? ` ${mateName} caught ${sim.caught === 1 ? 'a slip' : `${sim.caught} slips`}.` : ''}
             {sim.regrouped ? ' The party regrouped on the wall.' : ''}
           </Text>
+          {impact.length > 0 ? (
+            <View style={styles.impact} accessible accessibilityLabel={`At camp: ${impact.join('. ')}`}>
+              <Text style={styles.kicker}>At camp</Text>
+              {impact.map((item) => (
+                <Text key={item} style={styles.impactLine}>
+                  {item}
+                </Text>
+              ))}
+            </View>
+          ) : null}
           <Text style={styles.small}>This lands on the expedition once, when you return.</Text>
           <Button primary label="Return to the expedition" onPress={finish} />
         </Sheet>
@@ -322,7 +359,6 @@ export function ChallengeView({ pending, state, settings, onSettings, onFinish, 
           <Toggle label="Reduced motion" value={settings.reducedMotion} onChange={(v) => onSettings({ reducedMotion: v })} />
           <Toggle label="Low power (30 fps, less weather)" value={settings.lowPower} onChange={(v) => onSettings({ lowPower: v })} />
           <Toggle label="Pad on the right" value={settings.leftHanded} onChange={(v) => onSettings({ leftHanded: v })} />
-          <Toggle label="Tap instead of hold for help" value={settings.holdAsToggle} onChange={(v) => onSettings({ holdAsToggle: v })} />
           <Toggle label="Show frame rate" value={showPerf} onChange={setShowPerf} />
         </Sheet>
       ) : null}
@@ -429,7 +465,9 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.5 },
   buttonText: { fontFamily: font.display, fontSize: 17, color: body },
   primaryText: { color: spruceInk },
-  holdFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: 'rgba(244,241,234,0.25)' },
+  holdFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: '#3f6b5b' },
+  impact: { borderTopWidth: 1, borderTopColor: line, paddingTop: 8, gap: 2 },
+  impactLine: { fontFamily: font.bodyMedium, fontSize: 14, lineHeight: 19, color: body },
   toggle: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   toggleLabel: { fontFamily: font.body, fontSize: 15, color: body },
   toggleValue: { fontFamily: font.bodySemi, fontSize: 15, color: muted },

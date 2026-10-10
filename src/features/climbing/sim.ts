@@ -33,9 +33,7 @@ export const TUNING = {
   /** A fall longer than this, in tiles, is a slip. */
   safeFall: 3.2,
   slipTicks: 54,
-  maxSlips: 3,
   helpTicks: 72,
-  helpCost: 15,
   gustWarnTicks: 90,
   gustBlowTicks: 66,
 } as const;
@@ -48,6 +46,25 @@ export type ClimbInput = {
   /** Held context action (help a teammate). */
   act: boolean;
 };
+
+/**
+ * How hard one climb is. The three climbs ramp up: the Lava Tower is the
+ * warm-up, the Barranco Wall the middle, and the summit night the hardest.
+ */
+export type Difficulty = {
+  /** Fraction of normal stamina recovery (the cold slows it). */
+  recovery: number;
+  /** Multiplies stamina drain on the rock (thin air and cold make it costlier). */
+  drain: number;
+  /** Added to the expedition's weather risk when timing the gusts. */
+  wind: number;
+  /** Slips before the attempt fails. */
+  maxSlips: number;
+  /** Stamina it costs to help a teammate. */
+  helpCost: number;
+};
+
+export const NORMAL: Difficulty = { recovery: 1, drain: 1, wind: 0, maxSlips: 3, helpCost: 15 };
 
 export const NO_INPUT: ClimbInput = { x: 0, y: 0, act: false };
 
@@ -68,9 +85,21 @@ export type Pose =
 export type Mode = 'play' | 'mate' | 'decide' | 'done';
 export type MateState = 'waiting' | 'helped' | 'left';
 export type Gust = 'calm' | 'warn' | 'blow';
-export type SimEvent = 'slip' | 'checkpoint' | 'gust-warn' | 'gust' | 'mate' | 'helped' | 'complete' | 'fail' | 'retreat';
+export type SimEvent =
+  | 'slip'
+  | 'caught'
+  | 'checkpoint'
+  | 'gust-warn'
+  | 'gust'
+  | 'mate'
+  | 'helped'
+  | 'complete'
+  | 'fail'
+  | 'retreat';
 
 export type Command =
+  | { type: 'help' }
+  | { type: 'stop-help' }
   | { type: 'leave-mate' }
   | { type: 'step-back' }
   | { type: 'continue' }
@@ -83,6 +112,9 @@ export type ClimbSim = {
   maxStamina: number;
   /** Fraction of normal stamina recovery (cold slows it). */
   recovery: number;
+  drain: number;
+  maxSlips: number;
+  helpCost: number;
   gustPeriod: number;
   tick: number;
   /** Ticks the party spent off the clock (regrouping). */
@@ -102,6 +134,14 @@ export type ClimbSim = {
   mode: Mode;
   mate: { state: MateState; x: number; y: number; cooldown: boolean };
   helpTicks: number;
+  /** Helping is under way: it runs to the end unless stopped. */
+  helping: boolean;
+  /** A helped teammate is close behind and will catch the next slip. */
+  spotter: boolean;
+  /** Slips a teammate caught. They do not count toward failing. */
+  caught: number;
+  /** The slip being played out was caught. */
+  saved: boolean;
   regrouped: boolean;
   result: ChallengeResult | null;
   pose: Pose;
@@ -119,8 +159,8 @@ export type SimOptions = {
   energy: number;
   /** Expedition weather risk, 0–100. More weather, more frequent gusts. */
   weatherRisk: number;
-  /** 0–1: how much of the usual stamina recovery the cold allows. Default 1. */
-  recovery?: number;
+  /** How hard this climb is. Missing fields are NORMAL. */
+  difficulty?: Partial<Difficulty>;
 };
 
 const EPS = 1e-3;
@@ -129,14 +169,18 @@ export function maxStaminaFor(energy: number): number {
   return Math.round(clamp(55 + energy * 0.45, 55, 100));
 }
 
-export function createSim({ level, seed, energy, weatherRisk, recovery = 1 }: SimOptions): ClimbSim {
+export function createSim({ level, seed, energy, weatherRisk, difficulty }: SimOptions): ClimbSim {
   const maxStamina = maxStaminaFor(energy);
+  const hard: Difficulty = { ...NORMAL, ...difficulty };
   return {
     level,
     seed: seed >>> 0,
     maxStamina,
-    recovery: clamp(recovery, 0.2, 1),
-    gustPeriod: Math.round(clamp(330 - weatherRisk * 1.2, 210, 330)),
+    recovery: clamp(hard.recovery, 0.2, 1.2),
+    drain: clamp(hard.drain, 0.5, 2),
+    maxSlips: Math.round(clamp(hard.maxSlips, 1, 5)),
+    helpCost: Math.round(clamp(hard.helpCost, 0, 40)),
+    gustPeriod: Math.round(clamp(330 - (weatherRisk + hard.wind) * 1.2, 180, 360)),
     tick: 0,
     extraTicks: 0,
     x: level.start.x,
@@ -156,6 +200,10 @@ export function createSim({ level, seed, energy, weatherRisk, recovery = 1 }: Si
       ? { state: 'waiting', x: level.mate.x, y: level.mate.y, cooldown: false }
       : { state: 'left', x: 0, y: 0, cooldown: false },
     helpTicks: 0,
+    helping: false,
+    spotter: false,
+    caught: 0,
+    saved: false,
     regrouped: false,
     result: null,
     pose: 'idle',
@@ -238,24 +286,34 @@ function approach(value: number, target: number, amount: number): number {
 
 function slip(sim: ClimbSim) {
   if (sim.slipTicks > 0) return;
-  sim.slips += 1;
+  // A teammate you helped is close behind and grabs your pack, once.
+  sim.saved = sim.spotter;
+  if (sim.saved) {
+    sim.spotter = false;
+    sim.caught += 1;
+  } else {
+    sim.slips += 1;
+  }
   sim.slipTicks = TUNING.slipTicks;
   sim.climbing = false;
   sim.vx = 0;
   sim.vy = 0;
-  sim.events.push('slip');
+  sim.events.push(sim.saved ? 'caught' : 'slip');
 }
 
 function finish(sim: ClimbSim, result: ChallengeResult) {
   sim.mode = 'done';
   sim.result = result;
+  sim.helping = false;
+  // Walking past a teammate without stopping leaves them for Lena.
+  if (result === 'complete' && sim.level.mate && sim.mate.state === 'waiting') sim.mate.state = 'left';
   sim.events.push(result === 'complete' ? 'complete' : result === 'fail' ? 'fail' : 'retreat');
 }
 
 function settleSlip(sim: ClimbSim) {
   sim.slipTicks -= 1;
   if (sim.slipTicks > 0) return;
-  if (sim.slips >= TUNING.maxSlips) {
+  if (sim.slips >= sim.maxSlips) {
     finish(sim, 'fail');
     return;
   }
@@ -266,18 +324,33 @@ function settleSlip(sim: ClimbSim) {
   sim.vy = 0;
   sim.grounded = true;
   sim.fallFrom = null;
-  sim.stamina = Math.max(sim.stamina, sim.maxStamina * 0.5);
+  // Caught: the teammate shares the weight and you get more breath back.
+  sim.stamina = Math.max(sim.stamina, sim.maxStamina * (sim.saved ? 0.75 : 0.5));
+  sim.saved = false;
 }
 
+/** Whether the climber has the arms to help a teammate up right now. */
+export function canHelp(sim: Pick<ClimbSim, 'stamina' | 'helpCost'>): boolean {
+  return sim.stamina >= sim.helpCost;
+}
+
+/**
+ * Helping takes about 1.2 seconds. A tap on the help button starts it and it
+ * runs to the end; holding the context action does the same. Letting go of a
+ * held action before then drains the progress instead of resetting it.
+ */
 function stepMate(sim: ClimbSim, input: ClimbInput) {
-  const able = sim.stamina >= TUNING.helpCost;
-  if (input.act && able) sim.helpTicks += 1;
+  const able = canHelp(sim);
+  if (!able) sim.helping = false;
+  if ((sim.helping || input.act) && able) sim.helpTicks += 1;
   else sim.helpTicks = Math.max(0, sim.helpTicks - 2);
   if (sim.helpTicks >= TUNING.helpTicks) {
-    sim.stamina -= TUNING.helpCost;
+    sim.stamina -= sim.helpCost;
     sim.mate.state = 'helped';
     sim.mode = 'decide';
     sim.helpTicks = 0;
+    sim.helping = false;
+    sim.spotter = true;
     sim.events.push('helped');
   }
 }
@@ -309,7 +382,7 @@ function stepClimbing(sim: ClimbSim, input: ClimbInput) {
   const moving = Math.abs(input.x) > 0.2 || Math.abs(input.y) > 0.2;
   sim.vx = input.x * TUNING.climbSide;
   sim.vy = -input.y * TUNING.climbUp;
-  sim.stamina -= (moving ? TUNING.drainClimbing : TUNING.drainHanging) * (loose ? TUNING.looseFactor : 1) * STEP;
+  sim.stamina -= (moving ? TUNING.drainClimbing : TUNING.drainHanging) * (loose ? TUNING.looseFactor : 1) * sim.drain * STEP;
 
   moveX(sim, sim.vx * STEP);
   if (!touches(sim, isClimbable)) {
@@ -361,7 +434,7 @@ function stepWalking(sim: ClimbSim, input: ClimbInput) {
 function poseOf(sim: ClimbSim, input: ClimbInput): Pose {
   if (sim.slipTicks > 0) return 'slip';
   if (sim.result === 'complete') return 'celebrate';
-  if (sim.mode === 'mate') return input.act && sim.stamina >= TUNING.helpCost ? 'help' : 'idle';
+  if (sim.mode === 'mate') return (sim.helping || input.act) && canHelp(sim) ? 'help' : 'idle';
   if (sim.mode !== 'play') return 'idle';
   if (sim.climbing) return Math.abs(input.x) > 0.2 || Math.abs(input.y) > 0.2 ? 'climb' : 'hang';
   if (!sim.grounded) return 'fall';
@@ -449,13 +522,19 @@ export function command(sim: ClimbSim, order: Command): ClimbSim {
     return sim;
   }
   if (sim.mode === 'mate') {
+    if (order.type === 'help' && canHelp(sim)) sim.helping = true;
+    if (order.type === 'stop-help') sim.helping = false;
     if (order.type === 'leave-mate') {
       sim.mate.state = 'left';
       sim.mode = 'decide';
+      sim.helping = false;
+      sim.helpTicks = 0;
     }
     if (order.type === 'step-back') {
       sim.mate.cooldown = true;
       sim.mode = 'play';
+      sim.helping = false;
+      sim.helpTicks = 0;
     }
     return sim;
   }

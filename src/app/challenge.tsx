@@ -3,7 +3,9 @@ import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { kilimanjaroHybrid } from '@/expeditions/kilimanjaro/challenges';
 import { ChallengeHost } from '@/features/climbing/ui/ChallengeHost';
+import { previewModifier } from '@/game/hybrid/coordinator';
 import { gameStore, settingsStore, useGameSession, useSettings } from '@/game/session';
 import { body, font, paper, spruce, spruceInk } from '@/theme';
 
@@ -40,6 +42,7 @@ export default function ChallengeScreen() {
         state={state}
         settings={settings}
         onSettings={(patch) => settingsStore.update(patch)}
+        preview={(outcome) => previewModifier(kilimanjaroHybrid, state, pending, outcome)}
         onFinish={(outcome) => {
           gameStore.resolve(outcome);
           backToCamp();

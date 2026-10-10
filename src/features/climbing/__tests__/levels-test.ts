@@ -2,6 +2,7 @@
 
 import { LAVA_TOWER_LEVEL } from '@/features/climbing/levels/lavaTower';
 import { SUMMIT_NIGHT_LEVEL } from '@/features/climbing/levels/summitNight';
+import { SCENES } from '@/features/climbing/scenes';
 import {
   HZ,
   NO_INPUT,
@@ -43,7 +44,7 @@ describe('the Lava Tower', () => {
   });
 
   test('a careful climb reaches the top', () => {
-    const sim = createSim({ level: LAVA_TOWER_LEVEL, seed: 5, energy: 85, weatherRisk: 25 });
+    const sim = createSim({ level: LAVA_TOWER_LEVEL, seed: 5, energy: 85, weatherRisk: 25, difficulty: SCENES['lava-tower'].difficulty });
     drive(sim, RIGHT, (s) => s.x >= 4.4);
     drive(sim, UP, (s) => s.y < 27.6);
     drive(sim, RIGHT, (s) => s.x >= 8.4 && s.grounded);
@@ -76,7 +77,7 @@ describe('the summit night', () => {
 
   test('the cold slows recovery', () => {
     const warm = createSim({ level: SUMMIT_NIGHT_LEVEL, seed: 1, energy: 80, weatherRisk: 20 });
-    const cold = createSim({ level: SUMMIT_NIGHT_LEVEL, seed: 1, energy: 80, weatherRisk: 20, recovery: 0.55 });
+    const cold = createSim({ level: SUMMIT_NIGHT_LEVEL, seed: 1, energy: 80, weatherRisk: 20, difficulty: { recovery: 0.55 } });
     warm.stamina = 10;
     cold.stamina = 10;
     for (let i = 0; i < HZ; i += 1) {
@@ -87,7 +88,7 @@ describe('the summit night', () => {
   });
 
   test('a careful climb reaches Stella Point, helping Jun', () => {
-    const sim = createSim({ level: SUMMIT_NIGHT_LEVEL, seed: 9, energy: 70, weatherRisk: 30, recovery: 0.55 });
+    const sim = createSim({ level: SUMMIT_NIGHT_LEVEL, seed: 9, energy: 70, weatherRisk: 30, difficulty: SCENES['summit-night'].difficulty });
     drive(sim, RIGHT, (s) => s.x >= 20.5);
     drive(sim, UP, (s) => s.y < 32.8);
     drive(sim, LEFT, (s) => s.x <= 19 && s.grounded);

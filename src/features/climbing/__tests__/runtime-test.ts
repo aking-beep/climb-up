@@ -56,3 +56,29 @@ describe('climb runtime', () => {
     expect(hintFor(r.live())).toMatch(/hold up/i);
   });
 });
+
+describe('held input across mode changes', () => {
+  test('a button held when the teammate sheet opens does not stay held', () => {
+    const r = runtime();
+    r.press('right', true);
+    r.advance(1 / 60, false, true);
+    // The pad unmounts under the finger as the sheet opens: no release arrives.
+    r.live().mode = 'mate';
+    r.advance(1 / 60, false, true);
+    r.order({ type: 'step-back' });
+    const x = r.live().x;
+    for (let i = 0; i < 60; i += 1) r.advance(1 / 60, false, true);
+    expect(r.live().x).toBeCloseTo(x, 1);
+    expect(r.frame().acting).toBe(false);
+  });
+
+  test('a tap on help runs to the end without holding anything', () => {
+    const r = runtime();
+    r.live().mode = 'mate';
+    r.advance(1 / 60, false, true);
+    r.order({ type: 'help' });
+    for (let i = 0; i < 90; i += 1) r.advance(1 / 60, false, true);
+    expect(r.live().mate.state).toBe('helped');
+    expect(r.live().mode).toBe('decide');
+  });
+});

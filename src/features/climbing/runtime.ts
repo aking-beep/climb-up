@@ -1,6 +1,6 @@
 import { createCamera, followCamera, kick, type Camera, type View } from './camera';
 import type { Level } from './level';
-import { STEP, command, createSim, step, type ClimbInput, type ClimbSim, type Command, type SimEvent } from './sim';
+import { STEP, command, createSim, step, type ClimbInput, type ClimbSim, type Command, type Difficulty, type Mode, type SimEvent } from './sim';
 
 export type HeldKey = 'left' | 'right' | 'up' | 'down' | 'act';
 
@@ -19,8 +19,8 @@ export type RuntimeOptions = {
   seed: number;
   energy: number;
   weatherRisk: number;
-  /** Fraction of normal stamina recovery; the summit night is cold. */
-  recovery?: number;
+  /** How hard this climb is; the summit night is the hardest. */
+  difficulty?: Partial<Difficulty>;
   view: View;
   onEvents?: (events: readonly SimEvent[]) => void;
   now?: () => number;
@@ -45,6 +45,7 @@ export function createRuntime(options: RuntimeOptions) {
   let simMs = 0;
   let frames = 0;
   let since = 0;
+  let mode: Mode = sim.mode;
   let frame: Frame = snapshot();
   const listeners = new Set<() => void>();
 
@@ -72,9 +73,25 @@ export function createRuntime(options: RuntimeOptions) {
     for (const listener of listeners) listener();
   }
 
+  function releaseAll() {
+    for (const key of Object.keys(held) as HeldKey[]) held[key] = false;
+  }
+
+  /**
+   * A mode change swaps the controls on screen (the pad hides while a
+   * teammate sheet is up). A finger still down on a button that unmounts
+   * never sends its release, so every change of mode starts from hands off.
+   */
+  function settle() {
+    if (sim.mode === mode) return;
+    mode = sim.mode;
+    releaseAll();
+  }
+
   function react(events: readonly SimEvent[], reducedMotion: boolean) {
     if (events.length === 0) return;
     if (events.includes('slip')) camera = kick(camera, 0.8, reducedMotion);
+    if (events.includes('caught')) camera = kick(camera, 0.35, reducedMotion);
     if (events.includes('gust')) camera = kick(camera, 0.25, reducedMotion);
     onEvents?.(events);
   }
@@ -98,11 +115,10 @@ export function createRuntime(options: RuntimeOptions) {
       held[key] = !held[key];
       publish();
     },
-    release() {
-      for (const key of Object.keys(held) as HeldKey[]) held[key] = false;
-    },
+    release: releaseAll,
     order(next: Command, reducedMotion = false) {
       command(sim, next);
+      settle();
       react(sim.events, reducedMotion);
       publish();
     },
@@ -113,6 +129,7 @@ export function createRuntime(options: RuntimeOptions) {
       let steps = 0;
       while (acc >= STEP && steps < 6) {
         step(sim, input());
+        settle();
         react(sim.events, reducedMotion);
         acc -= STEP;
         steps += 1;

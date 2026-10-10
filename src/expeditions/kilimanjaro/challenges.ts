@@ -22,6 +22,25 @@ type ClimbCopy = {
   topOut: string;
   backOff: string;
   fail: string;
+  /** What the climb costs. Later climbs cost more: the summit most of all. */
+  stakes: Stakes;
+};
+
+type Stakes = {
+  /** Health per slip, and at most. */
+  slip: number;
+  slipMax: number;
+  /** A failed attempt. */
+  failHealth: number;
+  failEnergy: number;
+  /** Stopping for the teammate: team condition and teamwork. */
+  assistTeam: number;
+  assistScore: number;
+  /** The helped teammate shares the load tomorrow. Shows even when the team is already at its best. */
+  assistEnergy: number;
+  /** Leaving the teammate for Lena. Negative. */
+  leftTeam: number;
+  leftScore: number;
 };
 
 /** The day a turned-back climb costs, beyond the card's own hours. */
@@ -58,7 +77,7 @@ function climb(copy: ClimbCopy): ChallengeDefinition {
           move: 'wait',
           hours: lostDay(base),
           keepBaseScores: false,
-          stats: { health: -6, energy: -4, acclimatization: unlearn, teamCondition: unsettle - 4 },
+          stats: { health: copy.stakes.failHealth, energy: copy.stakes.failEnergy, acclimatization: unlearn, teamCondition: unsettle - 4 },
           scores: {
             riskManagement: { label: `${copy.title} took more than the team had`, delta: -6, mark: `${copy.mark}-fail` },
           },
@@ -68,8 +87,9 @@ function climb(copy: ClimbCopy): ChallengeDefinition {
       const stats: OutcomeModifier['stats'] = {};
       const scores: OutcomeModifier['scores'] = {};
       const bits = [copy.topOut];
+      const { stakes } = copy;
       if (outcome.slips > 0) {
-        stats.health = -Math.min(6, outcome.slips * 2);
+        stats.health = -Math.min(stakes.slipMax, outcome.slips * stakes.slip);
         bits.push(outcome.slips === 1 ? 'after one slip' : `after ${outcome.slips} slips`);
       }
       if (outcome.staminaLeft < 25) {
@@ -77,12 +97,13 @@ function climb(copy: ClimbCopy): ChallengeDefinition {
         bits.push('with nothing left in your arms');
       }
       if (copy.mate && outcome.assisted === true) {
-        stats.teamCondition = 3;
-        scores.teamwork = { label: `You stopped for ${copy.mate} on ${copy.title}`, delta: 4, mark: `${copy.mark}-assist` };
+        stats.teamCondition = stakes.assistTeam;
+        stats.energy = (stats.energy ?? 0) + stakes.assistEnergy;
+        scores.teamwork = { label: `You stopped for ${copy.mate} on ${copy.title}`, delta: stakes.assistScore, mark: `${copy.mark}-assist` };
         bits.push(`and ${copy.mate} is beside you`);
       } else if (copy.mate && outcome.assisted === false) {
-        stats.teamCondition = -4;
-        scores.teamwork = { label: `You left ${copy.mate} for Lena on ${copy.title}`, delta: -4, mark: `${copy.mark}-left` };
+        stats.teamCondition = stakes.leftTeam;
+        scores.teamwork = { label: `You left ${copy.mate} for Lena on ${copy.title}`, delta: stakes.leftScore, mark: `${copy.mark}-left` };
         bits.push(`and Lena brings ${copy.mate} up later`);
       }
       if (outcome.regrouped) {
@@ -109,6 +130,7 @@ export const LAVA_TOWER = climb({
   topOut: 'You touch the top of the Lava Tower and drop to Barranco to sleep low',
   backOff: 'You turn back under the tower and the party walks down to the Shira 2 tents again.',
   fail: 'The tower scree keeps sliding out from under you. You go back down to Shira 2, slowly.',
+  stakes: { slip: 1, slipMax: 4, failHealth: -4, failEnergy: -3, assistTeam: 0, assistScore: 0, assistEnergy: 0, leftTeam: 0, leftScore: 0 },
 });
 
 export const BARRANCO_WALL = climb({
@@ -120,6 +142,7 @@ export const BARRANCO_WALL = climb({
   topOut: 'You top out on the wall, and Karanga is pitched as the light goes',
   backOff: 'You back off the wall and the party walks down to the Barranco tents again.',
   fail: 'The wall takes more than the party has. You climb down to Barranco, slowly.',
+  stakes: { slip: 2, slipMax: 6, failHealth: -6, failEnergy: -4, assistTeam: 5, assistScore: 6, assistEnergy: 3, leftTeam: -6, leftScore: -6 },
 });
 
 export const SUMMIT_NIGHT = climb({
@@ -131,6 +154,7 @@ export const SUMMIT_NIGHT = climb({
   topOut: 'You reach Stella Point as the sky goes pale, then walk the rim to Uhuru',
   backOff: 'You turn the headlamps around on the scree and the party is back at Barafu before dawn.',
   fail: 'The cold and the scree win tonight. The party comes down to Barafu in the dark.',
+  stakes: { slip: 3, slipMax: 9, failHealth: -10, failEnergy: -6, assistTeam: 6, assistScore: 8, assistEnergy: 4, leftTeam: -10, leftScore: -8 },
 });
 
 export const KILI_CHALLENGES: readonly ChallengeDefinition[] = [LAVA_TOWER, BARRANCO_WALL, SUMMIT_NIGHT];

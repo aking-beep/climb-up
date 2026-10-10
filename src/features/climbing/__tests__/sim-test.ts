@@ -34,7 +34,7 @@ const LEFT: ClimbInput = { x: -1, y: 0, act: false };
 const UP: ClimbInput = { x: 0, y: 1, act: false };
 
 /** A careful player: walks, scrambles, waits out the wind, helps Marco. */
-function climbBarranco(sim: ClimbSim, onMate: 'help' | 'leave' = 'help') {
+function climbBarranco(sim: ClimbSim, onMate: 'help' | 'tap' | 'leave' | 'pass' = 'help') {
   // Camp, then the two boulders.
   drive(sim, RIGHT, (s) => s.x >= 5.3);
   drive(sim, UP, (s) => s.y < 31.5);
@@ -61,10 +61,16 @@ function climbBarranco(sim: ClimbSim, onMate: 'help' | 'leave' = 'help') {
   if (onMate === 'help') {
     drive(sim, { x: 0, y: 0, act: true }, (s) => s.mode === 'decide');
     expect(sim.mate.state).toBe('helped');
-  } else {
+  } else if (onMate === 'tap') {
+    command(sim, { type: 'help' });
+    drive(sim, NO_INPUT, (s) => s.mode === 'decide');
+    expect(sim.mate.state).toBe('helped');
+  } else if (onMate === 'leave') {
     command(sim, { type: 'leave-mate' });
+  } else {
+    command(sim, { type: 'step-back' });
   }
-  command(sim, { type: 'continue' });
+  if (sim.mode === 'decide') command(sim, { type: 'continue' });
   // Loose gully to the top, then left to the exit.
   drive(sim, RIGHT, (s) => s.x >= 14.5);
   drive(sim, UP, (s) => s.y < 2.9);
@@ -223,7 +229,80 @@ describe('the Barranco Wall', () => {
     expect(outcomeOf(sim, 'a', 'barranco-wall')).toMatchObject({ result: 'complete', assisted: false });
   });
 
-  test('helping Marco takes a sustained hold, not taps', () => {
+  test('one tap on help is enough: it runs to the end and Marco climbs with you', () => {
+    const sim = fresh();
+    sim.mode = 'mate';
+    const stamina = sim.stamina;
+    command(sim, { type: 'help' });
+    expect(sim.helping).toBe(true);
+    for (let i = 0; i < TUNING.helpTicks; i += 1) step(sim, NO_INPUT);
+    expect(sim.mate.state).toBe('helped');
+    expect(sim.mode).toBe('decide');
+    expect(sim.spotter).toBe(true);
+    expect(sim.stamina).toBeCloseTo(stamina - sim.helpCost, 5);
+  });
+
+  test('helping can be stopped, and cannot start without the stamina', () => {
+    const sim = fresh();
+    sim.mode = 'mate';
+    command(sim, { type: 'help' });
+    for (let i = 0; i < 20; i += 1) step(sim, NO_INPUT);
+    command(sim, { type: 'stop-help' });
+    for (let i = 0; i < 40; i += 1) step(sim, NO_INPUT);
+    expect(sim.helpTicks).toBe(0);
+    expect(sim.mate.state).toBe('waiting');
+
+    sim.stamina = sim.helpCost - 1;
+    command(sim, { type: 'help' });
+    expect(sim.helping).toBe(false);
+  });
+
+  test('a tap-helped Marco is reported as helped at the top', () => {
+    const sim = climbBarranco(fresh(), 'tap');
+    expect(sim.result).toBe('complete');
+    expect(outcomeOf(sim, 'a', 'barranco-wall')).toMatchObject({ assisted: true });
+  });
+
+  test('climbing past Marco without choosing leaves him for Lena', () => {
+    const sim = climbBarranco(fresh(), 'pass');
+    expect(sim.result).toBe('complete');
+    expect(sim.mate.state).toBe('left');
+    expect(outcomeOf(sim, 'a', 'barranco-wall')).toMatchObject({ assisted: false });
+  });
+
+  test('the teammate you helped catches your next slip, once', () => {
+    const sim = fresh();
+    sim.mate.state = 'helped';
+    sim.spotter = true;
+    drive(sim, RIGHT, (s) => s.x >= 5.3);
+    drive(sim, UP, (s) => s.climbing);
+    sim.stamina = 0.01;
+    drive(sim, UP, (s) => s.slipTicks > 0);
+    expect(sim.slips).toBe(0);
+    expect(sim.caught).toBe(1);
+    expect(sim.spotter).toBe(false);
+    drive(sim, NO_INPUT, (s) => s.slipTicks === 0);
+    expect(sim.stamina).toBeGreaterThanOrEqual(sim.maxStamina * 0.75);
+
+    drive(sim, RIGHT, (s) => s.x >= 5.3);
+    drive(sim, UP, (s) => s.climbing);
+    sim.stamina = 0.01;
+    drive(sim, UP, (s) => s.slipTicks > 0);
+    expect(sim.slips).toBe(1);
+    expect(sim.caught).toBe(1);
+  });
+
+  test('without a helped teammate, the same slip counts', () => {
+    const sim = fresh();
+    drive(sim, RIGHT, (s) => s.x >= 5.3);
+    drive(sim, UP, (s) => s.climbing);
+    sim.stamina = 0.01;
+    drive(sim, UP, (s) => s.slipTicks > 0);
+    expect(sim.slips).toBe(1);
+    expect(sim.caught).toBe(0);
+  });
+
+  test('helping Marco by holding takes a sustained hold, not taps', () => {
     const sim = fresh();
     sim.mode = 'mate';
     for (let i = 0; i < 200; i += 1) step(sim, { x: 0, y: 0, act: i % 2 === 0 });

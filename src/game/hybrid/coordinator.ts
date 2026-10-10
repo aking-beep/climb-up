@@ -2,11 +2,12 @@ import { applyEffect, currentEvent, effectOf, resolveDecision } from '@/game/eng
 import type { Effect, EventCard, ExpeditionDefinition, ExpeditionState } from '@/game/types';
 import { hash } from '@/utils/number';
 
-import { combineEffect, sanitizeOutcome } from './reconcile';
+import { boundModifier, combineEffect, sanitizeOutcome } from './reconcile';
 import type {
   ChallengeDefinition,
   ChallengeOutcome,
   HybridSession,
+  OutcomeModifier,
   PendingChallenge,
   ResolveStatus,
 } from './types';
@@ -133,6 +134,24 @@ export function resolve(
     },
     status: 'applied',
   };
+}
+
+/**
+ * What an outcome would do to the expedition on top of the card, bounded
+ * exactly as `resolve` bounds it. For showing the stakes before and after a
+ * climb; it changes nothing.
+ */
+export function previewModifier(
+  game: HybridExpedition,
+  state: ExpeditionState,
+  pending: PendingChallenge,
+  rawOutcome: ChallengeOutcome,
+): OutcomeModifier | null {
+  const outcome = sanitizeOutcome(rawOutcome);
+  const challenge = game.challenges.find((item) => item.id === pending.challengeId);
+  const choice = currentEvent(state, game.def).choices[pending.choiceIndex];
+  if (!outcome || !challenge || !choice) return null;
+  return boundModifier(challenge.modifier(outcome, effectOf(choice.effect, state), state));
 }
 
 /** Leaving the challenge without finishing it counts as backing off. */

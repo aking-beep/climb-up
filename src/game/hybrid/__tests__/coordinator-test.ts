@@ -7,7 +7,7 @@ import {
   startKilimanjaro,
 } from '@/expeditions/kilimanjaro';
 import { KILI_CHALLENGES, kilimanjaroHybrid } from '@/expeditions/kilimanjaro/challenges';
-import { abandon, challengeFor, choose, createSession, play, resolve } from '@/game/hybrid/coordinator';
+import { abandon, challengeFor, choose, createSession, play, previewModifier, resolve } from '@/game/hybrid/coordinator';
 import { MODIFIER_LIMITS, combineEffect } from '@/game/hybrid/reconcile';
 import type { ChallengeOutcome, HybridSession } from '@/game/hybrid/types';
 import type { ExpeditionState } from '@/game/types';
@@ -339,5 +339,52 @@ describe('hybrid coordinator', () => {
     const score = scoreKilimanjaro(state);
     expect(score.overall).toBeGreaterThanOrEqual(0);
     expect(score.lines.filter((line) => line.label === 'You stopped for Marco on the Barranco Wall')).toHaveLength(1);
+  });
+
+  test('helping the teammate is a clear gain at camp, and leaving them a clear cost', () => {
+    const session = launched();
+    const helped = resolve(kilimanjaroHybrid, session, outcome(session, { assisted: true })).session.state;
+    const left = resolve(kilimanjaroHybrid, session, outcome(session, { assisted: false })).session.state;
+    // The team may already be near its best, so the gain shows in energy too.
+    expect(helped.teamCondition).toBeGreaterThan(left.teamCondition);
+    expect(helped.energy).toBeGreaterThan(left.energy);
+    expect(scoreKilimanjaro(helped).teamwork).toBeGreaterThan(scoreKilimanjaro(left).teamwork);
+    const preview = previewModifier(kilimanjaroHybrid, session.state, session.pending!, outcome(session, { assisted: true }));
+    expect(preview?.stats?.teamCondition).toBe(5);
+    expect(preview?.stats?.energy).toBe(3);
+    expect(preview?.scores?.teamwork?.delta).toBe(6);
+    const leave = previewModifier(kilimanjaroHybrid, session.state, session.pending!, outcome(session, { assisted: false }));
+    expect(leave?.stats?.teamCondition).toBe(-6);
+    expect(leave?.scores?.teamwork?.delta).toBe(-6);
+    expect(preview?.note).toMatch(/Marco is beside you/);
+  });
+
+  test('the stakes rise with the mountain: the summit night costs the most', () => {
+    let session = createSession(kilimanjaroHybrid, startKilimanjaro(7));
+    const stakes: Record<string, { fail: number; slips: number; left: number }> = {};
+    for (let guard = 0; guard < 80 && session.state.status === 'active' && !session.state.summitReached; guard += 1) {
+      const card = currentKilimanjaroEvent(session.state);
+      const careful = card.choices.findIndex((choice) => CAREFUL_UP.includes(choice.label));
+      const result = choose(kilimanjaroHybrid, session, careful >= 0 ? careful : 0);
+      session = result.session;
+      if (!result.launched) continue;
+      const id = result.launched.challengeId;
+      const look = (patch: Partial<ChallengeOutcome>) =>
+        previewModifier(kilimanjaroHybrid, session.state, session.pending!, outcome(session, { challengeId: id, ...patch }))!;
+      stakes[id] = {
+        fail: look({ result: 'fail' }).stats?.health ?? 0,
+        slips: look({ slips: 2, assisted: null }).stats?.health ?? 0,
+        left: look({ assisted: false }).stats?.teamCondition ?? 0,
+      };
+      session = resolve(kilimanjaroHybrid, session, outcome(session, { challengeId: id })).session;
+    }
+    const tower = stakes['lava-tower'];
+    const wall = stakes['barranco-wall'];
+    const summit = stakes['summit-night'];
+    expect(summit.fail).toBeLessThan(wall.fail);
+    expect(wall.fail).toBeLessThan(tower.fail);
+    expect(summit.slips).toBeLessThan(wall.slips);
+    expect(wall.slips).toBeLessThan(tower.slips);
+    expect(summit.left).toBeLessThan(wall.left);
   });
 });

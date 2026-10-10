@@ -4,7 +4,7 @@ import type { Level } from './level';
 import { BARRANCO_LEVEL } from './levels/barranco';
 import { LAVA_TOWER_LEVEL } from './levels/lavaTower';
 import { SUMMIT_NIGHT_LEVEL } from './levels/summitNight';
-import type { Pose } from './sim';
+import type { Difficulty, Pose } from './sim';
 
 export type PartyMember = 'you' | 'marco' | 'lena' | 'jun';
 
@@ -31,8 +31,12 @@ export type CampFigure = { who: PartyMember; x: number; y: number; pose: Pose; f
 export type ClimbScene = {
   id: ChallengeId;
   level: Level;
-  /** Fraction of normal stamina recovery. */
-  recovery: number;
+  /**
+   * How hard the climb is. The three climbs come in this order on the
+   * mountain and each is harder than the last; the summit night is the
+   * final, hardest one. A test holds them to that order.
+   */
+  difficulty: Difficulty;
   theme: SceneTheme;
   /** Tents and the rest of the party at the start. World tiles. */
   camp: { tent: { x: number; y: number } | null; figures: CampFigure[] };
@@ -58,7 +62,8 @@ export type ClimbScene = {
 const BARRANCO: ClimbScene = {
   id: 'barranco-wall',
   level: BARRANCO_LEVEL,
-  recovery: 1,
+  // The middle climb: thinner air than Shira, a real wall, Marco to help.
+  difficulty: { recovery: 0.85, drain: 1, wind: 5, maxSlips: 3, helpCost: 15 },
   theme: {
     night: false,
     far: require('../../../assets/hd2d/scenery/barranco-kibo.png'),
@@ -102,7 +107,8 @@ const BARRANCO: ClimbScene = {
 const LAVA: ClimbScene = {
   id: 'lava-tower',
   level: LAVA_TOWER_LEVEL,
-  recovery: 0.9,
+  // The warm-up: daylight, steady wind, room for a mistake.
+  difficulty: { recovery: 1, drain: 0.85, wind: -15, maxSlips: 4, helpCost: 15 },
   theme: {
     night: false,
     far: require('../../../assets/hd2d/scenery/barranco-kibo.png'),
@@ -143,7 +149,9 @@ const LAVA: ClimbScene = {
 const SUMMIT: ClimbScene = {
   id: 'summit-night',
   level: SUMMIT_NIGHT_LEVEL,
-  recovery: 0.55,
+  // The final climb: the cold halves recovery, every move costs more, the
+  // rim wind comes often, two slips end it, and Jun is heavier to help.
+  difficulty: { recovery: 0.55, drain: 1.25, wind: 30, maxSlips: 2, helpCost: 22 },
   theme: {
     night: true,
     far: require('../../../assets/hd2d/scenery/summit-sea.png'),
@@ -183,6 +191,9 @@ const SUMMIT: ClimbScene = {
     returnTo: 'Barafu',
   },
 };
+
+/** The climbs in the order the mountain asks for them, easiest first. */
+export const CLIMB_ORDER: readonly ChallengeId[] = ['lava-tower', 'barranco-wall', 'summit-night'];
 
 export const SCENES: Record<ChallengeId, ClimbScene> = {
   'lava-tower': LAVA,

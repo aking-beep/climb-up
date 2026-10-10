@@ -2,9 +2,12 @@ import { Tile, isClimbable, tileAt } from './level';
 import { TUNING, type ClimbSim } from './sim';
 
 /** One short line telling the player what the climber can do right now. */
-export function hintFor(sim: ClimbSim): string | null {
+export function hintFor(sim: ClimbSim, mateName = 'Your teammate'): string | null {
   if (sim.mode === 'done') return null;
-  if (sim.slipTicks > 0) return sim.slips >= TUNING.maxSlips ? 'Too many slips. The team calls it.' : 'Slipped. Back to the last cairn.';
+  if (sim.slipTicks > 0) {
+    if (sim.saved) return `${mateName} caught you. That slip doesn't count.`;
+    return sim.slips >= sim.maxSlips ? 'Too many slips. The team calls it.' : 'Slipped. Back to the last cairn.';
+  }
   if (sim.mode !== 'play') return null;
   const here = tileAt(sim.level, sim.x, sim.y - 0.5);
   const exposed = here === Tile.Exposed;
