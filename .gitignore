@@ -42,3 +42,6 @@ yarn-error.*
 
 # copied by setup-skia-web for the web build
 public/canvaskit.wasm
+
+# python bytecode from tools/
+__pycache__/

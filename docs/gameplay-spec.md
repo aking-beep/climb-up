@@ -23,7 +23,24 @@ presented as accurate.
 4. **Return**. The outcome lands on the expedition once: the card's own effect,
    shaded by how the climb went. Back at camp, the field note says what changed.
 
-## Barranco Wall (first vertical slice)
+## Three climbs to the summit
+
+The expedition cannot be summited by cards alone. Three camps are gated: every
+way up out of them is a played climb. The cards still decide *how* (tag the
+tower or skip it, start the summit on the night you arrive or after the rest
+day), and the card's effects still apply; the climb decides whether the party
+gets there today.
+
+| Camp | Climb | What makes it hard |
+| --- | --- | --- |
+| Shira 2 | **The Lava Tower** | loose scree benches and a long scree gully that eat stamina; plateau wind on a ledge under an overhang; a chimney to the top. No teammate. Stamina recovers at 90 %. |
+| Barranco | **The Barranco Wall** | faces, an exposed step in the wind, Marco stuck on the high ledge, a loose gully. |
+| Barafu | **Summit night** | five frozen switchbacks by headlamp; the cold halves stamina recovery (55 %); Jun's hands have gone numb; the crater rim is open to the wind; Stella Point at first light. |
+
+Back off or fail and the party stays at that camp, a day poorer. The next
+morning's route card offers the way on again, and that launches the same climb.
+
+## Barranco Wall
 
 Card `kili-wall`, choice *Climb the wall and camp at Karanga*. The other two
 choices (*Rest beneath the wall*, *Turn around in the valley*) still resolve

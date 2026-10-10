@@ -6,8 +6,7 @@ import {
   scoreKilimanjaro,
   startKilimanjaro,
 } from '@/expeditions/kilimanjaro';
-import { BARRANCO_WALL, kilimanjaroHybrid } from '@/expeditions/kilimanjaro/challenges';
-import { KILI_EVENTS } from '@/expeditions/kilimanjaro/events';
+import { KILI_CHALLENGES, kilimanjaroHybrid } from '@/expeditions/kilimanjaro/challenges';
 import { abandon, challengeFor, choose, createSession, play, resolve } from '@/game/hybrid/coordinator';
 import { MODIFIER_LIMITS, combineEffect } from '@/game/hybrid/reconcile';
 import type { ChallengeOutcome, HybridSession } from '@/game/hybrid/types';
@@ -37,6 +36,25 @@ function atTheWall(seed = 7): ExpeditionState {
 
 const CLIMB = 'Climb the wall and camp at Karanga';
 
+/** A patient player's choices, in the order the cards ask. */
+const CAREFUL_UP = [
+  'Walk the forest and set camp',
+  'Sleep under the trees',
+  'Break camp and keep a patient pace',
+  'Stake the tents and sleep',
+  'Cross the plateau and pitch at Shira 2',
+  'Sleep before the tower',
+  'Tag the tower, then sleep low',
+  'Sleep and leave the wall for morning',
+  CLIMB,
+  'Lie down in the valley',
+  'Take the extra day',
+  'Break camp for Barafu',
+  'Lie down on the ridge',
+  'Rest the day',
+  'Keep the pace through the dark',
+];
+
 function launched(seed = 7): HybridSession {
   const state = atTheWall(seed);
   const result = choose(kilimanjaroHybrid, createSession(kilimanjaroHybrid, state), byLabel(state, CLIMB));
@@ -59,18 +77,77 @@ function outcome(session: HybridSession, patch: Partial<ChallengeOutcome> = {}):
 }
 
 describe('hybrid coordinator', () => {
-  test('the registry points at a real card and a real choice', () => {
-    const card = KILI_EVENTS.find((event) => event.id === BARRANCO_WALL.eventId);
-    expect(card?.choices.find((choice) => choice.id === BARRANCO_WALL.choiceId)?.label).toBe(CLIMB);
+  test('every gated camp is on the route, once', () => {
+    const gates = KILI_CHALLENGES.map((challenge) => challenge.gate);
+    expect(gates).toEqual(['camp1', 'camp2', 'camp4']);
+    for (const gate of gates) expect(kilimanjaroHybrid.def.route.map((stop) => stop.id)).toContain(gate);
   });
 
-  test('a choice is matched by its stable id, not its label', () => {
-    const card = KILI_EVENTS.find((event) => event.id === BARRANCO_WALL.eventId)!;
-    const index = card.choices.findIndex((choice) => choice.id === BARRANCO_WALL.choiceId);
-    const relabelled = { ...card, choices: card.choices.map((choice, i) => (i === index ? { ...choice, label: 'Go up' } : choice)) };
-    expect(challengeFor(kilimanjaroHybrid, relabelled, index)?.id).toBe('barranco-wall');
-    const unmarked = { ...card, choices: card.choices.map((choice, i) => (i === index ? { ...choice, id: undefined } : choice)) };
-    expect(challengeFor(kilimanjaroHybrid, unmarked, index)).toBeNull();
+  test('at a gated camp, every way up launches the climb and nothing else does', () => {
+    const state = atTheWall();
+    const card = currentKilimanjaroEvent(state);
+    const launched = card.choices.map((_, index) => challengeFor(kilimanjaroHybrid, state, card, index)?.id ?? null);
+    expect(launched).toEqual(['barranco-wall', null, null]);
+  });
+
+  test('camps without a gate launch nothing', () => {
+    const state = startKilimanjaro(7);
+    const card = currentKilimanjaroEvent(state);
+    expect(card.choices.every((_, index) => challengeFor(kilimanjaroHybrid, state, card, index) === null)).toBe(true);
+  });
+
+  test('after backing off, the plain way on launches the same climb again', () => {
+    const session = launched();
+    const back = resolve(kilimanjaroHybrid, session, outcome(session, { result: 'retreat' })).session;
+    const card = currentKilimanjaroEvent(back.state);
+    const up = card.choices.findIndex((choice) => /Move on toward/.test(choice.label));
+    expect(up).toBeGreaterThanOrEqual(0);
+    const again = choose(kilimanjaroHybrid, back, up);
+    expect(again.launched?.challengeId).toBe('barranco-wall');
+    expect(again.launched?.attemptId).not.toBe(session.pending?.attemptId);
+  });
+
+  test('Uhuru is only reached by playing all three climbs', () => {
+    for (const seed of [7, 11, 23]) {
+      let session = createSession(kilimanjaroHybrid, startKilimanjaro(seed));
+      const played: string[] = [];
+      for (let guard = 0; guard < 80 && session.state.status === 'active' && !session.state.summitReached; guard += 1) {
+        const card = currentKilimanjaroEvent(session.state);
+        const careful = card.choices.findIndex((choice) => CAREFUL_UP.includes(choice.label));
+        const result = choose(kilimanjaroHybrid, session, careful >= 0 ? careful : 0);
+        session = result.session;
+        if (result.launched) {
+          played.push(result.launched.challengeId);
+          session = resolve(kilimanjaroHybrid, session, outcome(session, { challengeId: result.launched.challengeId })).session;
+        }
+      }
+      expect(session.state.summitReached).toBe(true);
+      expect(played).toEqual(['lava-tower', 'barranco-wall', 'summit-night']);
+    }
+  });
+
+  test('turning back from any climb never leaves the party better off, and costs the day', () => {
+    let session = createSession(kilimanjaroHybrid, startKilimanjaro(7));
+    const checked: string[] = [];
+    for (let guard = 0; guard < 80 && session.state.status === 'active' && !session.state.summitReached; guard += 1) {
+      const card = currentKilimanjaroEvent(session.state);
+      const careful = card.choices.findIndex((choice) => CAREFUL_UP.includes(choice.label));
+      const result = choose(kilimanjaroHybrid, session, careful >= 0 ? careful : 0);
+      session = result.session;
+      if (!result.launched) continue;
+      const before = session.state;
+      for (const kind of ['retreat', 'fail'] as const) {
+        const after = resolve(kilimanjaroHybrid, session, outcome(session, { challengeId: result.launched.challengeId, result: kind })).session.state;
+        expect(after.checkpoint).toBe(before.checkpoint);
+        expect(after.energy).toBeLessThanOrEqual(before.energy);
+        expect(after.acclimatization).toBeLessThanOrEqual(before.acclimatization);
+        expect(after.teamCondition).toBeLessThanOrEqual(before.teamCondition);
+        expect(after.elapsedHours - before.elapsedHours).toBeGreaterThanOrEqual(12);
+      }
+      checked.push(result.launched.challengeId);
+      session = resolve(kilimanjaroHybrid, session, outcome(session, { challengeId: result.launched.challengeId })).session;
+    }
+    expect(checked).toEqual(['lava-tower', 'barranco-wall', 'summit-night']);
   });
 
   test('a plain choice is spent immediately, exactly as before', () => {
@@ -261,6 +338,6 @@ describe('hybrid coordinator', () => {
     expect(state.status).not.toBe('active');
     const score = scoreKilimanjaro(state);
     expect(score.overall).toBeGreaterThanOrEqual(0);
-    expect(score.lines.filter((line) => line.label === 'You stopped for Marco on the wall')).toHaveLength(1);
+    expect(score.lines.filter((line) => line.label === 'You stopped for Marco on the Barranco Wall')).toHaveLength(1);
   });
 });

@@ -1,6 +1,6 @@
-import type { Effect, ExpeditionState, LedgerNote, ScoreBucket, StatKey } from '@/game/types';
+import type { CheckpointId, Effect, ExpeditionState, LedgerNote, ScoreBucket, StatKey } from '@/game/types';
 
-export type ChallengeId = 'barranco-wall';
+export type ChallengeId = 'lava-tower' | 'barranco-wall' | 'summit-night';
 
 export type ChallengeResult = 'complete' | 'retreat' | 'fail';
 
@@ -59,9 +59,12 @@ export type OutcomeModifier = {
 export type ChallengeDefinition = {
   id: ChallengeId;
   title: string;
-  /** The card and the choice (by its stable `id`) that launch this challenge. */
-  eventId: string;
-  choiceId: string;
+  /**
+   * The camp this climb guards. Every choice that would move the party up
+   * out of this camp, on any card, launches the climb instead: it cannot be
+   * skipped, only played, backed off from, or failed and tried again.
+   */
+  gate: CheckpointId;
   modifier: (outcome: ChallengeOutcome, base: Effect, state: ExpeditionState) => OutcomeModifier;
 };
 

@@ -10,8 +10,8 @@ import type { ExpeditionState } from '@/game/types';
 import { body, font, line, muted, paper, paperRaised, spruce, spruceInk } from '@/theme';
 
 import { hintFor } from '../hints';
-import { BARRANCO_LEVEL } from '../levels/barranco';
 import { ClimbCanvas } from '../render/ClimbCanvas';
+import { SCENES } from '../scenes';
 import { createRuntime, type HeldKey } from '../runtime';
 import { TUNING, outcomeOf, type Command, type SimEvent } from '../sim';
 import { Controls } from './Controls';
@@ -60,13 +60,18 @@ function buzz(events: readonly SimEvent[]) {
 
 export function ChallengeView({ pending, state, settings, onSettings, onFinish, onBackOff }: Props) {
   const insets = useSafeAreaInsets();
+  const scene = SCENES[pending.challengeId];
+  const copy = scene.copy;
+  const mateName = scene.mate ? scene.mate[0].toUpperCase() + scene.mate.slice(1) : '';
   const { width, height } = useWindowDimensions();
-  const tile = Math.floor(width / TILES_ACROSS);
+  // Whole multiples of the 16 px art, so every art pixel is a whole number of points.
+  const tile = Math.max(16, Math.floor(width / TILES_ACROSS / 16) * 16);
   // Room for the pad under the playfield, so the climber is never under a thumb.
   const playHeight = Math.max(height * 0.55, height - (CONTROLS_HEIGHT + insets.bottom));
   const [runtime] = useState(() =>
     createRuntime({
-      level: BARRANCO_LEVEL,
+      level: SCENES[pending.challengeId].level,
+      recovery: SCENES[pending.challengeId].recovery,
       seed: pending.seed,
       energy: state.energy,
       weatherRisk: state.weatherRisk,
@@ -166,6 +171,7 @@ export function ChallengeView({ pending, state, settings, onSettings, onFinish, 
   return (
     <View style={styles.root}>
       <ClimbCanvas
+        scene={scene}
         sim={sim}
         camera={frame.camera}
         width={width}
@@ -183,7 +189,7 @@ export function ChallengeView({ pending, state, settings, onSettings, onFinish, 
       <View pointerEvents="box-none" style={[styles.hud, { paddingTop: insets.top + 8 }]}>
         <View style={styles.hudRow}>
           <View style={styles.hudBlock}>
-            <Text style={styles.hudKicker}>Barranco Wall · Playable</Text>
+            <Text style={styles.hudKicker}>{copy.hud} · Playable</Text>
             <View
               style={styles.bar}
               accessible
@@ -224,30 +230,28 @@ export function ChallengeView({ pending, state, settings, onSettings, onFinish, 
 
       {phase === 'brief' ? (
         <Sheet bottom={insets.bottom}>
-          <Text style={styles.kicker}>Barranco Camp · morning</Text>
-          <Text style={styles.title}>The Barranco Wall</Text>
-          <Text style={styles.body}>
-            A steep morning scramble, played. Hold up on the rock to climb. Ledges and cairns are where you breathe. On the exposed step, stop when the wind comes. Marco is somewhere above you.
-          </Text>
+          <Text style={styles.kicker}>{copy.kicker}</Text>
+          <Text style={styles.title}>{copy.title}</Text>
+          <Text style={styles.body}>{copy.brief}</Text>
           <Text style={styles.facts}>
             Energy {state.energy} → stamina {sim.maxStamina}% · Team {state.teamCondition} · Weather risk {state.weatherRisk}
           </Text>
           <Text style={styles.small}>Game fiction inspired by the place. Not a description of the real route.</Text>
           <Button primary label="Start up the wall" onPress={() => setPhase('play')} />
-          <Button label="Back off and stay at Barranco" onPress={onBackOff} />
+          <Button label={copy.backOff} onPress={onBackOff} />
         </Sheet>
       ) : null}
 
       {phase === 'play' && mode === 'mate' ? (
         <Sheet bottom={insets.bottom}>
           <Text style={styles.kicker}>Teammate</Text>
-          <Text style={styles.title}>Marco is stuck on the step</Text>
+          <Text style={styles.title}>{copy.mateTitle}</Text>
           <Text style={styles.body}>
-            He has the pack wedged and no footing. Pulling him up costs you {TUNING.helpCost} stamina. Lena is behind and could bring him later.
+            {copy.mateBody} Helping costs you {TUNING.helpCost} stamina. Lena is behind and could bring {mateName} later.
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={settings.holdAsToggle ? 'Help Marco. Tap to start or stop' : 'Help Marco. Press and hold'}
+            accessibilityLabel={settings.holdAsToggle ? `Help ${mateName}. Tap to start or stop` : `Help ${mateName}. Press and hold`}
             accessibilityState={{ disabled: sim.stamina < TUNING.helpCost }}
             onPressIn={() => {
               if (!settings.holdAsToggle) runtime.press('act', true);
@@ -267,8 +271,8 @@ export function ChallengeView({ pending, state, settings, onSettings, onFinish, 
                 : settings.holdAsToggle
                   ? frame.acting
                     ? 'Helping… tap to stop'
-                    : 'Tap to help Marco up'
-                  : 'Hold to help Marco up'}
+                    : `Tap to help ${mateName}`
+                  : `Hold to help ${mateName}`}
             </Text>
           </Pressable>
           <Button label="Leave him for Lena" onPress={() => order({ type: 'leave-mate' })} />
@@ -279,11 +283,11 @@ export function ChallengeView({ pending, state, settings, onSettings, onFinish, 
       {phase === 'play' && mode === 'decide' ? (
         <Sheet bottom={insets.bottom}>
           <Text style={styles.kicker}>Halfway up</Text>
-          <Text style={styles.title}>{sim.mate.state === 'helped' ? 'Marco is up. Now what?' : 'Lena has Marco. Now what?'}</Text>
-          <Text style={styles.body}>Stamina {staminaPct}%. The loose gully above is the last of the wall.</Text>
+          <Text style={styles.title}>{sim.mate.state === 'helped' ? copy.decideTitleHelped : copy.decideTitleLeft}</Text>
+          <Text style={styles.body}>Stamina {staminaPct}%. {copy.decideBody}</Text>
           <Button primary label="Keep climbing" onPress={() => order({ type: 'continue' })} />
           <Button label="Regroup here (half an hour, full stamina)" onPress={() => order({ type: 'regroup' })} />
-          <Button label="Turn back to Barranco" onPress={() => order({ type: 'retreat' })} />
+          <Button label={`Turn back to ${copy.returnTo}`} onPress={() => order({ type: 'retreat' })} />
         </Sheet>
       ) : null}
 
@@ -291,11 +295,11 @@ export function ChallengeView({ pending, state, settings, onSettings, onFinish, 
         <Sheet bottom={insets.bottom}>
           <Text style={styles.kicker}>{sim.result === 'complete' ? 'Top of the wall' : sim.result === 'retreat' ? 'Backed off' : 'Called off'}</Text>
           <Text style={styles.title}>
-            {sim.result === 'complete' ? 'Karanga is over the rise' : sim.result === 'retreat' ? 'Back down to Barranco' : 'The wall said no today'}
+            {sim.result === 'complete' ? copy.doneComplete : sim.result === 'retreat' ? copy.doneRetreat : copy.doneFail}
           </Text>
           <Text style={styles.body}>
             {sim.slips === 0 ? 'No slips.' : `${sim.slips} slip${sim.slips === 1 ? '' : 's'}.`} Stamina {staminaPct}%.{' '}
-            {sim.mate.state === 'helped' ? 'You helped Marco up.' : sim.mate.state === 'left' && sim.level.mate ? 'Lena brought Marco.' : ''}
+            {sim.mate.state === 'helped' ? `You helped ${mateName}.` : sim.mate.state === 'left' && sim.level.mate ? `Lena brought ${mateName}.` : ''}
             {sim.regrouped ? ' The party regrouped on the wall.' : ''}
           </Text>
           <Text style={styles.small}>This lands on the expedition once, when you return.</Text>

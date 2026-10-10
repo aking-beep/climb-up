@@ -75,7 +75,11 @@ describe('game store', () => {
     const first = createGameStore(kilimanjaroHybrid, storage, clock);
     await first.hydrate();
     first.start(7);
-    for (const label of TO_THE_WALL) chooseLabel(first, label);
+    for (const label of TO_THE_WALL) {
+      const climb = chooseLabel(first, label);
+      // The Lava Tower is a played climb now; finish it to reach the wall.
+      if (climb) expect(first.resolve({ ...completed(climb.attemptId), challengeId: climb.challengeId })).toBe('applied');
+    }
     const pending = chooseLabel(first, 'Climb the wall and camp at Karanga');
     expect(pending?.challengeId).toBe('barranco-wall');
     const before = first.get()!.state;

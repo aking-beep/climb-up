@@ -16,6 +16,7 @@ import type { PartyId } from '@/components/world/scene';
 import { checkpointName, currentKilimanjaroEvent } from '@/expeditions/kilimanjaro';
 import { kilimanjaroHybrid } from '@/expeditions/kilimanjaro/challenges';
 import { membersOf, routineActions, routineEffect, tendEffect, type RoutineId } from '@/expeditions/kilimanjaro/party';
+import { SCENES } from '@/features/climbing/scenes';
 import { challengeFor } from '@/game/hybrid/coordinator';
 import { gameStore, useGameSession } from '@/game/session';
 import type { Effect, ExpeditionState, StatKey } from '@/game/types';
@@ -175,7 +176,7 @@ export default function ClimbScreen() {
         {pending ? (
           <View style={[styles.pending, { paddingBottom: insets.bottom + 14 }]}>
             <Text style={styles.pendingKicker}>Playable climb · in progress</Text>
-            <Text style={styles.pendingTitle}>The Barranco Wall is waiting</Text>
+            <Text style={styles.pendingTitle}>{SCENES[pending.challengeId].copy.title} is waiting</Text>
             <Text style={styles.pendingBody}>
               You chose to climb it. Nothing has been spent yet: the expedition moves on when the climb ends, once.
             </Text>
@@ -191,7 +192,7 @@ export default function ClimbScreen() {
               onPress={() => gameStore.abandon()}
               style={({ pressed }) => [styles.pendingBack, pressed && styles.pendingPressed]}
             >
-              <Text style={styles.pendingBackText}>Back off and stay at Barranco</Text>
+              <Text style={styles.pendingBackText}>{SCENES[pending.challengeId].copy.backOff}</Text>
             </Pressable>
           </View>
         ) : member ? (
@@ -211,7 +212,7 @@ export default function ClimbScreen() {
             journalOpen={journalOpen}
             onToggleJournal={() => setJournalOpen((open) => !open)}
             onChoose={choose}
-            playable={(index) => challengeFor(kilimanjaroHybrid, event, index) !== null}
+            playable={(index) => challengeFor(kilimanjaroHybrid, state, event, index) !== null}
             routine={routine}
             onRoutine={(id: RoutineId) => apply(routineEffect(state, id))}
             bottom={insets.bottom + 10}
