@@ -1,5 +1,7 @@
 # Testing
 
+Sprint start, 10 Oct 2026: pull requests 6 and 7 were open and unmerged. The latest commit was `3ac1a42` on `cursor/barranco-hd2d-f079`. `npm test` reported 45 passing tests before this polish pass.
+
 From the repository root:
 
 ```bash

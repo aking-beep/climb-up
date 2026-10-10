@@ -7,24 +7,46 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ClimbingCanvas } from '@/features/climbing/renderer/ClimbingCanvas';
 import { TouchControls } from '@/features/climbing/input/TouchControls';
-import { createBarranco, stepClimb } from '@/features/climbing/simulation/barranco';
+import { activeScramble, createBarranco, stepClimb } from '@/features/climbing/simulation/barranco';
 import { drainClock } from '@/features/climbing/simulation/clock';
 import { EMPTY_INPUT, type ClimbInput, type ClimbWorld } from '@/features/climbing/simulation/types';
 import { resolveChallenge } from '@/game/hybrid/coordinator';
-import type { ChallengeOutcome } from '@/game/hybrid/types';
+import type { ChallengeOutcome, PendingChallenge } from '@/game/hybrid/types';
 import { updateSession, useSession } from '@/game/save/session';
 import { Screen } from '@/components/ui/Screen';
 import { font, muted, spruceInk } from '@/theme';
 import { formatSeed } from '@/utils/number';
 
-function reported(world: ClimbWorld, attemptId: string): ChallengeOutcome | null {
+function combine(held: ClimbInput, latched: ClimbInput): ClimbInput {
+  return {
+    left: held.left || latched.left,
+    right: held.right || latched.right,
+    scramble: held.scramble || latched.scramble,
+    rest: held.rest || latched.rest,
+    help: held.help || latched.help,
+    continue: held.continue || latched.continue,
+    retreat: held.retreat || latched.retreat,
+  };
+}
+
+function cue(world: ClimbWorld): string {
+  if (world.phase.kind === 'scramble') return 'On the rock';
+  if (world.phase.kind === 'slip') return 'Foot slipped';
+  if (world.prompt) return 'Marco is stopped';
+  if (activeScramble(world)) return 'Scramble the step';
+  if (world.hazards.includes('wind')) return 'Wind on the ledge';
+  return 'Walk the rock';
+}
+
+function reported(world: ClimbWorld, pending: PendingChallenge): ChallengeOutcome | null {
   const result = world.retreated ? 'retreated' : world.finished ? 'completed' : world.failed ? 'failed' : null;
   if (!result) return null;
   return {
-    attemptId,
-    challengeId: 'barranco-wall',
-    eventId: 'kili-wall',
-    choiceIndex: 0,
+    attemptId: pending.attemptId,
+    challengeId: pending.challengeId,
+    eventId: pending.eventId,
+    choiceId: pending.choiceId,
+    choiceIndex: pending.choiceIndex,
     result,
     elapsedSeconds: world.seconds,
     staminaSpent: Math.max(0, world.staminaStart - world.stamina),
@@ -52,10 +74,14 @@ export default function ChallengeScreen() {
   const [paused, setPaused] = useState(false);
   const [calm, setCalm] = useState(false);
   const inputRef = useRef<ClimbInput>(EMPTY_INPUT);
+  const latchRef = useRef<ClimbInput>(EMPTY_INPUT);
+  const promptRef = useRef(false);
   const pausedRef = useRef(false);
-  const calmRef = useRef(false);
   const filed = useRef(false);
-  const felt = useRef({ falls: 0, done: false });
+  const felt = useRef({ falls: 0, done: false, action: '' });
+  useEffect(() => {
+    promptRef.current = world.prompt;
+  }, [world.prompt]);
 
   useEffect(() => {
     if (!session.booted) return;
@@ -70,13 +96,18 @@ export default function ChallengeScreen() {
       const frameDt = (now - last) / 1000;
       last = now;
       if (!pausedRef.current && !filed.current) {
-        const drained = drainClock(accumulator, frameDt, calmRef.current);
+        const drained = drainClock(accumulator, frameDt);
         accumulator = drained.accumulator;
-        const input = inputRef.current;
         if (drained.steps > 0) {
+          const held = inputRef.current;
+          const latched = latchRef.current;
+          latchRef.current = EMPTY_INPUT;
           setWorld((current) => {
             let next = current;
-            for (let step = 0; step < drained.steps; step += 1) next = stepClimb(next, input, drained.dt);
+            for (let step = 0; step < drained.steps; step += 1) {
+              const input = step === 0 ? combine(held, latched) : held;
+              next = stepClimb(next, input, drained.dt);
+            }
             return next;
           });
         }
@@ -94,24 +125,32 @@ export default function ChallengeScreen() {
       felt.current.falls = world.falls;
       pulse('bad');
     }
+    if ((world.action === 'grip' || world.action === 'slip') && felt.current.action !== world.action) pulse('select');
+    felt.current.action = world.action;
     const done = world.finished || world.failed || world.retreated;
     if (done && !felt.current.done) {
       felt.current.done = true;
       pulse(world.finished ? 'good' : 'bad');
     }
-  }, [world.falls, world.finished, world.failed, world.retreated]);
+  }, [world.falls, world.finished, world.failed, world.retreated, world.action]);
 
   function hold(input: ClimbInput) {
     if (pausedRef.current && !input.retreat) return;
+    const decision = input.help || input.continue || input.retreat || (input.rest && promptRef.current);
+    if (decision) {
+      latchRef.current = input;
+      return;
+    }
     inputRef.current = input;
-    const moving = input.left || input.right || input.scramble || input.rest || input.help || input.continue || input.retreat;
-    if (!moving) return;
-    if (input.scramble || input.retreat || input.help) pulse('select');
-    setWorld((current) => stepClimb(current, input, 1 / 30));
+  }
+
+  function release() {
+    inputRef.current = EMPTY_INPUT;
   }
 
   function togglePause() {
     inputRef.current = EMPTY_INPUT;
+    latchRef.current = EMPTY_INPUT;
     setPaused((value) => {
       pausedRef.current = !value;
       return !value;
@@ -120,16 +159,13 @@ export default function ChallengeScreen() {
   }
 
   function toggleCalm() {
-    setCalm((value) => {
-      calmRef.current = !value;
-      return !value;
-    });
+    setCalm((value) => !value);
     pulse('select');
   }
 
   useEffect(() => {
     if (!pending || filed.current) return;
-    const outcome = reported(world, pending.attemptId);
+    const outcome = reported(world, pending);
     if (!outcome) return;
     filed.current = true;
     const next = resolveChallenge(session.state, pending, outcome);
@@ -147,6 +183,7 @@ export default function ChallengeScreen() {
         </View>
         <View style={styles.readout}>
           <Text style={styles.kicker}>Stamina {Math.round(world.stamina)}</Text>
+          <Text style={styles.kicker}>{cue(world)}</Text>
           <Text style={styles.kicker}>Falls {world.falls}</Text>
           <View style={styles.tools}>
             <Pressable accessibilityRole="button" accessibilityLabel={paused ? 'Resume' : 'Pause'} onPress={togglePause}>
@@ -173,7 +210,7 @@ export default function ChallengeScreen() {
         <Text style={styles.prompt}>Walk the rock. Scramble only where the ledge asks for it.</Text>
       )}
       <View style={{ paddingBottom: insets.bottom + 8 }}>
-        <TouchControls prompt={world.prompt} onHold={hold} />
+        <TouchControls prompt={world.prompt} onHold={hold} onRelease={release} />
         <Text style={styles.note}>A fictional scramble. Not a route.</Text>
       </View>
     </Screen>

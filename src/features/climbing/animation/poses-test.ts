@@ -14,11 +14,13 @@ describe('climber poses', () => {
 
     const walking = presentPose({ action: 'walk', stamina: 70, seconds: 0.4 });
     const tired = presentPose({ action: 'walk', stamina: 10, seconds: 0.4 });
-    const scramble = presentPose({ action: 'scramble', stamina: 70, seconds: 0.4 });
+    const climb = presentPose({ action: 'climb', stamina: 70, seconds: 0.4 });
     expect(walking.frameCount).toBe(1);
+    expect(walking.art).toBe('missing');
     expect(tired.id).toBe('fatigue');
-    expect(scramble.dy).not.toBe(idle.dy);
-    expect(scramble.squash).toBeLessThan(1);
+    expect(climb.dy).not.toBe(idle.dy);
+    expect(climb.squash).toBeLessThan(1);
+    expect(climb.fallback).toBe('single-image');
   });
 
   test('scrambling records the action for that step', () => {

@@ -12,7 +12,7 @@ export type CheckpointId =
 
 export type ExpeditionStatus = 'active' | 'complete' | 'failed';
 
-export type Move = 'up' | 'down' | 'hold' | 'retreat' | 'summit';
+export type Move = 'up' | 'down' | 'hold' | 'wait' | 'retreat' | 'summit';
 
 export type ScoreBucket = 'judgment' | 'riskManagement' | 'teamwork' | 'preparation';
 
@@ -41,6 +41,8 @@ export type Effect = {
 };
 
 export type Choice = {
+  /** Stable id for a playable challenge. Display labels can change. */
+  id?: string;
   label: string;
   detail: string;
   effect: Effect | ((state: ExpeditionState) => Effect);

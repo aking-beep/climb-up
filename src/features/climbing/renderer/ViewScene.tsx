@@ -1,11 +1,12 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, View, type ImageStyle } from 'react-native';
 
 import { presentPose } from '@/features/climbing/animation/poses';
 import { PLATFORMS, PLAYER_H, PLAYER_W, groundTop } from '@/features/climbing/simulation/barranco';
 import type { ClimbWorld } from '@/features/climbing/simulation/types';
 
-import { backdrop, cameraFor, cloudBands, rockCrop } from './camera';
+import { backdrop, cameraFor, cloudBands, easeCamera, rockCrop } from './camera';
 
 const FAR = require('../../../../assets/world/far-mountains.png');
 const VALLEY = require('../../../../assets/world/diorama-desert.jpg');
@@ -29,7 +30,17 @@ export function ViewScene({
   height: number;
   reduced?: boolean;
 }) {
-  const { scale, cam, sx } = cameraFor(world.x, width, height);
+  const shot = cameraFor(world.x, width, height);
+  const [cam, setCam] = useState(shot.cam);
+  const followed = useRef({ cam: shot.cam, seconds: world.seconds });
+  useEffect(() => {
+    const dt = Math.max(0, world.seconds - followed.current.seconds);
+    const next = easeCamera(followed.current.cam, shot.cam, dt, reduced);
+    followed.current = { cam: next, seconds: world.seconds };
+    setCam(next);
+  }, [world.seconds, shot.cam, reduced]);
+  const scale = shot.scale;
+  const sx = (worldX: number) => (worldX - cam) * scale;
   const pose = presentPose(world);
   const bob = reduced ? 0 : pose.dy;
   const marcoGone = world.hazards.some((hazard) => hazard.endsWith('marco'));

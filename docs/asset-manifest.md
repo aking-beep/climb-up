@@ -4,6 +4,8 @@ Pictures live in `assets/world`. Dimensions were read from the files in the repo
 
 `frame count` is 1 for every row. Nothing in this list is a sprite sheet.
 
+Climb states that still need sheets, listed in `src/features/climbing/animation/clips.ts`: idle, walk, approach, grip, climb, mantle, recover, rest, fatigue, slip, fall, air, help. Each clip is marked `art: 'missing'`.
+
 | File | Scene | Size | Status |
 | --- | --- | --- | --- |
 | `pixel-you.png` | Party, Barranco player | 43×96 RGBA | Used. Single image. |

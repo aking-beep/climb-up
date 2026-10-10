@@ -25,7 +25,7 @@ function emit() {
 }
 
 function persist() {
-  void writeSave({ version: 1, state: snapshot.state, pending: snapshot.pending });
+  void writeSave({ version: 2, state: snapshot.state, pending: snapshot.pending, climb: null });
 }
 
 export function getSession(): Session {

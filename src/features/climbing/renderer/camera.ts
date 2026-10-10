@@ -38,6 +38,12 @@ export function cameraFor(x: number, width: number, height: number) {
   };
 }
 
+export function easeCamera(previous: number, target: number, seconds: number, reduced: boolean) {
+  if (reduced || seconds <= 0) return target;
+  const blend = 1 - Math.exp(-6 * Math.min(seconds, 0.25));
+  return previous + (target - previous) * blend;
+}
+
 export function cloudBands(seconds: number, cam: number, width: number, reduced: boolean) {
   return [0, 1, 2].map((index) => {
     const travel = reduced ? 0 : seconds * (10 + index * 4) - cam * 0.18;

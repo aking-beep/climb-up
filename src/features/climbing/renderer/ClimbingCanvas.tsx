@@ -25,7 +25,10 @@ export function ClimbingCanvas({
       .then((mod) => {
         if (live) setNativeScene(() => mod.SkiaScene);
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : 'unknown error';
+        console.warn(`CLIMB UP: Skia did not start (${message}). The view scene is on screen instead.`);
+      });
     return () => {
       live = false;
     };

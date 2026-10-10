@@ -8,7 +8,36 @@ export type ClimbInput = {
   retreat: boolean;
 };
 
-export type ClimbAction = 'idle' | 'walk' | 'scramble' | 'rest' | 'air' | 'help';
+export type ClimbAction =
+  | 'idle'
+  | 'walk'
+  | 'approach'
+  | 'grip'
+  | 'climb'
+  | 'mantle'
+  | 'recover'
+  | 'rest'
+  | 'slip'
+  | 'air'
+  | 'help';
+
+export type ScrambleStage = 'approach' | 'grip' | 'climb' | 'mantle' | 'recover';
+
+export type ClimbPhase =
+  | { kind: 'free' }
+  | { kind: 'slip'; elapsed: number }
+  | { kind: 'beat'; elapsed: number; action: 'help' | 'rest' | 'walk' }
+  | {
+      kind: 'scramble';
+      zoneId: string;
+      stage: ScrambleStage;
+      elapsed: number;
+      fromX: number;
+      fromY: number;
+      toX: number;
+      toY: number;
+      spent: boolean;
+    };
 
 export type ClimbWorld = {
   x: number;
@@ -18,6 +47,7 @@ export type ClimbWorld = {
   onGround: boolean;
   facing: 1 | -1;
   action: ClimbAction;
+  phase: ClimbPhase;
   stamina: number;
   staminaStart: number;
   seconds: number;

@@ -7,13 +7,14 @@ import { EMPTY_INPUT, type ClimbInput } from '@/features/climbing/simulation/typ
 type Props = {
   prompt: boolean;
   onHold: (input: ClimbInput) => void;
+  onRelease: () => void;
 };
 
 function pad(partial: Partial<ClimbInput>): ClimbInput {
   return { ...EMPTY_INPUT, ...partial };
 }
 
-export function TouchControls({ prompt, onHold }: Props) {
+export function TouchControls({ prompt, onHold, onRelease }: Props) {
   if (prompt) {
     return (
       <View style={styles.column}>
@@ -27,10 +28,10 @@ export function TouchControls({ prompt, onHold }: Props) {
   return (
     <View style={styles.wrap}>
       <View style={styles.row}>
-        <Hold label="Left" a11y="Move left" input={pad({ left: true })} onHold={onHold} />
-        <Hold label="Right" a11y="Move right" input={pad({ right: true })} onHold={onHold} />
-        <Hold label="Scramble" a11y="Scramble" input={pad({ scramble: true })} onHold={onHold} />
-        <Hold label="Rest" a11y="Rest" input={pad({ rest: true })} onHold={onHold} />
+        <Hold label="Left" a11y="Move left" input={pad({ left: true })} onHold={onHold} onRelease={onRelease} />
+        <Hold label="Right" a11y="Move right" input={pad({ right: true })} onHold={onHold} onRelease={onRelease} />
+        <Hold label="Scramble" a11y="Scramble" input={pad({ scramble: true })} onHold={onHold} onRelease={onRelease} />
+        <Hold label="Rest" a11y="Rest" input={pad({ rest: true })} onHold={onHold} onRelease={onRelease} />
       </View>
       <Pressable
         accessibilityRole="button"
@@ -49,11 +50,13 @@ function Hold({
   a11y,
   input,
   onHold,
+  onRelease,
 }: {
   label: string;
   a11y: string;
   input: ClimbInput;
   onHold: (input: ClimbInput) => void;
+  onRelease: () => void;
 }) {
   const down = useRef(false);
   return (
@@ -64,13 +67,9 @@ function Hold({
         down.current = true;
         onHold(input);
       }}
-      onPress={() => {
-        onHold(input);
-        if (!down.current) onHold(EMPTY_INPUT);
-      }}
       onPressOut={() => {
         down.current = false;
-        onHold(EMPTY_INPUT);
+        onRelease();
       }}
       style={({ pressed }) => [styles.pad, pressed && styles.pressed]}
     >

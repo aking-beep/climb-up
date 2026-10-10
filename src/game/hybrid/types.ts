@@ -5,6 +5,7 @@ export type PendingChallenge = {
   attemptId: string;
   challengeId: string;
   eventId: string;
+  choiceId: string;
   choiceIndex: number;
 };
 
@@ -16,6 +17,7 @@ export type ChallengeOutcome = {
   attemptId: string;
   challengeId: string;
   eventId: string;
+  choiceId: string;
   choiceIndex: number;
   result: ChallengeResult;
   elapsedSeconds: number;

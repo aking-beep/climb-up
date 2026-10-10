@@ -24,7 +24,7 @@ Type is Fraunces for titles and Outfit for labels. HUD labels stay light on the 
 
 The party sprites are `pixel-you`, `pixel-lena`, `pixel-marco`, and `pixel-jun`: 43×96 pictures drawn around a 28×52 world box. They face by mirroring. A soft ellipse sits under the feet.
 
-`presentPose` names idle, walk, scramble, rest, air, help, and fatigue. Every pose reports `frameCount: 1` and `fallback: 'single-image'`. Bob, squash, and lean move that one picture. They are not a sprite sheet. Do not describe them as frame animation until a sheet with real frames exists.
+`presentPose` names the climb states: idle, walk, approach, grip, climb, mantle, recover, rest, slip, air, help, and fatigue. `src/features/climbing/animation/clips.ts` lists each one with `frames: 1` and `art: 'missing'`. Bob, squash, and lean move the existing picture. A sprite sheet is not in the repository. Do not describe these offsets as finished frame animation.
 
 `climber-kneel.png` and the taller `climber-*.png` paintings are a different style. They stay out of the scramble so the party does not change medium mid-step.
 

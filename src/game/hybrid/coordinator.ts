@@ -20,12 +20,13 @@ export function beginChallenge(state: ExpeditionState, index: number): PendingCh
   const card = currentKilimanjaroEvent(state);
   const choice = card.choices[index];
   if (!choice) return null;
-  const spec = challengeFor(card.id, choice.label);
+  const spec = challengeFor(card.id, choice.id);
   if (!spec) return null;
   return {
     attemptId: `${spec.challengeId}-${state.seed}-${state.history.length}-${state.elapsedHours}`,
     challengeId: spec.challengeId,
     eventId: card.id,
+    choiceId: spec.choiceId,
     choiceIndex: index,
   };
 }
@@ -44,7 +45,7 @@ function followUp(outcome: ChallengeOutcome, mark: string): Effect | null {
     hours: Math.min(2, outcome.falls),
     energy: messy ? -(8 + Math.min(8, outcome.falls * 4)) : 0,
     teamCondition: (left ? -6 : 0) + (helped ? 3 : 0),
-    move: 'hold',
+    move: 'wait',
     mark,
     scores: helped
       ? {
@@ -70,10 +71,15 @@ export function resolveChallenge(
   if (!pending) return state;
   if (outcome.attemptId !== pending.attemptId) return state;
   if (outcome.challengeId !== pending.challengeId || outcome.choiceIndex !== pending.choiceIndex) return state;
+  if (outcome.eventId !== pending.eventId || outcome.choiceId !== pending.choiceId) return state;
+  if (outcome.result !== 'completed' && outcome.result !== 'retreated' && outcome.result !== 'failed') return state;
   const mark = attemptMark(outcome.attemptId);
   if (state.marks[mark]) return state;
   if (state.status !== 'active') return state;
-  if (currentKilimanjaroEvent(state).id !== pending.eventId) return state;
+  const card = currentKilimanjaroEvent(state);
+  if (card.id !== pending.eventId) return state;
+  const choice = card.choices[pending.choiceIndex];
+  if (!choice || choice.id !== pending.choiceId) return state;
 
   if (outcome.result === 'completed') {
     const chosen = chooseKilimanjaro(state, pending.choiceIndex);
@@ -90,7 +96,7 @@ export function resolveChallenge(
     energy: gaveUp ? -10 : -16,
     health: gaveUp ? 0 : -3,
     teamCondition: gaveUp ? -2 : -6,
-    move: 'hold',
+    move: 'wait',
     mark,
   });
 }

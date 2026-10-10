@@ -100,6 +100,7 @@ function resolveMove(state: ExpeditionState, move: Move, def: ExpeditionDefiniti
     stepDown(state, def);
     return;
   }
+  // Camp rest. A challenge failure uses `wait` so it cannot collect this gift.
   if (move === 'hold' && state.altitude >= 3000) {
     state.acclimatization += 8;
     state.energy += 5;
