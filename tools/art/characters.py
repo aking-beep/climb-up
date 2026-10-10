@@ -207,6 +207,116 @@ def rim_light(image: Image.Image, cell: tuple[int, int]) -> Image.Image:
     return Image.fromarray(out.astype(np.uint8), "RGBA")
 
 
+# ---------------------------------------------------------------------------
+# Map view: the party seen from a high three-quarter camera on the expedition
+# screen. Back view walking up the trail, front view at camp. Same 32 x 40
+# frames; order matches MAP_CLIPS in src/features/world/sprites.ts:
+#   0-3 back walk, 4-7 front walk, 8-9 front idle, 10 back kneel, 11 front sit
+
+MAP_FRAMES = ["back", "back", "back", "back", "front", "front", "front", "front", "idle", "idle", "kneel", "sit"]
+
+
+def draw_map(d: ImageDraw.ImageDraw, ox: int, oy: int, index: int, who: dict):
+    jl, jm, jd = [hex_rgb(c) for c in who["jacket"]]
+    hl, hm, hd = [hex_rgb(c) for c in who["hat"]]
+    hair, hair_d = [hex_rgb(c) for c in who["hair"]]
+    trim = hex_rgb(who["trim"])
+    view = MAP_FRAMES[index]
+    step = index % 4 if view in ("back", "front") else 0
+    bob = 1 if step in (1, 3) else 0
+    stride = (2, 0, -2, 0)[step] if view in ("back", "front") else 0
+    sink = {"kneel": 6, "sit": 7}.get(view, 0)
+    breath = 1 if index == 9 else 0
+
+    def box(x0, y0, x1, y1, c):
+        d.rectangle([ox + x0, oy + y0, ox + x1, oy + y1], fill=rgba(c))
+
+    top = GROUND - 30 + bob + sink  # top of the beanie
+    hip = GROUND - 9 + bob + sink // 2
+
+    # Legs and boots.
+    if view == "kneel":
+        box(CX - 5, hip, CX - 1, GROUND - 3, PANTS[1])
+        box(CX + 1, hip, CX + 5, GROUND - 1, PANTS[2])
+        box(CX - 6, GROUND - 3, CX - 1, GROUND - 1, BOOT[1])
+    elif view == "sit":
+        box(CX - 6, hip + 1, CX + 6, GROUND - 3, PANTS[1])
+        box(CX - 7, GROUND - 3, CX - 3, GROUND - 1, BOOT[1])
+        box(CX + 3, GROUND - 3, CX + 7, GROUND - 1, BOOT[1])
+    else:
+        lf = GROUND - max(0, stride)
+        rf = GROUND - max(0, -stride)
+        box(CX - 5, hip, CX - 2, lf - 3, PANTS[1 if view == "back" else 0])
+        box(CX + 1, hip, CX + 4, rf - 3, PANTS[2 if view == "back" else 1])
+        box(CX - 6, lf - 3, CX - 1, lf - 1, BOOT[1])
+        box(CX + 1, rf - 3, CX + 5, rf - 1, BOOT[2])
+        d.line([(ox + CX - 6, oy + lf), (ox + CX - 1, oy + lf)], fill=rgba(SOLE))
+        d.line([(ox + CX + 1, oy + rf), (ox + CX + 5, oy + rf)], fill=rgba(SOLE))
+
+    # Torso.
+    sh = top + 12
+    box(CX - 6, sh, CX + 6, hip + 1, jm)
+    box(CX - 6, sh, CX - 4, hip + 1, jl)
+    box(CX + 5, sh, CX + 6, hip + 1, jd)
+    d.line([(ox + CX - 6, oy + hip + 1), (ox + CX + 6, oy + hip + 1)], fill=rgba(jd))
+
+    # Arms swing opposite the legs.
+    swing = -stride
+    for side, tone in ((-1, jl), (1, jd)):
+        ax = CX + side * 8 - (1 if side < 0 else 0)
+        drop = 8 + (swing * side if view in ("back", "front") else 0) // 2
+        if view in ("kneel", "sit"):
+            drop = 6
+        box(ax, sh + 1, ax + 2, sh + 1 + drop, tone)
+        box(ax, sh + 2 + drop, ax + 2, sh + 3 + drop, GLOVE[0 if side < 0 else 1])
+
+    if view in ("back", "kneel"):
+        # The pack fills the back: lid, pocket, straps, a rolled mat on top.
+        box(CX - 5, sh - 1, CX + 5, hip - 1, PACK[1])
+        box(CX - 5, sh - 1, CX - 3, hip - 1, PACK[0])
+        box(CX - 5, sh - 1, CX + 5, sh + 1, PACK[2])
+        box(CX - 3, sh + 5, CX + 3, sh + 8, PACK[2])
+        d.line([(ox + CX - 2, oy + sh + 6), (ox + CX + 2, oy + sh + 6)], fill=rgba(PACK[0]))
+        box(CX - 6, sh - 3, CX + 6, sh - 2, MAT[0])
+        d.point((ox + CX + 6, oy + sh - 2), fill=rgba(MAT[1]))
+        # Back of the head: hair, beanie, the headlamp strap.
+        box(CX - 5, top + 5, CX + 5, sh - 3, hair)
+        box(CX - 5, sh - 5, CX + 5, sh - 3, hair_d)
+        if who.get("braid"):
+            box(CX - 1, sh - 3, CX + 1, sh + 4, hair)
+            d.point((ox + CX, oy + sh + 4), fill=rgba(trim))
+        d.rounded_rectangle([ox + CX - 6, oy + top + 1, ox + CX + 6, oy + top + 8], radius=4, fill=rgba(hm))
+        box(CX - 6, top + 7, CX + 6, top + 8, hd)
+        d.line([(ox + CX - 5, oy + top + 7), (ox + CX + 5, oy + top + 7)], fill=rgba(LAMP[1]))
+        box(CX - 4, top + 2, CX - 1, top + 3, hl)
+        box(CX - 1, top - 1, CX + 1, top + 1, hl)
+    else:
+        # Front: collar and zip, a face with two eyes, and the lamp on the band.
+        d.line([(ox + CX, oy + sh + 1), (ox + CX, oy + hip)], fill=rgba(trim))
+        box(CX - 4, sh, CX + 4, sh + 1, trim)
+        d.line([(ox + CX - 6, oy + sh + 4), (ox + CX - 3, oy + sh + 4)], fill=rgba(PACK[2]))
+        d.line([(ox + CX + 3, oy + sh + 4), (ox + CX + 6, oy + sh + 4)], fill=rgba(PACK[2]))
+        fy = top + 6 + breath
+        d.rounded_rectangle([ox + CX - 5, oy + fy, ox + CX + 5, oy + fy + 7], radius=3, fill=rgba(SKIN[0]))
+        box(CX + 3, fy + 2, CX + 5, fy + 6, SKIN[1])
+        box(CX - 6, fy, CX - 5, fy + 5, hair)
+        box(CX + 5, fy, CX + 6, fy + 5, hair_d)
+        if who.get("braid"):
+            box(CX - 7, fy + 4, CX - 6, fy + 10, hair)
+        for ex in (CX - 3, CX + 2):
+            box(ex, fy + 3, ex + 1, fy + 4, (34, 26, 24))
+            d.point((ox + ex, oy + fy + 3), fill=(250, 246, 240, 255))
+        d.point((ox + CX - 4, oy + fy + 5), fill=(222, 140, 120, 255))
+        d.point((ox + CX + 4, oy + fy + 5), fill=(222, 140, 120, 255))
+        d.line([(ox + CX - 1, oy + fy + 6), (ox + CX + 1, oy + fy + 6)], fill=rgba(SKIN[2]))
+        d.rounded_rectangle([ox + CX - 6, oy + top + 1 + breath, ox + CX + 6, oy + top + 7 + breath], radius=4, fill=rgba(hm))
+        box(CX - 6, top + 5 + breath, CX + 6, top + 6 + breath, hd)
+        box(CX - 4, top + 2 + breath, CX - 1, top + 3 + breath, hl)
+        box(CX - 1, top - 1 + breath, CX + 1, top + 1 + breath, hl)
+        box(CX - 1, top + 4 + breath, CX + 1, top + 6 + breath, LAMP[1])
+        d.point((ox + CX, oy + top + 5 + breath), fill=rgba(LAMP[2]))
+
+
 def main():
     rows = (len(FRAMES) + COLS - 1) // COLS
     out = OUT / "characters"
@@ -219,6 +329,15 @@ def main():
         sheet = rim_light(sheet, (W, H))
         selective_outline(sheet, cell=(W, H), darken=0.32).save(out / f"{name}.png")
         print(f"wrote {out / f'{name}.png'} ({len(FRAMES)} frames)")
+
+        map_rows = (len(MAP_FRAMES) + COLS - 1) // COLS
+        sheet = Image.new("RGBA", (W * COLS, H * map_rows), (0, 0, 0, 0))
+        d = ImageDraw.Draw(sheet)
+        for index in range(len(MAP_FRAMES)):
+            draw_map(d, (index % COLS) * W, (index // COLS) * H, index, who)
+        sheet = rim_light(sheet, (W, H))
+        selective_outline(sheet, cell=(W, H), darken=0.32).save(out / f"{name}-map.png")
+        print(f"wrote {out / f'{name}-map.png'} ({len(MAP_FRAMES)} frames)")
 
 
 if __name__ == "__main__":

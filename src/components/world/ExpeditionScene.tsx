@@ -5,6 +5,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { terrainFor } from '@/expeditions/everest/terrain';
 import { KILI_GATE, KILI_SUMMIT, kiliCamping } from '@/expeditions/kilimanjaro/route';
 import { kiliGround } from '@/expeditions/kilimanjaro/zones';
+import { WorldHost } from '@/features/world/WorldHost';
 import type { CheckpointId } from '@/game/types';
 
 import { DioramaCamp } from './DioramaCamp';
@@ -36,17 +37,44 @@ export type WorldInput = {
   poses?: readonly Pose[];
 };
 
-export function ExpeditionScene({
-  world,
-  still = false,
-  selected = null,
-  onSelectMember,
-}: {
+type SceneProps = {
   world: WorldInput;
   still?: boolean;
   selected?: PartyId | null;
   onSelectMember?: (id: PartyId) => void;
-}) {
+};
+
+/**
+ * Kilimanjaro is drawn as an HD-2D diorama (src/features/world): a lit
+ * three-quarter plate per zone, the party walking the trail, fog, weather,
+ * camp light, and the route map. The flat painted plate below is the
+ * fallback while the renderer loads or where Skia is missing, and Everest's
+ * scene.
+ */
+export function ExpeditionScene(props: SceneProps) {
+  const { world, still = false, selected = null, onSelectMember } = props;
+  if (world.mountain === 'everest') return <FlatScene {...props} />;
+  return (
+    <View style={styles.scene}>
+      <WorldHost
+        world={{
+          checkpoint: world.checkpoint,
+          altitude: world.altitude,
+          retreating: world.retreating,
+          elapsedHours: world.elapsedHours,
+          weatherRisk: world.weatherRisk,
+          poses: world.poses ?? partyPoses(world.teamCondition, world.energy),
+        }}
+        still={still}
+        selected={selected}
+        onSelectMember={still ? undefined : onSelectMember}
+        fallback={<FlatScene {...props} />}
+      />
+    </View>
+  );
+}
+
+function FlatScene({ world, still = false, selected = null, onSelectMember }: SceneProps) {
   const kilimanjaro = world.mountain !== 'everest';
   const progress = kilimanjaro ? routeProgress(world.altitude, KILI_GATE, KILI_SUMMIT) : routeProgress(world.altitude);
   const shift = useSharedValue(progress);

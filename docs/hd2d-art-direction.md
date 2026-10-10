@@ -127,6 +127,36 @@ watching the wall). Sun shafts, a drifting cloud shadow, and a warm top-down
 grade carry the morning light. To change the look, edit a script and re-run
 it; don't hand-edit the PNGs, or the next run will overwrite them.
 
+## The expedition diorama (strategy screen)
+
+The camp-and-card screen is now drawn to the same standard as the climbs,
+aiming at the look of HD-2D overworlds: a high three-quarter camera on a lit
+model landscape, the party walking the trail single file, heavy atmosphere,
+and points of warm light at night. Reference *techniques* only; no art,
+layouts or UI are taken from any game.
+
+What makes it, back to front (`src/features/world/WorldCanvas.tsx`):
+
+| # | Layer | Notes |
+| --- | --- | --- |
+| 1 | Sky, stars, moon or sun glow | per time of day from the expedition clock |
+| 2 | Far mountain | Kibo (or the cloud sea and Mawenzi from the summit) behind the plate's horizon |
+| 3 | Zone plate | `tools/art/diorama.py`: a generated height field ray-cast per pixel, lit from the upper left with cast shadows and cavity shading, coloured per zone, with pixel-art trees, groundsels, lobelias, boulders and cairns billboarded at their depth |
+| 4 | Air | distance haze, then two drifting fog banks (tiling `fog.png`) masked to the middle distance; thicker in bad weather |
+| 5 | Camp | two tents and an animated fire beside the trail, only when the party is camped |
+| 6 | Party | `*-map.png` sheets: back view walking up the trail, front view walking down on a retreat, idle and sitting at camp, kneeling when down. Drawn about 2.4× life size, as HD-2D characters are, with contact shadows |
+| 7 | Grade and light | multiply to moonlit blue at night, warm soft light at dawn and dusk; then additive bloom for the fire, tent glow and headlamps |
+| 8 | Particles | three depths: snow at altitude, heath seeds, dust, forest motes by day and fireflies by night |
+| 9 | Lens | tilt-shift blur top and bottom (off in low power), vignette |
+| 10 | Route map | a round parchment map of Kibo with the Lemosho line and the party's marker |
+
+Zones follow `kiliGround`: rainforest, moorland, alpine desert, and snow. The
+flat painted JPEGs are now only a fallback, while CanvasKit loads on web or
+where Skia is missing.
+
+To change the look, edit `tools/art/diorama.py` (terrain, materials, props)
+or `characters.py` (`draw_map`) and re-run them. Plates take about 45 s each.
+
 ## Light, weather, time
 
 - Time of day comes from the expedition clock (`dayPhase`). Barranco is played
