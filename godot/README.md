@@ -7,10 +7,15 @@ Godot 4 alongside the Expo app (which it does not touch). Why and how:
 
 ## Run it
 
-1. Install **Godot 4.4 or newer** (standard build, not .NET) from
-   godotengine.org.
-2. Open the editor, **Import**, choose `godot/project.godot`.
-3. Press **Play** (F5). The game starts on the title screen.
+- **In a browser:** the web build is published as a private artifact
+  (desktop, or a phone held sideways). Built with `tools/godot/export.sh web`.
+- **On Android:** install the debug APK built by
+  `tools/godot/export.sh android` (arm64, about 30 MB). Allow installs from
+  unknown sources for the app you open it with.
+- **In the editor:** install **Godot 4.7 or newer** (standard build, not
+  .NET), **Import** `godot/project.godot`, press **Play** (F5).
+- **iOS:** not built. It needs the Godot editor on a Mac with Xcode
+  (Project > Export > iOS).
 
 Landscape, 480 × 270 pixel-art viewport scaled to the window.
 
@@ -84,5 +89,7 @@ godot --path godot --write-movie /tmp/climb.avi --fixed-fps 30 res://tests/demo.
 - **Tiles and props** are generated, not hand-finished.
 - **Weather** has wind only; the `Weather` states (fog, rain, snow) are
   designed in the architecture doc, not built.
-- **Export**: no Android, iOS or web export has been made. Nothing has run
-  on a phone.
+- **Export**: web and Android (debug) builds exist. They were checked in
+  desktop Chromium and in Chromium emulating a phone (touch, landscape),
+  **not on a real phone**. No iOS build. The APK is debug-signed, not for
+  the Play Store.

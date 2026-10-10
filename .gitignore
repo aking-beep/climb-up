@@ -45,3 +45,6 @@ public/canvaskit.wasm
 
 # python bytecode from tools/
 __pycache__/
+
+# Godot exports (tools/godot/export.sh)
+build/

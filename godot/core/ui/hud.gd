@@ -99,7 +99,7 @@ func update_from(level: Node) -> void:
 		_:
 			_wind.text = "Exposed: walk between gusts" if c.exposed else ""
 	_hint.text = _hint_for(level)
-	var key := "Tap" if Settings.touch_enabled() else "E:"
+	var key := "ACT:" if Settings.touch_enabled() else "E:"
 	_prompt.text = ("%s %s" % [key, level.prompt]) if level.prompt != "" else ""
 
 

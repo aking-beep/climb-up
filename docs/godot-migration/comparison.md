@@ -15,7 +15,7 @@ so there are no frame rates here.**
 | Teammate | Marco: help, leave, step back; helped Marco catches a slip | the same choices and catch, plus Marco physically follows your exact path up the wall; walking past him counts as leaving him |
 | Expedition | the full engine, 10 days, 3 gated climbs | a prototype subset: briefing, climb or rest, outcome applied with the same Barranco numbers |
 | Tests | 125 Jest tests | 22 headless Godot tests, including a scripted full ascent (helping and leaving Marco) |
-| Playable now | web build via the artifact link; Expo Go | open `godot/` in the Godot editor (4.4+) and press Play; no export built |
+| Playable now | web build via the artifact link; Expo Go | web build via its own artifact link; a debug Android APK; or the Godot editor (4.7+) |
 
 A route-knowing bot climbs the Godot wall in **144–148 s of game time**
 (measured, `tests/test_barranco.gd` and the recording). A first-time player
@@ -39,9 +39,9 @@ reading signs, talking, waiting out gusts and slipping will take longer;
 | Development speed | The Godot slice (bigger level, more mechanics, flow, saves, tests, recording) was built in one pass. The level bugs that mattered were found by the scripted ascent, not by eye. | Godot (this pass) |
 | Asset pipeline | Shared: the Python art scripts feed both. Godot needs `.import` sidecar files (committed). | Even |
 | Expedition integration | Expo has the whole engine (≈2,900 lines across engine, coordinator and Kilimanjaro content). Godot has a subset; porting is real work, and parity tests would be needed. | Expo |
-| Android deployment | Expo: EAS build or Expo Go today. Godot: needs export templates and the Android SDK on a developer machine; **not attempted here** (no templates in this environment). | Expo, until proven |
+| Android deployment | Expo: EAS build or Expo Go today. Godot: a 30 MB debug APK exported from the official template with `apksigner` alone (no Gradle, no full SDK); **not yet installed on a real phone**. | Even, pending a phone |
 | iOS deployment | Expo: EAS. Godot: export from the editor on a Mac with Xcode; **not attempted here**. | Expo, until proven |
-| Sharing a test build | Expo: web build published as an artifact link. Godot: a web export needs export templates; **not built here**. | Expo, until proven |
+| Sharing a test build | Expo: web build as an artifact link (about 6 MB of JS and assets). Godot: web build as an artifact link too, but the engine is a 10 MB gzipped download before anything shows, and the build is single-threaded. | Expo (lighter) |
 
 ## Recommendation
 
@@ -54,10 +54,10 @@ sharing and testing on phones.
 
 Before committing to Godot:
 
-1. **Prove the export path on a developer machine.** Install Godot 4.4+
-   with export templates, build Android (and web), and put the Barranco
-   slice on a phone. Note fps on the crouch ledge (wind streaks, fog) at
-   Full and Low power.
+1. **Put the APK on a phone.** The web and Android builds exist now
+   (`tools/godot/export.sh`). Note fps on the crouch ledge (wind streaks,
+   fog) at Full and Low power, and how long the web build takes to load on
+   mobile data.
 2. **Play it with thumbs.** Judge the touch overlay, the mantle, and the
    brace timing. Change `Climber` constants and the overlay before anything
    else.

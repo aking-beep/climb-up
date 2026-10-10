@@ -22,8 +22,24 @@ func _ready() -> void:
 func touch_enabled() -> bool:
 	if touch_controls != null:
 		return touch_controls
-	# Desktop test displays can report a touchscreen; trust the platform.
-	return OS.has_feature("mobile") or (OS.has_feature("web") and DisplayServer.is_touchscreen_available())
+	if _touch_auto == null:
+		_touch_auto = _detect_touch()
+	return _touch_auto
+
+
+var _touch_auto: Variant = null
+
+
+## Desktop test displays can report a touchscreen, so trust the platform:
+## mobile builds always, and browsers whose primary pointer is a finger.
+static func _detect_touch() -> bool:
+	if OS.has_feature("mobile"):
+		return true
+	if OS.has_feature("web"):
+		# The bridge hands booleans back as numbers.
+		var coarse: Variant = JavaScriptBridge.eval("window.matchMedia('(pointer: coarse)').matches ? 1 : 0", true)
+		return int(coarse) == 1
+	return false
 
 
 func particle_scale() -> float:

@@ -23,10 +23,10 @@ func _ready() -> void:
 	layer = 15
 	var vp := get_viewport().get_visible_rect().size
 	var pad := Vector2(14, vp.y - 14 - SIZE * 3)
-	_button("move_left", "◀", pad + Vector2(0, SIZE))
-	_button("move_right", "▶", pad + Vector2(SIZE * 2, SIZE))
-	_button("climb_up", "▲", pad + Vector2(SIZE, 0))
-	_button("climb_down", "▼", pad + Vector2(SIZE, SIZE * 2))
+	_button("move_left", "<", pad + Vector2(0, SIZE))
+	_button("move_right", ">", pad + Vector2(SIZE * 2, SIZE))
+	_button("climb_up", "^", pad + Vector2(SIZE, 0))
+	_button("climb_down", "v", pad + Vector2(SIZE, SIZE * 2))
 	var right := Vector2(vp.x - 14 - SIZE * 2.4, vp.y - 14 - SIZE * 2.2)
 	_button("interact", "ACT", right + Vector2(SIZE * 1.3, SIZE * 0.6), 1.25)
 	_button("brace", "BRACE", right + Vector2(0, SIZE * 1.2))
@@ -46,11 +46,14 @@ func _button(action: String, glyph: String, at: Vector2, scale_by: float = 1.0) 
 				img.set_pixel(x, y, Color(0.07, 0.066, 0.06, 0.42))
 			elif d < size / 2.0:
 				img.set_pixel(x, y, Color(0.95, 0.94, 0.91, 0.5))
+	_arrow(img, glyph, size)
 	b.texture_normal = ImageTexture.create_from_image(img)
 	b.action = action
 	b.passby_press = true
 	b.position = at
 	add_child(b)
+	if glyph in ["<", ">", "^", "v"]:
+		return
 	var l := Label.new()
 	l.text = glyph
 	l.add_theme_font_size_override("font_size", 8 if glyph.length() > 2 else 11)
@@ -60,3 +63,20 @@ func _button(action: String, glyph: String, at: Vector2, scale_by: float = 1.0) 
 	l.size = Vector2(size, size)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(l)
+
+
+## Pad arrows drawn as triangles: no font needed, so they look the same on
+## every platform.
+func _arrow(img: Image, glyph: String, size: float) -> void:
+	var dir: Vector2 = {"<": Vector2.LEFT, ">": Vector2.RIGHT, "^": Vector2.UP, "v": Vector2.DOWN}.get(glyph, Vector2.ZERO)
+	if dir == Vector2.ZERO:
+		return
+	var c := Vector2(size / 2.0, size / 2.0)
+	var tip := c + dir * size * 0.22
+	var side := Vector2(-dir.y, dir.x) * size * 0.2
+	var base := c - dir * size * 0.14
+	var tri := PackedVector2Array([tip, base + side, base - side])
+	for y in int(size):
+		for x in int(size):
+			if Geometry2D.is_point_in_polygon(Vector2(x + 0.5, y + 0.5), tri):
+				img.set_pixel(x, y, Color(0.95, 0.94, 0.91, 0.9))
