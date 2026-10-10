@@ -13,12 +13,14 @@ npx expo-doctor     # needs network for 2 of its 21 checks
 | --- | --- |
 | `src/game/engine/__tests__/engine-test.ts` | original expedition engine (unchanged) |
 | `src/expeditions/kilimanjaro/*-test.ts` | route, events, party, full careful and reckless playthroughs (unchanged) |
-| `src/game/hybrid/__tests__/coordinator-test.ts` | launching, resolving once, duplicates, stale and malformed outcomes, retreat and fail, modifier bounds, balance against resting, scoring after a played wall |
+| `src/game/hybrid/__tests__/coordinator-test.ts` | launching, resolving once, duplicates, stale and malformed outcomes, retreat and fail, modifier bounds, balance against resting, scoring after a played wall, helping versus leaving the teammate, stakes rising toward the summit |
 | `src/game/save/__tests__/save-test.ts` | save round trip, corrupt, newer, and invalid files, interrupted climb restored and resolved once across three "app launches", failed writes |
 | `src/features/climbing/__tests__/sim-test.ts` | level parsing, collision, climbing limits, falls, stamina drain and recovery, three-slip failure, wind timing, held help (taps do nothing), regroup, retreat, determinism, and a **scripted full ascent** of the Barranco level |
-| `src/features/climbing/__tests__/levels-test.ts` | scripted full ascents of the Lava Tower and the summit night (with Jun), and the cold slowing recovery |
+| `src/features/climbing/__tests__/sim-test.ts` (teammate) | one tap helps and runs to the end, stopping and the stamina gate, a helped teammate catching one slip, walking past counting as leaving |
+| `src/features/climbing/__tests__/levels-test.ts` | scripted full ascents of the Lava Tower and the summit night (with Jun) at their real difficulty, and the cold slowing recovery |
+| `src/features/climbing/__tests__/difficulty-test.ts` | the three climbs come in gate order and each is harder than the last on every measure; the summit night is the hardest |
 | `src/features/climbing/__tests__/presentation-test.ts` | sprite clip timing, camera follow and bounds, reduced-motion shake, parallax ordering |
-| `src/features/climbing/__tests__/runtime-test.ts` | 60 Hz simulation independent of display rate, stall handling, immutable frames, low-power publishing, hints |
+| `src/features/climbing/__tests__/runtime-test.ts` | 60 Hz simulation independent of display rate, stall handling, immutable frames, low-power publishing, hints, held buttons released when the teammate sheet opens |
 
 ## On a phone
 
@@ -47,9 +49,14 @@ npx expo start --dev-client
    and camp at Karanga* (marked **Playable climb**).
 3. Briefing: energy and stamina shown. Start.
 4. Walk, scramble the two boulders, climb both faces, cross the exposed step
-   only between gusts, help Marco, climb the gully, reach the marker.
+   only between gusts, help Marco with **one tap** (the bar fills, Marco
+   follows you, the HUD says he has your back), climb the gully, reach the
+   marker. The done sheet lists *At camp* changes, including Team and
+   Teamwork for Marco.
 5. *Return to the expedition*. You are at Karanga. The field note mentions
    Marco. The journal has one entry for the wall.
+5a. Keep a thumb on ▶ as you walk into Marco. When the sheet opens, lift it,
+   choose *Step back*: the climber must stand still, not walk on.
 6. Repeat with: back off from the briefing; back off from pause mid-wall; three
    slips (hang on a face until your arms give out). Each returns you to
    Barranco with the wall card spent.
@@ -57,7 +64,7 @@ npx expo start --dev-client
    The title screen offers *Return to the Barranco Wall*; the expedition screen
    shows the waiting card. Return to the wall, or back off. Either lands once.
 8. Settings (pause menu): reduced motion, low power, pad on the right,
-   tap instead of hold, show frame rate. Check each takes effect.
+   show frame rate. Check each takes effect.
 9. Android: hardware back pauses instead of leaving.
 10. With *Show frame rate* on, note fps on the exposed step (the heaviest
     scene: gust streaks plus mist) and on the high ledge.
@@ -75,6 +82,10 @@ npm run web      # copies canvaskit.wasm into public/, then starts the dev serve
 ```
 
 Arrow keys or WASD to move, Space to help, Escape to pause.
+
+Helping, the stuck-pad fix, and the *At camp* list were checked in headless
+Chromium against a web export (one tap on *Help Marco up* finishes the help;
+no drift after *Keep climbing*).
 
 Headless Chromium needs `--enable-unsafe-swiftshader --use-angle=swiftshader`;
 without them it falls back to a deprecated software WebGL path that leaves the

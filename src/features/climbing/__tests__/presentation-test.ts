@@ -1,6 +1,7 @@
 /// <reference types="jest" />
 
 import { createCamera, followCamera, kick, parallax } from '@/features/climbing/camera';
+import { describeImpact, stakesLine } from '@/features/climbing/impact';
 import { CLIMBER_CLIPS, frameAt, frameRect } from '@/features/climbing/sprites';
 
 describe('sprite animation', () => {
@@ -67,5 +68,23 @@ describe('camera', () => {
   test('distant layers move less than near ones', () => {
     const camera = { x: 10, y: 20, shake: 0 };
     expect(Math.abs(parallax(camera, 0.1, 30).y)).toBeLessThan(Math.abs(parallax(camera, 1.3, 30).y));
+  });
+});
+
+describe('climb impact text', () => {
+  const modifier = {
+    note: 'n',
+    stats: { teamCondition: 5, energy: 3, health: 0 },
+    keepBaseScores: true,
+    scores: { teamwork: { label: 'You stopped for Marco on the Barranco Wall', delta: 6, mark: 'wall-assist' } },
+  };
+
+  test('lists what changes at camp, skipping zeros', () => {
+    expect(describeImpact(modifier)).toEqual(['Energy +3 · Team +5', 'Teamwork +6: You stopped for Marco on the Barranco Wall']);
+    expect(describeImpact(null)).toEqual([]);
+  });
+
+  test('sums up the teammate stakes in one line', () => {
+    expect(stakesLine(modifier, 'teamCondition', 'teamwork')).toBe('Team +5, Teamwork +6');
   });
 });

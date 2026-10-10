@@ -33,9 +33,29 @@ gets there today.
 
 | Camp | Climb | What makes it hard |
 | --- | --- | --- |
-| Shira 2 | **The Lava Tower** | loose scree benches and a long scree gully that eat stamina; plateau wind on a ledge under an overhang; a chimney to the top. No teammate. Stamina recovers at 90 %. |
-| Barranco | **The Barranco Wall** | faces, an exposed step in the wind, Marco stuck on the high ledge, a loose gully. |
-| Barafu | **Summit night** | five frozen switchbacks by headlamp; the cold halves stamina recovery (55 %); Jun's hands have gone numb; the crater rim is open to the wind; Stella Point at first light. |
+| Shira 2 | **The Lava Tower** (warm-up) | loose scree benches and a long scree gully; plateau wind on a ledge under an overhang; a chimney to the top. No teammate. |
+| Barranco | **The Barranco Wall** (middle) | faces, an exposed step in the wind, Marco stuck on the high ledge, a loose gully. |
+| Barafu | **Summit night** (final, hardest) | five frozen switchbacks by headlamp; Jun's hands have gone numb; the crater rim is open to the wind; Stella Point at first light. |
+
+### Difficulty ramp
+
+Each climb is harder than the one before, and the summit night is always the
+hardest. The numbers live in `difficulty` on each scene (`scenes.ts`);
+`difficulty-test.ts` fails if a later climb is not harder on every measure
+(time on rock before the arms give out, time to get your breath back, how
+often the gusts come, slips allowed, and how much climbable rock there is).
+
+| | Lava Tower | Barranco Wall | Summit night |
+| --- | --- | --- | --- |
+| Stamina recovery | 100 % | 85 % | 55 % (cold) |
+| Stamina drain on rock | × 0.85 | × 1.0 | × 1.25 |
+| Wind (added to weather risk for gusts) | −15 | +5 | +30 |
+| Slips before the attempt fails | 4 | 3 | 2 |
+| Cost to help the teammate | – | 15 stamina | 22 stamina |
+| Health per slip at camp (max) | −1 (−4) | −2 (−6) | −3 (−9) |
+| A failed attempt | health −4, energy −3 | health −6, energy −4 | health −10, energy −6 |
+| Helped the teammate | – | team +5, energy +3, teamwork +6 | team +6, energy +4, teamwork +8 |
+| Left the teammate | – | team −6, teamwork −6 | team −10, teamwork −8 |
 
 Back off or fail and the party stays at that camp, a day poorer. The next
 morning's route card offers the way on again, and that launches the same climb.
@@ -71,9 +91,13 @@ Shows the team's energy, the stamina it buys (`55 + energy × 0.45`, capped
 - A four-way pad for one thumb. Every direction is **press and hold**.
 - ▲ on a rock face grabs and climbs. ◀/▶ while climbing moves along the face,
   or off it onto a ledge. ▼ climbs down; ▼ on the ground lets go.
-- No rapid tapping anywhere. Helping Marco is a sustained hold of about
-  1.2 seconds. Letting go drains the progress (twice as fast as it builds)
-  rather than resetting it at once.
+- No rapid tapping anywhere. Helping Marco is one tap: the help-up plays out
+  over about 1.2 seconds, with a progress bar, and the same button stops it.
+  Holding Space (web) or the context action does the same; letting go of a
+  hold drains the progress (twice as fast as it builds).
+- Every held direction is released whenever the screen changes mode (the
+  teammate sheet, the decision, the end), so a finger left on the pad when a
+  sheet opens never keeps the climber walking.
 - Pause (top right, Android back, or Escape on web) opens: Resume, Back off the
   wall, and settings.
 - Web/desktop testing: arrow keys or WASD, Space to help.
@@ -103,10 +127,18 @@ regular.
 
 **Marco:** reaching the high ledge opens a choice:
 
-- *Hold to help Marco up*: costs 15 stamina; disabled below that, with "step
-  back and rest first" (the rest stone is a few steps away).
-- *Leave him for Lena*: free now, costs team condition later.
-- *Step back*: return to play; walk away and come back to reopen it.
+The sheet spells out both prices: now (stamina) and at camp (team,
+teamwork), taken from the same rules that will land the outcome.
+
+- *Help Marco up*: costs 15 stamina; disabled below that, with "step back and
+  rest first" (the rest stone is a few steps away). Marco then climbs behind
+  you and **catches your next slip**: it does not count toward failing, and you
+  come back at three quarters of your stamina instead of half. The HUD shows
+  "Marco has your back" until he has caught one.
+- *Leave Marco for Lena*: free now; you climb on alone, and it costs team
+  condition and teamwork at camp.
+- *Step back*: return to play; walk away and come back to reopen it. Climbing
+  on past him without choosing counts as leaving him.
 
 Then: *Keep climbing*, *Regroup here* (full stamina, half an hour of the day),
 or *Turn back to Barranco*.
@@ -119,9 +151,9 @@ The card's effect (move up to Karanga, 12 h, −8 energy, +4 acclimatization,
 
 | Result | Modifier on top of the card |
 | --- | --- |
-| **Complete** | slips: −2 health each (max −6). Under 25 % stamina: −4 energy. Helped Marco: +3 team, *stopped for Marco* +4 teamwork. Left Marco: −4 team, *left Marco for Lena* −4 teamwork. Regrouped: +2 energy, +1 h, *regrouped halfway* +3 judgment. |
+| **Complete** | slips: −2 health each (max −6). Under 25 % stamina: −4 energy. Helped Marco: +5 team, +3 energy, *stopped for Marco* +6 teamwork. Left Marco (or walked past him): −6 team, *left Marco for Lena* −6 teamwork. Regrouped: +2 energy, +1 h, *regrouped halfway* +3 judgment. |
 | **Retreat** | stays at Barranco (`wait`: no camp-rest bonus), +12 h, +4 energy, −4 acclimatization, −2 team; card scores dropped; *backed off while it was your choice* +3 judgment |
-| **Fail** (3 slips) | stays at Barranco (`wait`), +12 h, −6 health, −4 energy, −4 acclimatization, −4 team; card scores dropped; *the wall took more than the team had* −6 risk management |
+| **Fail** (3 slips; caught slips don't count) | stays at Barranco (`wait`), +12 h, −6 health, −4 energy, −4 acclimatization, −4 team; card scores dropped; *the wall took more than the team had* −6 risk management |
 
 Balance rules, enforced by tests:
 
@@ -136,8 +168,9 @@ Balance rules, enforced by tests:
 
 ## Accessibility
 
-- Press-and-hold everywhere instead of tapping speed. *Tap instead of hold*
-  turns the help interaction into tap-to-start, tap-to-stop.
+- Press-and-hold for movement, never tapping speed. Helping a teammate is a
+  single tap (tap again to stop), so it needs no sustained grip. The old
+  *Tap instead of hold* setting is kept in saves but no longer shown.
 - *Pad on the right* swaps the control side.
 - *Reduced motion*: no camera shake, camera snaps instead of easing, no
   drifting clouds or particles.
