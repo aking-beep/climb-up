@@ -52,8 +52,9 @@ Each mountain zone gets its own palette when it gets a playable scene
 - Party identities from the existing front-facing sprites: **You** olive
   jacket, **Marco** rust-red, **Lena** forest green, **Jun** cobalt. White
   beanie and brown boots are shared.
-- Side-view gameplay sprites: **24 × 32 px frames**, the figure about 28 px tall,
-  feet on the bottom row, centred at x = 12. Three-tone shading lit from the
+- Side-view gameplay sprites: **32 × 40 px frames**, the figure about 30 px tall
+  with HD-2D proportions (the head about a third of it), feet on the bottom row,
+  centred at x = 16. Eyes with a catch-light, brows, a headlamp on every beanie. Three-tone shading lit from the
   upper left, and a soft selective outline (a darkened copy of the neighbouring
   colour rather than flat black).
 - Rendered at the same pixel scale as the 16 px tiles (`tile / 16`; tile is a

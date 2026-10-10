@@ -160,8 +160,8 @@ def cliff(size=256, tone="barranco") -> Image.Image:
     rgb = mix(hex_rgb(dark), hex_rgb(light), np.clip(v, 0, 1))
     if frost:
         # Rime on the tops of each flow and scattered in the grain.
-        rime = (flow < 0.06) | ((grain > 0.66) & (blotch > 0.5))
-        rgb = np.where(rime[..., None], mix(rgb, hex_rgb(frost), 0.7), rgb)
+        rime = (flow < 0.035) | ((grain > 0.74) & (blotch > 0.62))
+        rgb = np.where(rime[..., None], mix(rgb, hex_rgb(frost), 0.32), rgb)
     return Image.fromarray(np.dstack([rgb, np.full((size, size), 255)]).astype(np.uint8), "RGBA")
 
 

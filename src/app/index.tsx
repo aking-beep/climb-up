@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ExpeditionScene } from '@/components/world/ExpeditionScene';
 import { Screen } from '@/components/ui/Screen';
 import { KILI_DISCLAIMER, KILI_PROGRESS, checkpointName } from '@/expeditions/kilimanjaro';
+import { SCENES } from '@/features/climbing/scenes';
 import { gameStore, useGameSession } from '@/game/session';
 import { body, font, line, muted, paper, spruce, spruceInk } from '@/theme';
 import { formatElapsed, formatSeed, parseSeed } from '@/utils/number';
@@ -88,7 +89,7 @@ export default function TitleScreen() {
               style={({ pressed }) => [styles.go, styles.resume, pressed && styles.pressed]}
             >
               <Text style={styles.goText}>
-                {saved.pending ? 'Return to the Barranco Wall' : 'Continue the expedition'}
+                {saved.pending ? `Return to ${SCENES[saved.pending.challengeId].copy.title}` : 'Continue the expedition'}
               </Text>
               <Text style={styles.resumeDetail}>
                 {checkpointName(saved.state.checkpoint)} · {formatElapsed(saved.state.elapsedHours)} · {formatSeed(saved.state.seed)}

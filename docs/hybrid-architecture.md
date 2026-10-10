@@ -57,8 +57,7 @@ Three small engine changes support this:
 - A new move, `wait`, keeps the party where it is **without** the camp-rest
   benefit that `hold` gives above 3000 m. Failed and abandoned challenges use
   it, so walking away from a climb can never be a disguised rest day.
-- `Choice.id` is an optional stable id. Challenges are registered by card id and
-  choice id, so editing a choice's wording cannot break or redirect a challenge.
+- Challenges guard **camps**, not cards. See *Camp gates* below.
 
 ## Playable choice flow
 
@@ -79,10 +78,8 @@ router.back() to climb.tsx (field note shows the change)
 
 ### Contracts (`src/game/hybrid/types.ts`)
 
-- `ChallengeDefinition`: which card (`eventId`) and which choice
-  (`choiceId`, the choice's stable id, so neither reordering nor rewording
-  choices can launch the wrong thing) open the challenge, and a `modifier(outcome, baseEffect, state)`
-  function returning an `OutcomeModifier`.
+- `ChallengeDefinition`: the camp it guards (`gate`) and a
+  `modifier(outcome, baseEffect, state)` function returning an `OutcomeModifier`.
 - `PendingChallenge`: `attemptId`, `eventId`, `choiceIndex`, `choiceLabel`,
   `historyLength`, and a deterministic `seed` for the simulation.
 - `ChallengeOutcome`: `result` (`complete | retreat | fail`), `staminaLeft`,
@@ -91,6 +88,29 @@ router.back() to climb.tsx (field note shows the change)
   `move: 'wait'` (a challenge can take height away, never add it, and never
   turns into a rest),
   `keepBaseScores`, and its own score notes.
+
+### Camp gates
+
+Kilimanjaro has three played climbs, each guarding a camp:
+
+| Camp | Climb | Level |
+| --- | --- | --- |
+| Shira 2 (`camp1`) | the Lava Tower | `levels/lavaTower.ts` |
+| Barranco (`camp2`) | the Barranco Wall | `levels/barranco.ts` |
+| Barafu (`camp4`) | the summit night | `levels/summitNight.ts` |
+
+`challengeFor(game, state, card, index)` launches the camp's climb for any
+choice whose effect would move the party up (`up` or `summit`) out of a gated
+camp, on any card: the named event cards and the generated route card alike.
+Holding, camp beats, and turning around are never gated, and nothing is gated
+once the party is retreating. So the summit can only be reached by playing all
+three climbs, and a backed-off climb is tried again through the ordinary
+"move on" card.
+
+All three share one outcome policy (`climb()` in
+`src/expeditions/kilimanjaro/challenges.ts`): a retreat or failure `wait`s at
+the camp, refunds half the card's energy, takes back any acclimatization and
+team gain the height would have given, and costs the rest of the day.
 
 ### Invariants
 
@@ -103,6 +123,9 @@ router.back() to climb.tsx (field note shows the change)
 | A challenge cannot add height or large rewards | `boundModifier`: stats −12…+6, hours 0…12, scores −8…+8, notes must carry a mark | `the modifier cannot exceed its limits` |
 | Score notes cannot be earned twice | engine `marks`, and every challenge note has a mark | engine behaviour, unchanged |
 | Backing off is never better than the equivalent rest choice | Barranco modifier tuning | `backing off is never better than resting…` (5 seeds) |
+| Turning back from any climb leaves the party no better off and costs at least 12 h | shared `climb()` policy | `turning back from any climb never leaves the party better off…` |
+| Uhuru is only reached by playing all three climbs | camp gates | `Uhuru is only reached by playing all three climbs` (3 seeds) |
+| A backed-off climb comes back through the ordinary route card | camp gates | `after backing off, the plain way on launches the same climb again` |
 | Camp beats are blocked while a challenge is pending | `coordinator.play` | `camp beats are blocked…` |
 
 The attempt id is `expeditionId:seed:eventId:historyLength`. It is stable for
@@ -214,12 +237,12 @@ npx expo start --dev-client
 
 ## Adding a challenge
 
-1. Author a level in `src/features/climbing/levels/` (tile map + backdrop).
-2. Give the launching choice an `id` in the event data, and add a
-   `ChallengeDefinition` in the expedition's `challenges.ts` naming the card id
-   and that choice id, with a modifier that respects the limits above.
-3. Add it to the expedition's `challenges` list. The coordinator, save, and
-   expedition screen pick it up. `challenge.tsx` currently mounts the Barranco
-   level directly; a second challenge needs a level lookup by `challengeId`.
-4. Write the balance test: the played outcome must not beat the equivalent
-   unplayed choice on retreat or failure.
+1. Author a level in `src/features/climbing/levels/` (tile map + backdrop) and a
+   scripted playthrough test that finishes it.
+2. Add a `ClimbScene` to `src/features/climbing/scenes.ts`: level, cold
+   factor, theme (scenery, tint, night), camp, teammate, and wording.
+3. Add a `climb({ ... gate })` to the expedition's `challenges.ts` and put it in
+   the `challenges` list. The coordinator, save, expedition screen, and
+   challenge screen pick it up.
+4. The shared turn-back test covers the new climb automatically once a careful
+   run reaches its camp.
