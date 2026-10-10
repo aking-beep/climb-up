@@ -1,4 +1,4 @@
-import type { EventCard, ExpeditionDefinition, ExpeditionState } from '@/game/types';
+import type { Effect, EventCard, ExpeditionDefinition, ExpeditionState } from '@/game/types';
 import { formatMeters, hash } from '@/utils/number';
 
 import { applyEffect, effectOf } from './apply';
@@ -41,11 +41,26 @@ export function applyDecision(
   index: number,
   def: ExpeditionDefinition,
 ): ExpeditionState {
+  return resolveDecision(state, index, def);
+}
+
+/**
+ * The one place a card is spent. `adjust` lets a caller reshape the
+ * choice's effect before it lands (a played challenge does this), so the
+ * card is marked seen and the history written exactly once either way.
+ */
+export function resolveDecision(
+  state: ExpeditionState,
+  index: number,
+  def: ExpeditionDefinition,
+  adjust?: (effect: Effect, card: EventCard) => Effect,
+): ExpeditionState {
   if (state.status !== 'active') return state;
   const card = currentEvent(state, def);
   const choice = card.choices[index];
   if (!choice) throw new Error(`Choice ${index} is not on ${card.id}.`);
-  const effect = effectOf(choice.effect, state);
+  const base = effectOf(choice.effect, state);
+  const effect = adjust ? adjust(base, card) : base;
   const next = applyEffect(state, effect, def);
   if (card.repeat === 'day') next.marks[`day-${card.id}`] = dayOf(state);
   else if (!card.ephemeral) next.seen = [...next.seen, card.id];

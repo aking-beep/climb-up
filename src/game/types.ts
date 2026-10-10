@@ -36,7 +36,8 @@ export type Effect = {
   move?: Move;
   /** A height the team touches and leaves. Raises the highest mark only. */
   visitMeters?: number;
-  scores?: Partial<Record<ScoreBucket, LedgerNote>>;
+  /** One note per bucket, or several when a played challenge adds its own. */
+  scores?: Partial<Record<ScoreBucket, LedgerNote | readonly LedgerNote[]>>;
   mark?: string;
 };
 
