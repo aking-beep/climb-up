@@ -68,8 +68,11 @@ covered by automated tests. Nothing has been run on a physical device yet.
 
 ## Godot
 
-Not evaluated, by design. Revisit only if device profiling of this slice shows
-that collision, camera, or lighting needs are beyond a maintainable custom
-implementation. The simulation is engine-agnostic TypeScript, and the
-expedition engine would have to be ported or bridged, which is the main cost
-of any migration.
+A Godot 4 prototype of the Barranco Wall now lives in `godot/`, alongside
+this app and without touching it: a landscape side-scrolling climb about six
+times the size of the Expo level, with slopes, mantling, a traverse over a
+void, two wind-exposed ledges, Marco, a scripted full ascent in its tests,
+and the outcome mapped onto the same Barranco policy. See
+[godot-migration/architecture.md](godot-migration/architecture.md) and
+[godot-migration/comparison.md](godot-migration/comparison.md). The decision
+waits on an Android build played on a real phone.

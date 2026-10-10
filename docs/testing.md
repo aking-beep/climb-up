@@ -22,6 +22,16 @@ npx expo-doctor     # needs network for 2 of its 21 checks
 | `src/features/climbing/__tests__/presentation-test.ts` | sprite clip timing, camera follow and bounds, reduced-motion shake, parallax ordering |
 | `src/features/climbing/__tests__/runtime-test.ts` | 60 Hz simulation independent of display rate, stall handling, immutable frames, low-power publishing, hints, held buttons released when the teammate sheet opens |
 
+## Godot prototype
+
+```bash
+godot --headless --path godot --import
+godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
+```
+
+22 tests, including a scripted climber that plays the whole Barranco Wall.
+See [godot/README.md](../godot/README.md).
+
 ## On a phone
 
 ```bash
