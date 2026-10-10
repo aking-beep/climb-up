@@ -8,6 +8,8 @@ export type ClimbInput = {
   retreat: boolean;
 };
 
+export type ClimbAction = 'idle' | 'walk' | 'scramble' | 'rest' | 'air' | 'help';
+
 export type ClimbWorld = {
   x: number;
   y: number;
@@ -15,6 +17,7 @@ export type ClimbWorld = {
   vy: number;
   onGround: boolean;
   facing: 1 | -1;
+  action: ClimbAction;
   stamina: number;
   staminaStart: number;
   seconds: number;

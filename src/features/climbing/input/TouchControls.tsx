@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { body, font, line, muted, paperRaised, spruce, spruceInk } from '@/theme';
@@ -54,13 +55,23 @@ function Hold({
   input: ClimbInput;
   onHold: (input: ClimbInput) => void;
 }) {
+  const down = useRef(false);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={a11y}
-      onPressIn={() => onHold(input)}
-      onPress={() => onHold(input)}
-      onPressOut={() => onHold(EMPTY_INPUT)}
+      onPressIn={() => {
+        down.current = true;
+        onHold(input);
+      }}
+      onPress={() => {
+        onHold(input);
+        if (!down.current) onHold(EMPTY_INPUT);
+      }}
+      onPressOut={() => {
+        down.current = false;
+        onHold(EMPTY_INPUT);
+      }}
       style={({ pressed }) => [styles.pad, pressed && styles.pressed]}
     >
       <Text style={styles.padText}>{label}</Text>

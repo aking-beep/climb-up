@@ -1,160 +1,242 @@
-import { Image, StyleSheet, View, type ImageStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image, StyleSheet, View, type ImageStyle } from 'react-native';
 
-import {
-  PLATFORMS,
-  PLAYER_H,
-  PLAYER_W,
-  WORLD_H,
-  WORLD_W,
-  groundTop,
-} from '@/features/climbing/simulation/barranco';
+import { presentPose } from '@/features/climbing/animation/poses';
+import { PLATFORMS, PLAYER_H, PLAYER_W, groundTop } from '@/features/climbing/simulation/barranco';
 import type { ClimbWorld } from '@/features/climbing/simulation/types';
 
-const FAR = require('../../../../assets/world/diorama-desert.jpg');
+import { cameraFor, cloudBands } from './camera';
+
+const FAR = require('../../../../assets/world/far-mountains.png');
+const VALLEY = require('../../../../assets/world/diorama-desert.jpg');
+const ROCK = require('../../../../assets/world/ground-rock.png');
+const CLOUDS = require('../../../../assets/world/clouds.png');
 const YOU = require('../../../../assets/world/pixel-you.png');
 const LENA = require('../../../../assets/world/pixel-lena.png');
 const MARCO = require('../../../../assets/world/pixel-marco.png');
 const TENT = require('../../../../assets/world/pixel-tent.png');
 
 const pixel = { imageRendering: 'pixelated' } as ImageStyle;
-const ROCK = ['#4e4034', '#3a312a', '#5a4638', '#2c261f', '#685848'];
 
-function rockCourses(width: number, height: number) {
-  const courses = [];
-  let n = 0;
-  for (let row = 14; row < height - 6; row += 24) {
-    const stagger = (n % 2) * 14;
-    for (let x = 2 + stagger; x < width - 12; x += 36) {
-      courses.push({
-        x,
-        y: row + (n % 3) * 2,
-        w: 26 + (n % 4) * 6,
-        h: 16 + (n % 3) * 6,
-        color: ROCK[n % ROCK.length],
-      });
-      n += 1;
-    }
-  }
-  return courses;
-}
-
-export function ViewScene({ world, width, height }: { world: ClimbWorld; width: number; height: number }) {
-  const scale = height / WORLD_H;
-  const viewWorld = width / scale;
-  const cam = Math.max(0, Math.min(Math.max(0, WORLD_W - viewWorld), world.x - viewWorld * 0.36));
-  const sx = (x: number) => (x - cam) * scale;
-  const bob = Math.abs(world.vx) > 12 ? Math.sin(world.seconds * 12) * 2 : 0;
+export function ViewScene({
+  world,
+  width,
+  height,
+  reduced = false,
+}: {
+  world: ClimbWorld;
+  width: number;
+  height: number;
+  reduced?: boolean;
+}) {
+  const { scale, cam, sx } = cameraFor(world.x, width, height);
+  const pose = presentPose(world);
+  const bob = reduced ? 0 : pose.dy;
   const marcoGone = world.hazards.some((hazard) => hazard.endsWith('marco'));
+  const windy = world.hazards.includes('wind') && world.y < 180;
+  const clouds = cloudBands(world.seconds, cam, width, reduced);
 
   return (
     <View style={styles.frame} accessibilityLabel={`Barranco scramble, stamina ${Math.round(world.stamina)}`}>
-      <LinearGradient colors={['#e4d2b4', '#9eb0ac', '#243038']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#f0ddc0', '#d7c4a2', '#8ea8ab', '#314047']} style={StyleSheet.absoluteFill} />
       <Image
         source={FAR}
+        style={{
+          position: 'absolute',
+          width: width * 1.8,
+          height: height * 0.46,
+          left: -cam * scale * 0.12,
+          top: height * 0.08,
+        }}
+      />
+      {clouds.map((cloud, index) => (
+        <Image
+          key={index}
+          source={CLOUDS}
+          style={{
+            position: 'absolute',
+            left: cloud.left,
+            top: cloud.top,
+            width: cloud.width,
+            height: cloud.width * 0.28,
+            opacity: cloud.opacity,
+          }}
+        />
+      ))}
+      <Image
+        source={VALLEY}
         style={[
-          styles.far,
           pixel,
-          { width: width * 1.5, height: height * 0.58, left: -cam * scale * 0.22, top: height * 0.05 },
+          {
+            position: 'absolute',
+            width: width * 1.45,
+            height: height * 0.5,
+            left: -cam * scale * 0.28,
+            top: height * 0.22,
+            opacity: 0.92,
+          },
         ]}
       />
-      <View style={[styles.haze, { top: height * 0.42 }]} />
-      {PLATFORMS.map((platform) => (
-        <View key={`${platform.x}-${platform.y}`}>
+      <LinearGradient
+        colors={['rgba(240,221,192,0)', 'rgba(49,64,71,0.25)']}
+        style={{ position: 'absolute', left: 0, right: 0, top: height * 0.34, height: height * 0.22 }}
+      />
+      {PLATFORMS.map((platform) => {
+        const faceH = Math.min(platform.h * scale, height * 0.46);
+        return (
           <View
-            style={{
-              position: 'absolute',
-              left: sx(platform.x),
-              top: (platform.y + 6) * scale,
-              width: platform.w * scale,
-              height: platform.h * scale,
-              backgroundColor: '#2a241f',
-            }}
-          />
-          {rockCourses(platform.w, platform.h).map((course) => (
-            <View
-              key={`${platform.x}-${course.x}-${course.y}`}
-              style={{
-                position: 'absolute',
-                left: sx(platform.x + course.x),
-                top: (platform.y + course.y) * scale,
-                width: course.w * scale,
-                height: course.h * scale,
-                backgroundColor: course.color,
-              }}
-            />
-          ))}
-          <View
+            key={`${platform.x}-${platform.y}`}
             style={{
               position: 'absolute',
               left: sx(platform.x),
               top: platform.y * scale,
               width: platform.w * scale,
-              height: 7 * scale,
-              backgroundColor: '#6a5644',
+              height: faceH,
+              overflow: 'hidden',
             }}
-          />
-        </View>
-      ))}
+          >
+            <Image
+              source={ROCK}
+              style={{
+                position: 'absolute',
+                width: platform.w * scale * 1.5,
+                height: faceH * 2.6,
+                top: -faceH * 1.2,
+                left: -((platform.x * 0.25) % 80),
+              }}
+            />
+            <LinearGradient
+              colors={['rgba(196,176,140,0.2)', 'rgba(28,22,16,0.45)']}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={{ height: Math.max(4, 6 * scale), backgroundColor: '#d9c4a4' }} />
+          </View>
+        );
+      })}
       <Image source={TENT} style={[styles.tent, pixel, { left: sx(78), top: (groundTop(80) - 34) * scale }]} />
-      <Image source={TENT} style={[styles.tent, pixel, { left: sx(124), top: (groundTop(130) - 30) * scale, opacity: 0.9 }]} />
+      <Image
+        source={TENT}
+        style={[styles.tent, pixel, { left: sx(126), top: (groundTop(130) - 30) * scale, opacity: 0.92 }]}
+      />
       {!marcoGone ? (
-        <Image
+        <Climber
           source={MARCO}
-          style={[styles.person, pixel, { left: sx(636), top: (160 - PLAYER_H) * scale, width: PLAYER_W * scale, height: PLAYER_H * scale }]}
+          left={sx(636)}
+          top={(160 - PLAYER_H) * scale}
+          width={PLAYER_W * scale}
+          height={PLAYER_H * scale}
+          facing={1}
+          bob={0}
+          squash={1}
+          lean={0}
         />
       ) : null}
-      <Image
+      <Climber
         source={LENA}
-        style={[
-          styles.person,
-          pixel,
-          {
-            left: sx(world.x - 34),
-            top: (world.y + 6 + bob) * scale,
-            width: PLAYER_W * scale * 0.86,
-            height: PLAYER_H * scale * 0.86,
-            transform: [{ scaleX: world.facing }],
-          },
-        ]}
+        left={sx(world.x - 34)}
+        top={(world.y + 8 + bob) * scale}
+        width={PLAYER_W * scale * 0.86}
+        height={PLAYER_H * scale * 0.86 * pose.squash}
+        facing={world.facing}
+        bob={0}
+        squash={pose.squash}
+        lean={pose.lean * 0.5}
+      />
+      <Climber
+        source={YOU}
+        left={sx(world.x)}
+        top={(world.y + bob) * scale}
+        width={PLAYER_W * scale}
+        height={PLAYER_H * scale * pose.squash}
+        facing={world.facing}
+        bob={0}
+        squash={pose.squash}
+        lean={pose.lean}
+      />
+      {!reduced && windy
+        ? [0, 1, 2, 3].map((index) => (
+            <View
+              key={index}
+              style={{
+                position: 'absolute',
+                left: ((world.seconds * 80 + index * 70) % width) - 20,
+                top: height * (0.28 + index * 0.08),
+                width: 46,
+                height: 2,
+                backgroundColor: 'rgba(255,255,255,0.35)',
+              }}
+            />
+          ))
+        : null}
+      {!reduced ? (
+        <Image
+          source={ROCK}
+          style={{
+            position: 'absolute',
+            left: -cam * scale * 1.15,
+            bottom: -8,
+            width: width * 1.4,
+            height: height * 0.22,
+            opacity: 0.95,
+          }}
+        />
+      ) : null}
+      <LinearGradient
+        colors={['rgba(49,64,71,0)', 'rgba(18,17,15,0.28)']}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 36 }}
+      />
+    </View>
+  );
+}
+
+function Climber({
+  source,
+  left,
+  top,
+  width,
+  height,
+  facing,
+  lean,
+}: {
+  source: number;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  facing: number;
+  bob: number;
+  squash: number;
+  lean: number;
+}) {
+  return (
+    <View style={{ position: 'absolute', left, top, width, height }}>
+      <View
+        style={{
+          position: 'absolute',
+          left: width * 0.12,
+          top: height - 5,
+          width: width * 0.76,
+          height: 6,
+          borderRadius: 6,
+          backgroundColor: 'rgba(20,16,12,0.4)',
+        }}
       />
       <Image
-        source={YOU}
+        source={source}
         style={[
-          styles.person,
           pixel,
           {
-            left: sx(world.x),
-            top: (world.y + bob) * scale,
-            width: PLAYER_W * scale,
-            height: PLAYER_H * scale,
-            transform: [{ scaleX: world.facing }],
+            width,
+            height,
+            transform: [{ scaleX: facing }, { rotate: `${lean}deg` }],
           },
         ]}
       />
-      <View style={styles.mist} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  frame: { flex: 1, overflow: 'hidden', backgroundColor: '#243038' },
-  far: { position: 'absolute', opacity: 0.88 },
-  haze: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 48,
-    backgroundColor: 'rgba(228,210,180,0.18)',
-  },
+  frame: { flex: 1, overflow: 'hidden', backgroundColor: '#314047' },
   tent: { position: 'absolute', width: 54, height: 34 },
-  person: { position: 'absolute' },
-  mist: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 28,
-    backgroundColor: 'rgba(18,17,15,0.35)',
-  },
 });

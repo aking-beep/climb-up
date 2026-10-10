@@ -5,7 +5,17 @@ import type { ClimbWorld } from '@/features/climbing/simulation/types';
 
 import { ViewScene } from './ViewScene';
 
-export function ClimbingCanvas({ world, width, height }: { world: ClimbWorld; width: number; height: number }) {
+export function ClimbingCanvas({
+  world,
+  width,
+  height,
+  reduced = false,
+}: {
+  world: ClimbWorld;
+  width: number;
+  height: number;
+  reduced?: boolean;
+}) {
   const [NativeScene, setNativeScene] = useState<typeof ViewScene | null>(null);
 
   useEffect(() => {
@@ -23,5 +33,5 @@ export function ClimbingCanvas({ world, width, height }: { world: ClimbWorld; wi
 
   if (width < 2 || height < 2) return <View style={{ flex: 1, backgroundColor: '#243038' }} />;
   const Scene = NativeScene ?? ViewScene;
-  return <Scene world={world} width={width} height={height} />;
+  return <Scene world={world} width={width} height={height} reduced={reduced} />;
 }

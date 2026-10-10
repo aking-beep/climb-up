@@ -49,6 +49,7 @@ export function createBarranco(stamina: number): ClimbWorld {
     vy: 0,
     onGround: true,
     facing: 1,
+    action: 'idle',
     stamina: start,
     staminaStart: start,
     seconds: 0,
@@ -82,7 +83,7 @@ export function stepClimb(world: ClimbWorld, input: ClimbInput, dt: number): Cli
 
   if (world.prompt) {
     if (!input.help && !input.continue && !input.rest) {
-      return { ...world, seconds: world.seconds + step, vx: 0 };
+      return { ...world, seconds: world.seconds + step, vx: 0, action: 'help' };
     }
     const helped = input.help;
     const left = input.continue && !helped;
@@ -93,6 +94,7 @@ export function stepClimb(world: ClimbWorld, input: ClimbInput, dt: number): Cli
       hazards: remember(world.hazards, helped ? 'helped-marco' : left ? 'left-marco' : 'rested-with-marco'),
       prompt: false,
       vx: 0,
+      action: helped ? 'help' : input.rest ? 'rest' : 'walk',
     };
   }
 
@@ -135,7 +137,9 @@ export function stepClimb(world: ClimbWorld, input: ClimbInput, dt: number): Cli
   }
 
   const zone = SCRAMBLES.find((item) => overlaps(body(x, y), item));
+  let scrambled = false;
   if (input.scramble && world.onGround && zone && stamina >= 8) {
+    scrambled = true;
     x = zone.destX;
     y = zone.destY;
     vx = 0;
@@ -198,6 +202,17 @@ export function stepClimb(world: ClimbWorld, input: ClimbInput, dt: number): Cli
 
   x = Math.max(0, Math.min(WORLD_W - PLAYER_W, x));
   const finished = x >= GOAL_X && onGround && !prompt && !failed;
+  const action = prompt
+    ? 'help'
+    : input.rest && onGround
+      ? 'rest'
+      : scrambled
+        ? 'scramble'
+        : !onGround
+          ? 'air'
+          : Math.abs(vx) > 12
+            ? 'walk'
+            : 'idle';
 
   return {
     ...world,
@@ -207,6 +222,7 @@ export function stepClimb(world: ClimbWorld, input: ClimbInput, dt: number): Cli
     vy,
     onGround,
     facing,
+    action,
     stamina,
     seconds: world.seconds + step,
     falls,
