@@ -238,21 +238,27 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
 one before it is finished. The words on screen are for non-climbers (tiny
 holds, big holds, a jump for a far hold), with the climbing name after.
 
-| Grade | Route | Crux |
-| --- | --- | --- |
-| 4 | Warm-up Slab | learning to clip and rest on a jug |
-| 5b | Sundown Traverse | a long traverse: a jug, then crimps |
-| 6a | The Pinch | six rows of crimps above a jug |
-| 6b | Leap of Faith | a dyno across blank rock |
-| 6c | Lion's Roof | crimps, a traverse on crimps under a roof, a dyno, crimps |
-| 7a | Thunderhead | two dynos, a roof, long crimps; rest on every jug |
+Each route is taller than the one before, with more bolts to clip and
+more stretches of tiny holds, and fewer big holds, further apart. The bolts
+are spaced out (and further apart the higher you go), so where you clip and
+where you rest is a decision.
+
+| Grade | Route | Height | Bolts | Crimp stretches | Big holds | Also |
+| --- | --- | --- | --- | --- | --- | --- |
+| 4 | Warm-up Wall | 27 rows | 4 | 2 | 1 | |
+| 5b | Sundown Traverse | 37 | 5 | 3 | 2 | a long traverse |
+| 6a | The Pinch | 40 | 6 | 4 | 2 | the longest crimps at the top |
+| 6b | Leap of Faith | 49 | 7 | 5 | 3 | a dyno |
+| 6c | Lion's Roof | 48 | 8 | 6 | 3 | a traverse under a roof, a dyno |
+| 7a | Thunderhead | 56 | 9 | 7 | 3 | two dynos, a roof |
 
 - **Tap to clip.** At each bolt the game asks "Clip in?": tap CLIP three
   times (pull up the rope, open the gate, clip). Climb on without it and
   the bolt stays unclipped: a fall then drops you to the last one you did
   clip, and the game tells you so. The rope runs up through every clipped
   bolt to you.
-- **Rest on the rope.** Every clip fills a green rest bar over your head.
+- **Rest on the rope.** Every clip (and every fall the rope catches) fills
+  a green rest bar over your head.
   Once clipped, the big button reads REST whenever nothing else needs a
   tap: tap it to sit back on the rope and get stamina back from the bar
   (20 per bolt). Rest as often as you like; moving ends a rest and the
@@ -281,7 +287,8 @@ holds, big holds, a jump for a far hold), with the climbing name after.
   falls), redpoint (no falls, after earlier goes), or sent with falls. The
   best per route is kept (`user://climb_up_crag.json`), and the route list
   shows it.
-- **Maps** come from `tools/levels/crag_maps.py`; holds, quickdraws and
+- **Maps** come from `tools/levels/crag_maps.py`, written bottom to top as
+  segments (rock, crimps, jug, blank, traverse); holds, quickdraws and
   the anchor from `tools/art/godot_crag.py`.
 
 ## The Barranco Wall

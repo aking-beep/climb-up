@@ -46,7 +46,7 @@ func _line_goes_up(dir: int) -> float:
 
 ## Leads the current route to the anchor, as a player would. Returns true
 ## on the send.
-func lead(seconds: float = 120.0) -> bool:
+func lead(seconds: float = 300.0) -> bool:
 	var t: Terrain = level.terrain
 	var resting := false
 	var target := NAN
@@ -217,10 +217,12 @@ func test_a_dyno_crosses_blank_rock() -> void:
 	await _load("leap-of-faith")
 	var t: Terrain = level.terrain
 	# Top of the jug, under the blank.
+	# The top of the jug right under the blank rock.
 	var jug_top := Vector2i(-1, -1)
 	for y in t.height:
 		for x in t.width:
-			if t.kind(Vector2i(x, y)) == Terrain.Kind.JUG and jug_top.x < 0:
+			var cell := Vector2i(x, y)
+			if t.kind(cell) == Terrain.Kind.JUG and t.kind(cell + Vector2i.UP) == Terrain.Kind.AIR and not t.is_solid(cell + Vector2i(0, -2)) and t.is_climbable(cell + Vector2i(0, -3)) and jug_top.x < 0:
 				jug_top = Vector2i(x + 1, y)
 	c.hang_at(Terrain.feet(jug_top + Vector2i(0, 1)))
 	await physics_frames(2)
@@ -246,9 +248,13 @@ func test_a_dyno_crosses_blank_rock() -> void:
 		GameInput.scripted = {"interact": i % 4 < 2}
 		await tree.physics_frame
 	eq(level.catching, 0.0, "three fast taps stick it")
-	await physics_frames(70)
+	var higher := before - c.global_position.y
+	# Tiny holds above the blank: keep tapping GRIP to stay on.
+	for i in 70:
+		GameInput.scripted = {"interact": i % 6 < 3}
+		await tree.physics_frame
 	eq(c.state, Climber.State.CLIMB, "still on the rock")
-	check(c.global_position.y < before - 2.0 * T, "two tiles higher, across the blank (%.0f px)" % (before - c.global_position.y))
+	check(higher > 2.0 * T, "two tiles higher, across the blank (%.0f px)" % higher)
 	check(after <= breath - Climber.DYNO_COST + 0.5, "a hard move's breath (%.1f to %.1f)" % [breath, after])
 	await _done()
 
@@ -257,10 +263,12 @@ func test_a_dyno_not_stuck_slips_off() -> void:
 	Crag.navigate = false
 	await _load("leap-of-faith")
 	var t: Terrain = level.terrain
+	# The top of the jug right under the blank rock.
 	var jug_top := Vector2i(-1, -1)
 	for y in t.height:
 		for x in t.width:
-			if t.kind(Vector2i(x, y)) == Terrain.Kind.JUG and jug_top.x < 0:
+			var cell := Vector2i(x, y)
+			if t.kind(cell) == Terrain.Kind.JUG and t.kind(cell + Vector2i.UP) == Terrain.Kind.AIR and not t.is_solid(cell + Vector2i(0, -2)) and t.is_climbable(cell + Vector2i(0, -3)) and jug_top.x < 0:
 				jug_top = Vector2i(x + 1, y)
 	c.hang_at(Terrain.feet(jug_top + Vector2i(0, 1)))
 	await physics_frames(2)

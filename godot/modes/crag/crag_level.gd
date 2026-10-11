@@ -483,6 +483,9 @@ func _on_slip_finished() -> void:
 		return
 	if checkpoint > 0:
 		climber.hang_at(clips[checkpoint - 1]["hang"])
+		# Hanging on the rope after a fall: a fresh rest bar before you try
+		# again.
+		rope_left = ROPE_REST
 	else:
 		climber.respawn(_start)
 	camera.snap()
