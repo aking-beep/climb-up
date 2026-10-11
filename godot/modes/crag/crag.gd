@@ -48,12 +48,23 @@ const STYLES := {
 	"redpoint": ["Redpoint", "You climbed it without falling, after trying it before."],
 	"falls": ["Sent, with falls", "You made it to the top, but fell on the way. Try it again without falling."],
 }
+## The shoes, picked before each route. `pace` multiplies climbing speed,
+## `stamina` what being on the rock costs.
+const SHOES := {
+	"neutral": {"name": "Neutral shoes", "pace": 0.75, "stamina": 0.7,
+		"text": "Comfy and flat: you climb slower, but use less stamina."},
+	"aggressive": {"name": "Aggressive shoes", "pace": 1.3, "stamina": 1.35,
+		"text": "Tight and bent: you climb faster, but use more stamina."},
+}
+
 const STYLE_RANK := {"": 0, "falls": 1, "redpoint": 2, "onsight": 3}
 
 ## Per route: {attempts, sends, best (style), bestFalls, bestSeconds}.
 var progress: Dictionary = {}
 ## The route being climbed.
 var current := "warm-up"
+## The shoes picked last (offered first next time).
+var shoes := "neutral"
 var navigate := true
 
 
@@ -136,14 +147,17 @@ func finish(id: String, sent: bool, falls: int, seconds: int) -> Dictionary:
 
 
 func save_progress() -> bool:
-	return SaveGame.write({"progress": progress}, SAVE)
+	return SaveGame.write({"progress": progress, "shoes": shoes}, SAVE)
 
 
 func load_progress() -> void:
 	progress = {}
+	shoes = "neutral"
 	var data: Variant = SaveGame.read(SAVE)
 	if data == null or typeof(data.get("progress")) != TYPE_DICTIONARY:
 		return
+	if SHOES.has(String(data.get("shoes", ""))):
+		shoes = String(data["shoes"])
 	for r in ROUTES:
 		var d: Variant = data["progress"].get(r["id"])
 		if typeof(d) != TYPE_DICTIONARY:
@@ -160,6 +174,7 @@ func load_progress() -> void:
 
 func reset() -> void:
 	progress = {}
+	shoes = "neutral"
 	SaveGame.erase(SAVE)
 
 

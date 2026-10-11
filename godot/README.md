@@ -256,6 +256,14 @@ where you rest is a decision.
 | 6c | Lion's Roof | 48 | 8 | 6 | 3 | a traverse under a roof, a dyno |
 | 7a | Thunderhead | 56 | 9 | 7 | 3 | two dynos, a roof |
 
+- **Pick your shoes.** Before every route (not the lesson) you choose:
+  neutral shoes (comfy and flat: you climb at three quarters of the speed,
+  and the rock costs 30% less stamina) or aggressive shoes (tight and bent:
+  30% faster, 35% more stamina). Neutral suits a long, pumpy route you want
+  to rest through; aggressive gets you past the hard bits and to the top
+  quicker. The game remembers your last pick and offers it first. In the
+  tests both pairs send the 6a and the 7a; aggressive is about 30% quicker,
+  neutral tops out with more stamina left.
 - **Tap to clip.** At each bolt the game asks "Clip in?": tap CLIP. How
   many taps a bolt takes is shown before you get there, as dots under the
   quickdraw (they fill blue as you tap and turn green once clipped). Each
@@ -349,7 +357,7 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-72 tests: the engine replaying seven expeditions recorded from the
+73 tests: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume

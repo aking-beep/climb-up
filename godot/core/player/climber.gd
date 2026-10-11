@@ -34,6 +34,8 @@ const GRAVITY := 900.0
 const MAX_FALL := 420.0
 const CLIMB_UP := 34.0
 const CLIMB_SIDE := 27.0
+## Multiplies climbing speed on the rock: the shoes (crag mode).
+var pace := 1.0
 const SCRAMBLE_SPEED := 48.0
 const FATIGUE_SLOW := 0.7
 ## A drop longer than this (4 tiles) is a slip, not a step down.
@@ -462,8 +464,8 @@ func _climb(delta: float, input: Vector2) -> void:
 		_let_go()
 		return
 	var scrambling := hold == Terrain.Kind.SCRAMBLE
-	var speed_up := SCRAMBLE_SPEED if scrambling else CLIMB_UP
-	var speed_side := SCRAMBLE_SPEED * 0.8 if scrambling else CLIMB_SIDE
+	var speed_up := SCRAMBLE_SPEED if scrambling else CLIMB_UP * pace
+	var speed_side := SCRAMBLE_SPEED * 0.8 if scrambling else CLIMB_SIDE * pace
 	if stamina.is_tired():
 		speed_up *= FATIGUE_SLOW
 		speed_side *= FATIGUE_SLOW

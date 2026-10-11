@@ -5,7 +5,7 @@ extends ClimbBot
 ## rules one at a time: crimps, jugs, the dyno, clipping and lead falls,
 ## styles, unlocking, and saves. Nothing here touches the expedition.
 
-func _load(id: String) -> void:
+func _load(id: String, start: String = "start") -> void:
 	Crag.navigate = false
 	Settings.touch_controls = false
 	Crag.current = id
@@ -14,7 +14,8 @@ func _load(id: String) -> void:
 	await physics_frames(2)
 	c = level.climber
 	check(level.panel.open, "the brief is shown first")
-	level.panel.choose("start")
+	if start != "":
+		level.panel.choose(start)
 	await physics_frames(1)
 
 
@@ -424,6 +425,58 @@ func test_bolts_take_a_fair_number_of_taps() -> void:
 	await tree.physics_frame
 	eq(level.checkpoint, 1, "one tap clips on the warm-up")
 	await _done()
+
+
+func test_shoes_trade_speed_for_stamina() -> void:
+	_fresh_progress()
+	Crag.navigate = false
+	await _load("warm-up", "")
+	var words := ""
+	for b in level.panel._buttons.get_children():
+		words += b.text + " | "
+	check("Neutral shoes" in words and "Aggressive shoes" in words, "the brief offers both pairs of shoes: %s" % words)
+	level.panel.choose("aggressive")
+	await physics_frames(1)
+	eq(Crag.shoes, "aggressive", "the pick is remembered")
+	await _done()
+	Crag.load_progress()
+	eq(Crag.shoes, "aggressive", "and saved")
+	# The same climb in each pair: neutral is slower and cheaper a second,
+	# aggressive faster and dearer.
+	var runs := {}
+	for id in ["neutral", "aggressive"]:
+		await _load("warm-up", id)
+		var t: Terrain = level.terrain
+		var cell: Vector2i = level.clips[1]["cell"] + Vector2i(0, 3)
+		for x in range(cell.x - 4, cell.x + 5):
+			if t.kind(Vector2i(x, cell.y)) == Terrain.Kind.FACE and t.kind(Vector2i(x, cell.y - 6)) == Terrain.Kind.FACE:
+				cell.x = x
+				break
+		c.hang_at(Terrain.feet(cell))
+		check(c.state == Climber.State.CLIMB, "on the rock to try the %s shoes" % id)
+		var y0: float = c.global_position.y
+		var s0: float = c.stamina.value
+		GameInput.scripted = {"climb_up": true}
+		await physics_frames(60)
+		GameInput.scripted = {}
+		runs[id] = {"climbed": y0 - c.global_position.y, "spent": s0 - c.stamina.value}
+		await _done()
+	print("      shoes, one second climbing: %s" % [runs])
+	check(runs["aggressive"]["climbed"] > runs["neutral"]["climbed"] * 1.5, "aggressive shoes climb faster")
+	check(runs["aggressive"]["spent"] > runs["neutral"]["spent"] * 1.5, "aggressive shoes cost more stamina")
+	# Either pair can send the hard routes; aggressive gets up quicker.
+	for r in ["the-pinch", "thunderhead"]:
+		var secs := {}
+		for id in ["neutral", "aggressive"]:
+			_fresh_progress()
+			await _load(r, id)
+			var sent := await lead()
+			check(sent, "%s sent in %s shoes; stopped at %s, %s" % [r, id, where(), level.stats_line(int(c.stamina.fraction() * 100))])
+			secs[id] = c.clock
+			print("      %s in %s shoes: %d s, %d falls, %d rope rests, %d%% stamina left" % [r, id, int(c.clock), c.slips, level.rope_rests, int(c.stamina.fraction() * 100)])
+			await _done()
+		check(secs["aggressive"] < secs["neutral"], "%s is quicker in aggressive shoes (%s)" % [r, secs])
+	_fresh_progress()
 
 
 func test_the_lesson_stops_the_game_to_explain() -> void:

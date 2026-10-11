@@ -39,6 +39,8 @@ var drain: float = 1.0
 var thin_air: float = 1.0
 ## Multiplies what holding on to rock costs (numb fingers in the cold).
 var grip: float = 1.0
+## Multiplies what being on rock costs: the shoes (crag mode).
+var shoes: float = 1.0
 const ON_ROCK := ["climb", "hang", "traverse", "crimp", "crimp_hang"]
 const WALKING := ["walk", "walk_up", "ice"]
 
@@ -69,7 +71,7 @@ func tick(dt: float, activity: String, loose: bool = false) -> float:
 	if activity in WALKING:
 		rate *= thin_air
 	elif activity in ON_ROCK:
-		rate *= grip
+		rate *= grip * shoes
 	if rate > 0.0:
 		value -= rate * drain * (LOOSE_FACTOR if loose else 1.0) * dt
 	else:

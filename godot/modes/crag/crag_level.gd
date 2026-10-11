@@ -56,6 +56,8 @@ var touch_layout := "crag"
 var prompt := ""
 var action_word := ""
 var briefed := false
+## The shoes on for this go ("neutral", "aggressive"; "" on the lesson).
+var shoes := ""
 var result := ""
 var outcome: Dictionary = {}
 ## Pacing, as on the expedition: each moment the player acted.
@@ -335,9 +337,32 @@ func brief() -> void:
 	elif int(r["attempts"]) > 1:
 		history = "%d tries so far, not finished yet. Finish it with no falls for a redpoint." % (int(r["attempts"]) - 1)
 	var kicker := "The crag · lesson" if route.get("tutorial", false) else "The crag · grade %s (%s)" % [route["grade"], route["level"]]
-	panel.show_panel(kicker, route["name"],
-		"%s\nHardest part: %s\n%d bolts to clip, %s · fall %d times and you have to come down · %s" % [route["text"], route["crux"], clips.size(), _taps_words(), max_slips, history],
-		[["start", "Tie in and climb"], ["menu", "Back to the climbs"]])
+	var body := "%s\nHardest part: %s\n%d bolts to clip, %s · fall %d times and you have to come down · %s" % [route["text"], route["crux"], clips.size(), _taps_words(), max_slips, history]
+	var choices: Array = [["start", "Tie in and climb"]]
+	if not route.get("tutorial", false):
+		# Pick the shoes, the ones worn last time first.
+		body += "\nPick your shoes: neutral ones are comfy and flat, aggressive ones tight and bent."
+		choices = []
+		for id in ["neutral", "aggressive"]:
+			var words := "Neutral shoes: slower, saves stamina" if id == "neutral" else "Aggressive shoes: faster, costs stamina"
+			if id == Crag.shoes:
+				choices.push_front([id, words])
+			else:
+				choices.append([id, words])
+	choices.append(["menu", "Back to the climbs"])
+	panel.show_panel(kicker, route["name"], body, choices)
+
+
+## Puts on a pair of shoes (Crag.SHOES): climbing speed and what the rock
+## costs.
+func wear(id: String) -> void:
+	shoes = id
+	var s: Dictionary = Crag.SHOES[id]
+	climber.pace = float(s["pace"])
+	stamina.shoes = float(s["stamina"])
+	if Crag.shoes != id:
+		Crag.shoes = id
+		Crag.save_progress()
 
 
 # --- The climb --------------------------------------------------------------------
@@ -679,6 +704,11 @@ func _on_choice(id: String) -> void:
 		"start":
 			briefed = true
 			climber.lock(false)
+		"neutral", "aggressive":
+			wear(id)
+			briefed = true
+			climber.lock(false)
+			hud.flash("%s on: %s" % [Crag.SHOES[id]["name"], "slower, less stamina" if id == "neutral" else "faster, more stamina"])
 		"lesson":
 			lesson = ""
 			climber.lock(false)
@@ -728,6 +758,9 @@ func finish(sent: bool) -> void:
 	else:
 		lines.append("Bolts clipped: %d of %d. Rest up and try again." % [checkpoint, clips.size()])
 	lines.append("Falls: %d · %d min %02d s · dynos: %d" % [climber.slips, int(climber.clock) / 60, int(climber.clock) % 60, climber.dynos])
+	if shoes != "":
+		lines.append("In %s." % String(Crag.SHOES[shoes]["name"]).to_lower())
+	outcome["shoes"] = shoes
 	var choices: Array = []
 	if outcome.get("unlocked", "") != "":
 		var next := Crag.route(outcome["unlocked"])
