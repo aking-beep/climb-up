@@ -257,8 +257,8 @@ holds, big holds, a jump for a far hold), with the climbing name after.
   tap: tap it to sit back on the rope and get stamina back from the bar
   (20 per bolt). Rest as often as you like; moving ends a rest and the
   rest of the bar waits. The bolts get further apart the higher you go, so
-  between the high ones you rest on the big holds (jugs) too: they are
-  drawn big, chalked and glowing green so you can spot them.
+  between the high ones you rest on the big holds (jugs) too: chunky
+  holds with chalk on the lip, bigger and brighter than the tiny ones.
 - **Tap to hold.** On tiny holds (crimps) a grip meter over your head runs
   down, faster if you stop; tap GRIP to squeeze it back up. Empty, and
   your fingers peel off.

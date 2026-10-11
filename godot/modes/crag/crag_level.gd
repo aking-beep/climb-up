@@ -218,8 +218,9 @@ func _place_holds() -> void:
 			add_child(s)
 
 
-## A jug is one big hold, easy to see: drawn across its whole patch of rock,
-## chalked, with a pale rim and a slow green glow (the rest colour).
+## Jugs: big incut holds with chalk on the lip, set into the rock like the
+## crimps, two to a patch (staggered, a hand and a foot), so they read as
+## holds you can hang on, not as a sign.
 func _place_jugs() -> void:
 	var tex: Texture2D = load("res://assets/crag/jug.png")
 	for y in terrain.height:
@@ -234,15 +235,13 @@ func _place_jugs() -> void:
 				size.x += 1
 			while terrain.kind(cell + Vector2i(0, size.y)) == Terrain.Kind.JUG:
 				size.y += 1
-			var s := Sprite2D.new()
-			s.texture = tex
-			s.position = (Vector2(cell) + Vector2(size) / 2.0) * Terrain.TILE
-			s.scale = Vector2.ONE * minf(1.2, Vector2(size).x * Terrain.TILE / tex.get_width())
-			s.z_index = 1
-			add_child(s)
-			var glow := create_tween().set_loops()
-			glow.tween_property(s, "modulate", Color(1.25, 1.3, 1.15), 0.9).set_trans(Tween.TRANS_SINE)
-			glow.tween_property(s, "modulate", Color.WHITE, 0.9).set_trans(Tween.TRANS_SINE)
+			var spots: Array = [Vector2(0.3, 0.3), Vector2(0.7, 0.75)] if size.y > 1 else [Vector2(0.5, 0.5)]
+			for f in spots:
+				var s := Sprite2D.new()
+				s.texture = tex
+				s.position = (Vector2(cell) + Vector2(size) * (f as Vector2)) * Terrain.TILE
+				s.z_index = 1
+				add_child(s)
 
 
 func _place_clips() -> void:
