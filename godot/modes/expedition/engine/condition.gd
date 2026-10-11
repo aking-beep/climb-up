@@ -32,11 +32,14 @@ static func of(session: Dictionary, dosed: bool = false) -> Dictionary:
 		"stamina": 1.0, "recovery": 1.0, "grip": 1.0, "thinAir": 1.0,
 		"dizzy": 0, "cramps": 0, "sick": kind, "stage": stage,
 		"medicine": int(t.get("medicine", 0)), "dosed": dosed, "lines": [],
+		# What shrank the bar, for the brief: [words, multiplier].
+		"factors": [],
 	}
 	var lines: Array = c["lines"]
 	match String(t.get("sleep", "")):
 		"badly":
 			c["stamina"] *= 0.88
+			c["factors"].append(["a bad night", 0.88])
 			c["recovery"] *= 0.8
 			lines.append("You slept badly: a smaller stamina bar, and slower to get your breath back.")
 		"well":
@@ -44,12 +47,14 @@ static func of(session: Dictionary, dosed: bool = false) -> Dictionary:
 			lines.append("You slept well: you get your breath back a little faster.")
 	if int(s.get("energy", 100)) < 35:
 		c["stamina"] *= 0.9
+		c["factors"].append(["worn out", 0.9])
 		lines.append("Worn out (energy %d): less in your legs." % int(s["energy"]))
 	if int(s.get("supplies", 100)) < 30:
 		c["recovery"] *= 0.8
 		lines.append("Thin rations: you are hungry, and slow to recover.")
 	if stage > 0:
 		c["stamina"] *= 1.0 - 0.1 * stage
+		c["factors"].append([{"ams": "altitude sickness", "stomach": "a bad stomach", "cold": "the cold"}.get(kind, "unwell"), 1.0 - 0.1 * stage])
 		match kind:
 			"ams":
 				c["thinAir"] = 1.0 + 0.25 * stage
@@ -69,8 +74,21 @@ static func of(session: Dictionary, dosed: bool = false) -> Dictionary:
 	if c["health"] < 80.0:
 		# Poor health is a smaller bar: down to 70% of it at none.
 		c["stamina"] *= 0.7 + 0.3 * c["health"] / 80.0
+		c["factors"].append(["party health %d" % int(c["health"]), 0.7 + 0.3 * c["health"] / 80.0])
 		lines.append("Party health %d: a smaller stamina bar." % int(c["health"]))
 	return c
+
+
+## Why the bar is the size it is, in one line: what the party's energy
+## gives, then each thing that took a share of it.
+static func explain(c: Dictionary, energy: float, final: float) -> String:
+	var base := int(StaminaModel.max_for_energy(energy))
+	if c["factors"].is_empty():
+		return "Stamina bar %d, from the party's energy (%d)." % [int(final), int(energy)]
+	var parts: Array = []
+	for f in c["factors"]:
+		parts.append("%s %d%%" % [f[0], int(round((f[1] - 1.0) * 100.0))])
+	return "Stamina bar %d: energy %d gives %d, then %s." % [int(final), int(energy), base, ", ".join(parts)]
 
 
 ## A dose is worth taking: unwell, symptoms to keep off, and some left.

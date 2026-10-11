@@ -135,6 +135,8 @@ func resume_climb() -> void:
 
 ## A camp beat (pole pole, water, head count) or sitting with someone.
 func play_routine(id: String) -> void:
+	if Trek.lost_roles(session).has(id):
+		return
 	_beat(Party.routine_effect(state(), id), id)
 
 
@@ -189,6 +191,15 @@ func finish_climb(outcome: Dictionary) -> String:
 			s["energy"] = mini(100, int(s["energy"]) + 2)
 			s["lastNote"] = (String(s["lastNote"]) + " A clean climb: the party's spirits lift.").strip_edges()
 			session["state"] = s
+		# Left on the rock with no Lena to bring them up: they turn back down,
+		# and that is the end of their trip.
+		var mate: String = Trek.CLIMB_MATE.get(String(p["challengeId"]), "")
+		if outcome.get("assisted") == false and mate != "" and Trek.is_gone(session, "lena") and not Trek.is_gone(session, mate) and active():
+			Trek._depart(session, mate)
+			var sm: Dictionary = state().duplicate(true)
+			sm["teamCondition"] = maxi(0, int(sm["teamCondition"]) - 10)
+			sm["lastNote"] = (String(sm["lastNote"]) + " With no Lena to bring %s up, %s turns back down alone." % [Trek.NAMES[mate], Trek.NAMES[mate]]).strip_edges()
+			session["state"] = sm
 		# What bit, stung and struck you on the climb comes back to camp, as
 		# energy: the bar the next climb starts with.
 		var hurt := int(outcome.get("hurt", 0))

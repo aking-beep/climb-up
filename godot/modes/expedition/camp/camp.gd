@@ -182,21 +182,22 @@ func _permit(s: Dictionary, card: Dictionary) -> void:
 	paper.add_child(_wrap(_label(line.to_upper(), 7, EMBER if left < 2.0 else MUTED, UiFont.body())))
 
 
-## What a choice spends: hours of the permit, and the risk of going higher.
+## What a choice will cost, before it is picked (Trek.foresee): hours of the
+## permit, what it moves, and a risk band with its reasons.
 func _cost(choice: Dictionary) -> String:
-	var e: Dictionary = choice.get("effect", {})
-	if e.is_empty():
+	var f := Trek.foresee(Expedition.session, choice, Expedition.def)
+	if f.is_empty():
 		return ""
 	var bits: Array = []
-	var h := float(e.get("hours", 6))
-	if h > 0:
-		bits.append("%d h of the permit" % int(h))
-	var move := String(e.get("move", "hold"))
-	if move == "up" or move == "summit":
-		bits.append("higher: sickness more likely")
-	elif move == "down" or move == "retreat":
-		bits.append("lower: the sick get better")
-	return "[" + " · ".join(bits) + "]" if not bits.is_empty() else ""
+	if f["hours"] > 0:
+		bits.append("%d h" % int(f["hours"]))
+	if not f["costs"].is_empty():
+		bits.append(", ".join(f["costs"]))
+	var risk := "risk %s" % f["risk"]
+	if not f["why"].is_empty():
+		risk += " (%s)" % ", ".join(f["why"])
+	bits.append(risk)
+	return "[" + " · ".join(bits) + "]"
 
 
 ## What the last decision did: its note, the changes, any score notes.
@@ -258,10 +259,14 @@ func _last(s: Dictionary) -> void:
 
 
 func _beats(s: Dictionary) -> void:
-	var open := Party.routines(s).filter(func(r: Dictionary) -> bool: return r["enabled"])
-	if open.is_empty():
+	# A beat whose person went down goes with them.
+	var lost := Trek.lost_roles(Expedition.session)
+	var open := Party.routines(s).filter(func(r: Dictionary) -> bool: return r["enabled"] and not lost.has(r["id"]))
+	if open.is_empty() and lost.is_empty():
 		return
 	paper.add_child(_label("AT CAMP · DOESN'T SPEND THE DAY", 7, MUTED, UiFont.body()))
+	for id in lost:
+		_text_label(lost[id], 8, MUTED)
 	var flow := HFlowContainer.new()
 	flow.add_theme_constant_override("h_separation", 3)
 	flow.add_theme_constant_override("v_separation", 3)
@@ -284,6 +289,8 @@ func _party(s: Dictionary) -> void:
 		_text_label("On the next climb: " + " ".join(body), 8, Color("#8a6a1e"))
 	for id in Expedition.trek()["gone"]:
 		_text_label("%s went down with the porters." % Trek.NAMES[id], 8, MUTED)
+	for line in Trek.absence_lines(session, Expedition.def):
+		_text_label(line, 9, INK)
 	for m in Party.members(s):
 		if Trek.is_gone(session, m["id"]):
 			continue

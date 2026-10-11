@@ -315,8 +315,8 @@ func brief() -> void:
 	climber.lock(true)
 	var copy: Dictionary = spec["copy"]
 	var d: Dictionary = spec["difficulty"]
-	var facts := "Stamina %d · %d slips end the attempt · the wind is %s" % [
-		int(stamina.max_value), max_slips, wind.describe()]
+	var facts := "%s\n%d slips end the attempt · the wind is %s" % [
+		Condition.explain(condition, float(Expedition.state()["energy"]), stamina.max_value), max_slips, wind.describe()]
 	if d["recovery"] < 0.8:
 		facts += " · the cold slows recovery"
 	facts += " · at %s m even walking costs breath" % ExpeditionEngine.format_meters(float(spec.get("meters", 4000)))
@@ -324,6 +324,12 @@ func brief() -> void:
 		facts += "\n" + line
 	if trek_factor["steep"] > 1.0:
 		facts += "\nYour route is steep: more wind, and the stones come faster."
+	var missing: Array = []
+	for id in Expedition.trek()["gone"]:
+		if id != "you":
+			missing.append(Trek.NAMES[id])
+	if not missing.is_empty():
+		facts += "\nWithout %s: the rope team is smaller than it was." % " and ".join(missing)
 	var dangers: Array = spec.get("dangers", [])
 	if not dangers.is_empty():
 		facts += "\nWatch for: " + ", ".join(dangers) + "."
@@ -454,7 +460,7 @@ func _meet_mate() -> void:
 	if d.x * pass_dir > 2.5 * Terrain.TILE and absf(d.y) < Terrain.TILE:
 		mate_state = "left"
 		mate.left_behind()
-		hud.flash("You climb on past %s. Lena will bring %s." % [mate_name(), spec["mate"].get("them", "them")])
+		hud.flash("You climb on past %s. %s" % [mate_name(), _who_brings()])
 
 
 func _mate_breath() -> void:
@@ -490,7 +496,7 @@ func _mate_breath() -> void:
 				mate_winded = false
 				mate_state = "left"
 				mate.left_behind()
-				hud.flash("You went on without %s. Lena will bring %s up." % [mate_name(), spec["mate"].get("them", "them")], 3.5)
+				hud.flash("You went on without %s. %s" % [mate_name(), _who_brings()], 3.5)
 				_remember()
 				return
 		if mate_breath >= 100.0:
@@ -502,26 +508,37 @@ func _mate_breath() -> void:
 	mate_breath = clampf(mate_breath, 0.0, 100.0)
 
 
+func _no_lena() -> bool:
+	return Trek.is_gone(Expedition.session, "lena")
+
+
+func _who_brings() -> String:
+	if _no_lena():
+		return "With Lena gone, %s turns back down." % spec["mate"].get("they", "they")
+	return "Lena will bring %s." % spec["mate"].get("them", "them")
+
+
 func mate_panel() -> void:
 	var can := stamina.value >= climber.helper_cost
 	var copy: Dictionary = spec["copy"]
 	panel.show_panel(
 		"Teammate",
 		copy["mateTitle"],
-		"%s Helping costs you %d stamina now; %s would climb behind you after, and catch you if you slip. Lena is an hour behind." % [copy["mateBody"], int(climber.helper_cost), spec["mate"].get("they", "they")],
+		"%s Helping costs you %d stamina now; %s would climb behind you after, and catch you if you slip. %s" % [copy["mateBody"], int(climber.helper_cost), spec["mate"].get("they", "they"),
+			"Lena is an hour behind." if not _no_lena() else "Lena went down. If you leave %s, %s turns back for good." % [spec["mate"].get("them", "them"), spec["mate"].get("they", "they")]],
 		[
 			["help", ("Help %s" % mate_name()) if can else "Help %s (need %d stamina: step back and rest)" % [mate_name(), int(climber.helper_cost)], not can],
-			["leave", "Leave %s for Lena" % spec["mate"].get("them", "them")],
+			["leave", ("Leave %s for Lena" % spec["mate"].get("them", "them")) if not _no_lena() else "Go on without %s" % spec["mate"].get("them", "them")],
 			["back", "Step back"],
 		])
 
 
 func decide_panel() -> void:
 	var copy: Dictionary = spec["copy"]
-	var line := "%s climbs behind you now." % mate_name() if mate_state == "helped" else "%s waits for Lena. You are on your own from here." % mate_name()
+	var line := "%s climbs behind you now." % mate_name() if mate_state == "helped" else ("%s waits for Lena. You are on your own from here." % mate_name() if not _no_lena() else "%s turns back down. You are on your own from here." % mate_name())
 	panel.show_panel(
 		"Halfway up",
-		copy["decideHelped"] if mate_state == "helped" else copy["decideLeft"],
+		copy["decideHelped"] if mate_state == "helped" else (copy["decideLeft"] if not _no_lena() else "On your own. Now what?"),
 		"%s %s Stamina %d%%." % [line, copy["decideBody"], int(stamina.fraction() * 100)],
 		[["continue", "Keep climbing"], ["regroup", "Regroup here (half an hour, full stamina)"], ["retreat", spec["copy"]["backOff"]]])
 
@@ -538,6 +555,7 @@ func pause_menu() -> void:
 			["quality", "Graphics: %s" % ["Full", "Reduced", "Low power"][Settings.quality]],
 			["motion", "Reduced motion: %s" % ("On" if Settings.reduced_motion else "Off")],
 			["touch", "Touch controls: %s" % ("On" if Settings.touch_enabled() else "Off")],
+			["fps", "Show FPS: %s" % ("On" if Settings.show_fps else "Off")],
 			["quit", "Save and go to the menu"],
 		])
 
@@ -590,6 +608,9 @@ func _on_choice(id: String) -> void:
 			pause_menu()
 		"motion":
 			Settings.set_reduced_motion(not Settings.reduced_motion)
+			pause_menu()
+		"fps":
+			Settings.set_show_fps(not Settings.show_fps)
 			pause_menu()
 		"touch":
 			Settings.set_touch_controls(not Settings.touch_enabled())

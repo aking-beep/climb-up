@@ -22,19 +22,19 @@ const ROUTES := {
 	"lemosho": {
 		"name": "The long way", "line": "Lemosho, 10-day permit",
 		"text": "Ten days. The slow walk in through forest and over the Shira plateau. The body has time to catch the air.",
-		"permit": 10, "supplies": 86, "medicine": 3, "upEnergy": 0, "upAcclim": 0, "upHealth": 0, "risk": 0, "climb": 1.0,
+		"permit": 10, "supplies": 94, "medicine": 3, "upEnergy": 0, "upAcclim": 0, "upHealth": 0, "risk": 0, "climb": 1.0,
 	},
 	"machame": {
-		"name": "The steep way", "line": "Machame-style, 8-day permit",
-		"text": "Eight days. A steep first day straight up to Shira 1, then shorter, steeper days with less food carried. Every day up costs more, and sickness comes sooner.",
+		"name": "The steep way", "line": "Machame-style, 9-day permit",
+		"text": "Nine days. A steep first day straight up to Shira 1, then shorter, steeper days with less food carried. Every day up costs more, and sickness comes sooner. There is room for some rest days, not all of them.",
 		"start": "ebc", "startHours": 24,
-		"permit": 8, "supplies": 72, "medicine": 2, "upEnergy": -5, "upAcclim": -3, "upHealth": 0, "risk": 10, "climb": 1.15,
+		"permit": 9, "supplies": 86, "medicine": 2, "upEnergy": -5, "upAcclim": -3, "upHealth": 0, "risk": 10, "climb": 1.15,
 	},
 	"umbwe": {
-		"name": "The direct way", "line": "Umbwe-style, 7-day permit",
-		"text": "Seven days, straight up a forest ridge to Shira 2 in a day and a half. The least food, the fastest height, the hardest climbs. Only for a party that is fit and lucky.",
+		"name": "The direct way", "line": "Umbwe-style, 8-day permit",
+		"text": "Eight days, straight up a forest ridge to Shira 2 in a day and a half. The least food, the fastest height, the hardest climbs. Pick your one or two rest days well.",
 		"start": "camp1", "startHours": 36,
-		"permit": 7, "supplies": 68, "medicine": 1, "upEnergy": -7, "upAcclim": -5, "upHealth": -2, "risk": 16, "climb": 1.3,
+		"permit": 8, "supplies": 84, "medicine": 1, "upEnergy": -7, "upAcclim": -5, "upHealth": -2, "risk": 16, "climb": 1.3,
 	},
 }
 
@@ -62,7 +62,7 @@ static func fresh(route: String = "") -> Dictionary:
 	# badly, or "" before the first), for the climbs.
 	var doses: int = ROUTES[route]["medicine"] if ROUTES.has(route) else 0
 	return {"route": route, "sick": {}, "gone": [], "emergency": null, "ending": "", "treated": {}, "base": 0,
-		"medicine": doses, "sleep": ""}
+		"medicine": doses, "sleep": "", "goneAt": {}}
 
 
 static func route(session: Dictionary) -> Dictionary:
@@ -174,6 +174,11 @@ static func advance(session: Dictionary, before: Dictionary, def: Dictionary) ->
 		s["teamCondition"] -= ExpeditionEngine.js_round(stage * 2.0 * k)
 		s["energy"] -= ExpeditionEngine.js_round((4.0 if sick["kind"] == "stomach" else stage * 1.5) * k)
 		s["supplies"] -= ExpeditionEngine.js_round(1.0 * k)
+	# A smaller party feels it, for the rest of the trip.
+	if not t["gone"].is_empty():
+		var cap: int = 100 - 8 * t["gone"].size()
+		if int(s["teamCondition"]) > cap:
+			s["teamCondition"] = cap
 	# The permit.
 	if not s["retreating"] and not s["summitReached"] and float(s["elapsedHours"]) > permit_days(session) * 24.0:
 		ExpeditionEngine._step_down(s, def)
@@ -220,7 +225,7 @@ static func _sicken(session: Dictionary, s: Dictionary, before: Dictionary, clim
 				notes.append("%s has %s." % [NAMES[id], describe("stomach", 1)])
 				continue
 			# Food gone bad: thin stores are old stores.
-			if int(s["supplies"]) < 30 and _roll(s, 27, i) < 10:
+			if int(s["supplies"]) < 20 and _roll(s, 27, i) < 6:
 				t["sick"][id] = {"kind": "stomach", "stage": 1}
 				notes.append("The food has gone bad. %s has %s." % [NAMES[id], describe("stomach", 1)] if id != "you" else "The food has gone bad. You have %s." % describe("stomach", 1))
 				continue
@@ -260,6 +265,90 @@ static func _sicken(session: Dictionary, s: Dictionary, before: Dictionary, clim
 			t["emergency"] = {"who": id}
 
 
+# --- Someone going down -----------------------------------------------------------
+
+## The climb each teammate waits on, if any.
+const CLIMB_MATE := {"barranco-wall": "marco", "summit-night": "jun"}
+
+## What each one says as they go.
+const FAREWELL := {
+	"marco": "Marco hugs each of you too hard. \"Bring me a photo from the top. A good one.\"",
+	"jun": "Jun presses the medicine kit into your hands. \"Water, rest, and go down if it gets worse. You know this.\"",
+	"lena": "Lena gives you her route notes, folded small. \"Pole pole. Promise me.\"",
+}
+
+## How the camps feel after, one line per camp, oldest first. The last one
+## repeats.
+const ABSENCE := {
+	"marco": [
+		"Lena sets out four mugs out of habit, then puts one back.",
+		"Nobody tells Marco's terrible jokes. Jun tries one. It is worse.",
+		"Jun keeps looking down the trail Marco took.",
+		"Marco's spot in the tent stays empty. Nobody spreads into it.",
+	],
+	"jun": [
+		"Without Jun, Lena does the head count herself. She counts twice.",
+		"The medicine kit rides in your pack now. It feels heavier than it is.",
+		"Marco asks if his headache is the bad kind. Nobody here knows.",
+		"You catch yourself waiting for Jun to say the day should wait.",
+	],
+	"lena": [
+		"Nobody sets the pace. Marco walks too fast, then has to stop.",
+		"Jun reads Lena's route notes by headlamp, twice.",
+		"The trail forks and everyone looks at you.",
+		"You set pole pole yourself. It is harder than she made it look.",
+	],
+	"you": ["", ],
+}
+
+
+## Someone leaves the expedition: they are off the climbs and the camps
+## from here, and the camps remember it.
+static func _depart(session: Dictionary, id: String) -> void:
+	var t := ensure(session)
+	t["sick"].erase(id)
+	if not t["gone"].has(id):
+		t["gone"].append(id)
+	var at: Dictionary = t.get("goneAt", {})
+	at[id] = String(session["state"]["checkpoint"])
+	t["goneAt"] = at
+
+
+## A line for this camp from each missing person's absence: what the
+## party notices, a different one each camp since they left.
+static func absence_lines(session: Dictionary, def: Dictionary) -> Array:
+	var t := ensure(session)
+	var out: Array = []
+	var stops: Array = def["route"]
+	var now := _stop_index(stops, String(session["state"]["checkpoint"]))
+	for id in t["gone"]:
+		if id == "you" or not ABSENCE.has(id):
+			continue
+		var since: int = maxi(0, now - _stop_index(stops, String(t.get("goneAt", {}).get(id, session["state"]["checkpoint"]))))
+		var lines: Array = ABSENCE[id]
+		out.append(lines[mini(since, lines.size() - 1)])
+	return out
+
+
+static func _stop_index(stops: Array, id: String) -> int:
+	for i in stops.size():
+		if stops[i]["id"] == id:
+			return i
+	return 0
+
+
+## What the party has lost along with them, for the camp: the camp beats
+## that were theirs to run.
+static func lost_roles(session: Dictionary) -> Dictionary:
+	var t := ensure(session)
+	var out := {}
+	if t["gone"].has("lena"):
+		out["pole-pole"] = "No one to set pole pole since Lena went down."
+	if t["gone"].has("jun"):
+		out["head-count"] = "No head count since Jun went down."
+	return out
+
+
 # --- Emergencies --------------------------------------------------------------
 
 static func emergency_card(session: Dictionary) -> Dictionary:
@@ -297,13 +386,12 @@ static func resolve_emergency(session: Dictionary, act: String, def: Dictionary)
 				"move": "down", "hours": 6, "teamCondition": 4,
 				"scores": {"judgment": {"label": "You took everyone down for %s" % ("yourself" if who == "you" else name), "delta": 8, "mark": "trek-down-" + who}}}
 		"evacuate":
-			t["sick"].erase(who)
-			t["gone"].append(who)
+			_depart(session, who)
 			if who == "you":
 				t["ending"] = "evacuated"
 				return {"note": "You go down with the porters. The others follow you off the mountain.", "move": "down", "hours": 8,
 					"scores": {"judgment": {"label": "You went down when your body said so", "delta": 4, "mark": "trek-evac-you"}}}
-			return {"note": "%s goes down with two porters. The tents feel bigger tonight." % name, "move": "hold", "hours": 3, "teamCondition": -14,
+			return {"note": "%s goes down with two porters. %s The tents feel bigger tonight." % [name, FAREWELL.get(who, "")], "move": "hold", "hours": 3, "teamCondition": -14,
 				"scores": {"teamwork": {"label": "You sent %s down to save them" % name, "delta": -2, "mark": "trek-evac-" + who}}}
 		_:
 			# Waiting: it may settle; more often it does not.
@@ -312,14 +400,79 @@ static func resolve_emergency(session: Dictionary, act: String, def: Dictionary)
 				t["sick"][who]["stage"] = 2
 				return {"note": "The night is long. By morning %s is a little better. That was luck." % ("you are" if who == "you" else name + " is"), "move": "hold", "hours": 12,
 					"scores": {"riskManagement": {"label": "You waited out a dangerous night", "delta": -6, "mark": "trek-wait-" + who}}}
-			t["sick"].erase(who)
-			t["gone"].append(who)
+			_depart(session, who)
 			if who == "you":
 				t["ending"] = "evacuated"
 				return {"note": "By midnight you cannot stand. A rescue team carries you down.", "move": "down", "hours": 12, "health": -20,
 					"scores": {"riskManagement": {"label": "You waited on the one sign you do not wait on", "delta": -8, "mark": "trek-wait-you"}}}
 			return {"note": "By midnight %s cannot stand. Rescue carries them down. The party is shaken." % name, "move": "hold", "hours": 12, "teamCondition": -24, "health": -6,
 				"scores": {"riskManagement": {"label": "You waited on %s's worst night" % name, "delta": -8, "mark": "trek-wait-" + who}}}
+
+
+# --- Foresight -----------------------------------------------------------------
+
+const STAT_WORDS := {"energy": "energy", "supplies": "supplies", "health": "health", "teamCondition": "team",
+	"acclimatization": "acclimatization", "weatherRisk": "weather risk", "objectiveRisk": "rockfall risk"}
+
+
+## What a choice will cost before you pick it: the hours, the stats it moves
+## (route included), and how risky it looks as a band, not a number, with
+## the reasons. What actually happens still rolls on the day.
+static func foresee(session: Dictionary, choice: Dictionary, def: Dictionary) -> Dictionary:
+	var e: Dictionary = choice.get("effect", {})
+	if e.is_empty():
+		return {}
+	var s: Dictionary = session["state"]
+	var r := route(session)
+	var t := ensure(session)
+	var move := String(e.get("move", "hold"))
+	var up := move == "up" or move == "summit"
+	var hours := float(e.get("hours", 6))
+	var deltas := {}
+	for key in STAT_WORDS:
+		if e.has(key) and int(e[key]) != 0:
+			deltas[key] = int(e[key])
+	if up:
+		for pair in [["energy", "upEnergy"], ["acclimatization", "upAcclim"], ["health", "upHealth"]]:
+			if int(r[pair[1]]) != 0:
+				deltas[pair[0]] = deltas.get(pair[0], 0) + int(r[pair[1]])
+	var costs: Array = []
+	for key in deltas:
+		costs.append("%s %+d" % [STAT_WORDS[key], deltas[key]])
+	var why: Array = []
+	var score := 0.0
+	var energy_after: float = float(s["energy"]) + float(deltas.get("energy", 0))
+	if up:
+		var meters := float(s["altitude"])
+		var stops: Array = def["route"]
+		for i in stops.size():
+			if stops[i]["id"] == s["checkpoint"] and i + 1 < stops.size():
+				meters = float(stops[i + 1]["meters"])
+		var gap: float = ExpeditionEngine.acclimatization_need(meters) - (float(s["acclimatization"]) + float(deltas.get("acclimatization", 0)))
+		score += maxf(gap, 0.0) * 2.0 + float(r["risk"])
+		if meters >= 3800:
+			score += 10.0
+		if gap > 0:
+			why.append("the body is not ready for %s m" % ExpeditionEngine.format_meters(meters))
+		if float(r["risk"]) > 0:
+			why.append("a steep route")
+		if float(s["weatherRisk"]) >= 40:
+			score += 10.0
+			why.append("the weather")
+	if energy_after < 40:
+		score += (40.0 - energy_after) * 0.8
+		why.append("tired legs")
+	if not t["sick"].is_empty() and up:
+		score += 10.0 * t["sick"].size()
+		why.append("someone is already unwell")
+	if hours >= hours_left(session) and not (move == "down" or move == "retreat"):
+		why.append("past the end of the permit")
+		score += 30.0
+	var band := "low" if score < 25.0 else ("medium" if score < 50.0 else "high")
+	if move == "down" or move == "retreat":
+		band = "low"
+		why = ["going down: the sick get better"]
+	return {"hours": hours, "costs": costs, "risk": band, "why": why}
 
 
 # --- Care at camp ----------------------------------------------------------------
@@ -376,10 +529,8 @@ static func dose_for_climb(session: Dictionary) -> bool:
 
 
 static func send_down(session: Dictionary, id: String) -> Dictionary:
-	var t := ensure(session)
-	t["sick"].erase(id)
-	t["gone"].append(id)
-	return {"note": "%s goes down with a porter while it is still a walk, not a rescue." % NAMES[id], "move": "hold", "hours": 2, "teamCondition": -10,
+	_depart(session, id)
+	return {"note": "%s goes down with a porter while it is still a walk, not a rescue. %s" % [NAMES[id], FAREWELL.get(id, "")], "move": "hold", "hours": 2, "teamCondition": -10,
 		"scores": {"judgment": {"label": "You sent %s down early" % NAMES[id], "delta": 3, "mark": "trek-send-" + id}}}
 
 
@@ -415,8 +566,17 @@ const ENDINGS := {
 static func ending(session: Dictionary) -> Array:
 	if ensure(session)["ending"] == "":
 		_settle_ending(session)
-	var key: String = ensure(session)["ending"]
-	return ENDINGS.get(key, ["The expedition is over", ""])
+	var t := ensure(session)
+	var key: String = t["ending"]
+	var e: Array = ENDINGS.get(key, ["The expedition is over", ""]).duplicate()
+	# Name who is not at the gate with you.
+	var names: Array = []
+	for id in t["gone"]:
+		if id != "you":
+			names.append(NAMES[id])
+	if not names.is_empty() and key in ["summit-cost", "hard-walk-out"]:
+		e[1] = "%s %s went down early and met you at the gate." % [e[1], " and ".join(names)]
+	return e
 
 
 ## How the climbs feel the trek: the route's steepness, and being unwell.

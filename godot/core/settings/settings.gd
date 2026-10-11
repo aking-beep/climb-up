@@ -13,6 +13,8 @@ var reduced_motion := false
 ## null: automatic (on for touch devices). true / false: the player's choice.
 var touch_controls: Variant = null
 var master_volume := 0.8
+## A frame-rate readout in the corner, for playtests.
+var show_fps := false
 
 
 func _ready() -> void:
@@ -81,6 +83,12 @@ func set_reduced_motion(value: bool) -> void:
 	changed.emit()
 
 
+func set_show_fps(value: bool) -> void:
+	show_fps = value
+	save_settings()
+	changed.emit()
+
+
 func set_touch_controls(value: Variant) -> void:
 	touch_controls = value
 	save_settings()
@@ -88,7 +96,7 @@ func set_touch_controls(value: Variant) -> void:
 
 
 func to_dict() -> Dictionary:
-	return {"quality": quality, "reducedMotion": reduced_motion, "touchControls": touch_controls, "volume": master_volume}
+	return {"quality": quality, "reducedMotion": reduced_motion, "touchControls": touch_controls, "volume": master_volume, "showFps": show_fps}
 
 
 func apply_dict(d: Variant) -> void:
@@ -99,6 +107,7 @@ func apply_dict(d: Variant) -> void:
 	var t: Variant = d.get("touchControls")
 	touch_controls = t if typeof(t) == TYPE_BOOL else null
 	master_volume = clampf(float(d.get("volume", 0.8)), 0.0, 1.0)
+	show_fps = d.get("showFps") == true
 
 
 func save_settings() -> void:

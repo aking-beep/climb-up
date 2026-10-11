@@ -34,7 +34,8 @@ screen, so pixel art stays sharp with no black bars.
 | Sit and rest (HOP gets you straight up and over) | R | Y | REST |
 | Pause (turn back, settings, save and quit) | Esc / P | Start | II |
 
-Touch controls appear automatically on phones; the pause menu toggles them.
+Touch controls appear automatically on phones; the pause menu toggles them,
+and has a "Show FPS" readout for playtests ([the checklist](../docs/playtest-checklist.md)).
 Grabs, slips and gusts buzz the phone (off with reduced motion). Walking
 never carries you off a drop: you stop at the edge, and walking onto a face
 from a ledge grabs it.
@@ -65,10 +66,15 @@ exactly (the parity test still holds); a trek layer on top
 (`modes/expedition/engine/trek.gd`) adds:
 
 - **A route and a permit.** The first card is the route: the long way
-  (10 days), the steep way (8 days, starts higher, less food, harder days up)
-  or the direct way (7 days, starts higher still, the hardest climbs). Every
-  choice shows the hours it spends; when the days run out before the summit,
-  the rangers walk you down.
+  (10 days), the steep way (9 days, starts higher, less food, harder days up)
+  or the direct way (8 days, starts higher still, the hardest climbs). When
+  the days run out before the summit, the rangers walk you down.
+- **Every choice shows what it will cost before you pick it**
+  (`Trek.foresee`): the hours, the stats it moves (the route's toll on the
+  way up included), and a risk band (low, medium, high) with its reasons:
+  the body not ready for the next height, tired legs, a steep route, the
+  weather, someone already unwell, the end of the permit. A band, not a
+  number: what happens still rolls on the day.
 - **Sickness, per person.** Altitude sickness when the party climbs faster
   than its nights allow or is worn out; a stomach bug when the water was not
   put on at camp; the cold, high at night with thin stores. It worsens going
@@ -76,6 +82,14 @@ exactly (the parity test still holds); a trek layer on top
   can send someone down early ("Send down"). At its worst it becomes an
   emergency card with only hard answers: everyone down, send them down with
   porters, or wait and see. Game fiction, not medical advice.
+- **Someone who goes down is gone for the rest of the trip.** They say
+  goodbye (Marco wants a photo from the top), and every camp after has a
+  line about the gap they left, a different one each camp. Their camp beat
+  goes with them (no pole pole without Lena, no head count without Jun, no
+  "Jun treats"). A smaller party is never whole again: team condition tops
+  out 8 lower per person gone. With Lena gone, a teammate you leave on a
+  climb has no one to bring them up: they turn back down for good. The
+  climb brief and the ending name who is missing.
 - **Different endings:** summit with all four, summit but not all of you,
   turned back together, a hard walk out, out of days, carried down, or the
   mountain kept the day.
@@ -84,8 +98,8 @@ exactly (the parity test still holds); a trek layer on top
   sickness a stage without Jun; before a climb a dose keeps your symptoms
   off for that climb.
 - **Sleep and food.** A long stop that gives no energy back is a bad night;
-  one that does is a good night. On thin stores (supplies under 30) the
-  food can go bad and turn someone's stomach.
+  one that does is a good night. On very thin stores (supplies under 20)
+  the food can go bad and turn someone's stomach.
 - **It reaches into the climbs** (`modes/expedition/engine/condition.gd`).
   The body you climb in is the one the camp choices left you, all of it in
   the one stamina bar (how big it is, how fast it refills), and the brief
@@ -114,9 +128,13 @@ Measured by the tests (8 seeds per row, climbs landed as completed):
 
 | Route | careful | brisk (skips the rest days) | reckless (always up) |
 | --- | --- | --- | --- |
-| Long way | 8/8 summit together | 8/8 | 0/8 together (7 lost) |
-| Steep way | 4/8 (rest days collide with the permit) | 8/8 | 0/8 (7 lost) |
-| Direct way | 0/8 (out of days) | 7/8 | 0/8 (6 lost) |
+| Long way | 8/8 summit together | 7/8 | 0/8 together (7 lost) |
+| Steep way | 8/8 | 8/8 | 0/8 (7 lost, 1 carried down) |
+| Direct way | 8/8 | 8/8 | 0/8 (5 lost, 2 carried down) |
+
+Care wins on every route and haste never brings everyone home; the short
+routes are tighter (fewer stores, harder climbs, more sickness), not closed
+to a careful party. The test fails if care drops under 4/8 on a short route.
 
 **What the mountain throws at you.** Climbing problems in the spirit of
 Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
@@ -244,7 +262,7 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-60 tests: the engine replaying seven expeditions recorded from the
+61 tests: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume

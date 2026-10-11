@@ -13,6 +13,7 @@ var _flash_time := 0.0
 var title := "Climb"
 var _route: ProgressBar
 var _route_label: Label
+var _fps: Label
 
 
 func _ready() -> void:
@@ -84,6 +85,9 @@ func _ready() -> void:
 	rb.bg_color = Color(0, 0, 0, 0.45)
 	_route.add_theme_stylebox_override("background", rb)
 	top.add_child(_route)
+	_fps = _label(8, Color(0.7, 1.0, 0.7))
+	_fps.position = Vector2(210, 2)
+	root.add_child(_fps)
 	_prompt = _label(10, Color(1, 0.97, 0.88))
 	_prompt.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_prompt.anchor_left = 0.3
@@ -192,6 +196,7 @@ func _hint_for(level: Node) -> String:
 
 
 func _process(delta: float) -> void:
+	_fps.text = ("%d FPS" % Engine.get_frames_per_second()) if Settings.show_fps else ""
 	if _flash_time > 0.0:
 		_flash_time -= delta
 		_flash.modulate.a = clampf(_flash_time, 0.0, 1.0)

@@ -83,7 +83,7 @@ func _tally(route: String, careful: bool, seeds: Array, brisk: bool = false) -> 
 			t["together"] += 1
 		t["endings"][r["ending"]] = t["endings"].get(r["ending"], 0) + 1
 		if OS.get_environment("TREK_DEBUG") != "":
-			print("        ", route, " careful=", careful, " seed=", seed, " ", r["ending"], " day=", r["day"], " ", r["stats"])
+			print("        ", route, " careful=", careful, " seed=", seed, " ", r["ending"], " day=", r["day"], " ", r["stats"], " supplies=", Expedition.state()["supplies"])
 	return t
 
 
@@ -97,8 +97,8 @@ func test_the_route_card_comes_first_and_sets_the_permit() -> void:
 		if c["route"] == "umbwe":
 			Expedition.choose(i)
 		i += 1
-	eq(Trek.permit_days(Expedition.session), 7, "the direct way has seven days")
-	check(int(Expedition.state()["supplies"]) < 80, "and carries less")
+	eq(Trek.permit_days(Expedition.session), 8, "the direct way has eight days")
+	check(int(Expedition.state()["supplies"]) < int(Trek.ROUTES["lemosho"]["supplies"]), "and carries less than the long way")
 	eq(Expedition.state()["checkpoint"], "camp1", "and starts high, at Shira 2")
 	check(Expedition.card()["id"] != "trek-route", "then the expedition starts")
 	SaveGame.erase()
@@ -107,7 +107,7 @@ func test_the_route_card_comes_first_and_sets_the_permit() -> void:
 func test_the_permit_turns_a_slow_party_around() -> void:
 	SaveGame.erase()
 	Expedition.new_expedition(7)
-	Expedition.choose(1)  # the steep way: eight days
+	Expedition.choose(1)  # the steep way: nine days
 	# The last hour of the permit, still low on the mountain.
 	var s: Dictionary = Expedition.state()
 	s["elapsedHours"] = Trek.permit_days(Expedition.session) * 24 - 1
@@ -213,6 +213,7 @@ func test_care_pays_and_haste_costs_on_every_route() -> void:
 	var careful_long := {}
 	var reckless_direct := {}
 	var brisk_steep := {}
+	var careful_short := []
 	for route in ["lemosho", "machame", "umbwe"]:
 		for style in ["careful", "brisk", "reckless"]:
 			var t := _tally(route, style != "reckless", seeds, style == "brisk")
@@ -223,10 +224,54 @@ func test_care_pays_and_haste_costs_on_every_route() -> void:
 				reckless_direct = t
 			if route == "machame" and style == "brisk":
 				brisk_steep = t
+			if route != "lemosho" and style == "careful":
+				careful_short.append(t)
 	for line in report:
 		print("      " + line)
-	check(careful_long["together"] >= 4, "a careful party on the long way usually summits together")
+	check(careful_long["together"] >= 6, "a careful party on the long way summits together")
 	check(reckless_direct["together"] <= 1, "a reckless party on the direct way almost never does")
 	check(brisk_steep["together"] >= 2, "the steep way can be done, briskly and with care")
+	for t in careful_short:
+		check(t["together"] >= 4, "care can win on the short routes too (%d/8)" % t["together"])
 	check(careful_long["endings"].size() + reckless_direct["endings"].size() + brisk_steep["endings"].size() >= 3, "different roads, different endings")
+	SaveGame.erase()
+
+
+func test_someone_sent_down_changes_the_rest_of_the_trip() -> void:
+	SaveGame.erase()
+	Expedition.navigate = false
+	Expedition.new_expedition(7)
+	Expedition.session = TestSessions.at("barranco-wall")
+	Expedition.session["pending"] = null
+	Expedition.climb = {}
+	var t := Expedition.trek()
+	t["sick"]["lena"] = {"kind": "ams", "stage": 2}
+	Expedition.send_down("lena")
+	check(Trek.is_gone(Expedition.session, "lena"), "Lena went down")
+	check("route notes" in String(Expedition.state()["lastNote"]), "and said goodbye: " + String(Expedition.state()["lastNote"]))
+	var lines := Trek.absence_lines(Expedition.session, Expedition.def)
+	eq(lines.size(), 1, "the camp notices she is gone")
+	check(Trek.lost_roles(Expedition.session).has("pole-pole"), "nobody sets pole pole now")
+	var before: Dictionary = Expedition.state().duplicate(true)
+	Expedition.play_routine("pole-pole")
+	eq(Expedition.state()["history"].size(), before["history"].size(), "pole pole can't be played without her")
+	# A smaller party feels it from now on.
+	Expedition.state()["teamCondition"] = 100
+	var s0: Dictionary = Expedition.state().duplicate(true)
+	Expedition.state()["elapsedHours"] = float(s0["elapsedHours"]) + 2.0
+	Trek.advance(Expedition.session, s0, Expedition.def)
+	check(int(Expedition.state()["teamCondition"]) <= 92, "the team is never whole again (%d)" % int(Expedition.state()["teamCondition"]))
+	# Leaving Marco on the wall with no Lena to bring him: he turns back.
+	Expedition.session = TestSessions.at("barranco-wall")
+	Expedition.trek()["gone"].append("lena")
+	var p: Dictionary = Expedition.pending()
+	Expedition.climb = {"attemptId": p["attemptId"], "challengeId": p["challengeId"], "checkpoint": 0}
+	var o := TestSessions.complete(p)
+	o["assisted"] = false
+	eq(Expedition.finish_climb(o), "applied", "landed")
+	check(Trek.is_gone(Expedition.session, "marco"), "Marco turns back down for good")
+	check("turns back down alone" in String(Expedition.state()["lastNote"]), "and the camp says so")
+	var end := Trek.ending({"state": {"status": "complete", "summitReached": true}, "trek": {"route": "lemosho", "gone": ["lena", "marco"], "sick": {}, "ending": "summit-cost", "emergency": null}})
+	check("Lena and Marco" in end[1], "the ending names them: " + end[1])
+	await tree.process_frame
 	SaveGame.erase()
