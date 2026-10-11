@@ -20,6 +20,7 @@ func _ready() -> void:
 		fresh.grab_focus()
 	button("Graphics: %s" % ["Full", "Reduced", "Low power"][Settings.quality], _quality)
 	button("Reduced motion: %s" % ("On" if Settings.reduced_motion else "Off"), _motion)
+	button("Back", func() -> void: Expedition.go("res://modes/title/title.tscn"))
 	text("Keys: arrows or WASD · UP on rock climbs · SPACE jump · E talk / climb · Shift brace · R rest · Esc pause. Phones: left thumb moves, right thumb jumps and acts.", 7, MUTED)
 
 

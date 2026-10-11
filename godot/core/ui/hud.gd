@@ -55,7 +55,7 @@ func _ready() -> void:
 	_flash.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_flash.anchor_left = 0.2
 	_flash.anchor_right = 0.8
-	_flash.offset_top = 64
+	_flash.offset_top = 84
 	_flash.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_flash.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_flash)
@@ -135,7 +135,10 @@ func update_from(level: Node) -> void:
 		if hz and hz.flowers_total > 0:
 			flowers = "  ·  everlastings %d/%d" % [hz.flowers, hz.flowers_total]
 		_route_label.text = ("Everlastings %d" % hz.flowers) if hz and hz.flowers_total > 0 else ""
-	_stats.text = "Stamina %d%% · Slips %d/%d · Cairn %d/%d%s%s" % [pct, c.slips, level.max_slips, level.checkpoint, level.cairns.size() - 1, gear, mate]
+	if level.has_method("stats_line"):
+		_stats.text = level.stats_line(pct)
+	else:
+		_stats.text = "Stamina %d%% · Slips %d/%d · Cairn %d/%d%s%s" % [pct, c.slips, level.max_slips, level.checkpoint, level.cairns.size() - 1, gear, mate]
 	if level.get("mate_winded"):
 		_wind.text = "%s is out of breath: go back and REST beside them" % level.mate_name()
 	elif hz and hz.warned_here():
@@ -169,6 +172,10 @@ func _wind_line(c: Climber) -> void:
 
 func _hint_for(level: Node) -> String:
 	var c: Climber = level.climber
+	if level.has_method("hint_now"):
+		var own: String = level.hint_now()
+		if own != "":
+			return own
 	if c.state == Climber.State.SLIP:
 		return ""
 	if c.state == Climber.State.REST:

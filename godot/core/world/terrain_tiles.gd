@@ -126,7 +126,8 @@ static func paint(terrain: Terrain, ground: TileMapLayer, back: TileMapLayer, th
 					at = Vector2i(_variant(cell, 2), 2)
 				Terrain.Kind.SLOPE_L:
 					at = Vector2i(2 + _variant(cell, 2), 2)
-				Terrain.Kind.FACE:
+				Terrain.Kind.FACE, Terrain.Kind.CRIMP, Terrain.Kind.JUG:
+					# Crimps and jugs get their holds drawn on top (the crag).
 					at = Vector2i(4 + _variant(cell, 4), 2)
 				Terrain.Kind.LOOSE:
 					at = Vector2i(8 + _variant(cell, 4), 2)

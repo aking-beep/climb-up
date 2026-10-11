@@ -1,9 +1,14 @@
 # CLIMB UP: Godot prototype
 
-The whole Kilimanjaro expedition in Godot 4, built alongside the Expo app
-(which it does not touch): the strategy game at camp, ported from the Expo
-engine and checked against it, and three climbs you play as a
-side-scrolling adventure. Why and how:
+Two games on one climbing engine, in Godot 4, built alongside the Expo app
+(which it does not touch). The title screen picks one:
+
+- **Expedition:** the whole Kilimanjaro trip: the strategy game at camp,
+  ported from the Expo engine and checked against it, and three climbs you
+  play as a side-scrolling adventure.
+- **Crag:** single sport routes at one cliff, graded 4 to 6c, nothing to do
+  with the expedition (its own menu, levels, progress and save file). See
+  [The crag](#the-crag). Why and how:
 [architecture](../docs/godot-migration/architecture.md) and
 [comparison with Expo](../docs/godot-migration/comparison.md).
 
@@ -220,6 +225,38 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
 | Barranco Wall | stonefall down the loose gully, cracked slabs on the exposed ledge where you brace | an alcove above ledge 2, the back of the gully niche, a ledge on the plateau |
 | Summit night | ice on two switchbacks, the crevasse, stonefall on two rock steps, cracked slabs on the windy rim, thin air | a pocket off two switchbacks, a ledge above the rim |
 
+## The crag
+
+`modes/crag/`: Lion Rock, five routes, easiest first; each opens when the
+one before it is sent.
+
+| Grade | Route | Crux |
+| --- | --- | --- |
+| 4 | Warm-up Slab | learning to clip and rest on a jug |
+| 5b | Sundown Traverse | a long traverse: a jug, then crimps |
+| 6a | The Pinch | six rows of crimps above a jug |
+| 6b | Leap of Faith | a dyno across blank rock |
+| 6c | Lion's Roof | crimps, a crimpy traverse, a dyno, crimps |
+
+- **Lead climbing.** You start on the ground with a belayer; climb past a
+  bolt and you clip it (the rope runs up through every clipped bolt to
+  you). A fall stops on the rope a little below the last bolt you clipped,
+  and you are back on the rock there. Fall before the first bolt and you
+  hit the ground. Five falls and you lower off.
+- **The holds.** Ordinary rock; crimps (chalked edges) that empty the arms
+  fast, worst if you stop on them; jugs (big holds) where hanging gives
+  the arms back. Stamina is the one bar, as on Kilimanjaro.
+- **The dyno.** Blank rock with holds out of reach above: JUMP on the rock
+  (aim with the stick) and the hands catch the first hold they reach. It
+  costs a hard move's stamina. Miss and you drop back to the holds you
+  left.
+- **Style.** Reach the anchor and the route is sent: onsight (first go, no
+  falls), redpoint (no falls, after earlier goes), or sent with falls. The
+  best per route is kept (`user://climb_up_crag.json`), and the route list
+  shows it.
+- **Maps** come from `tools/levels/crag_maps.py`; holds, quickdraws and
+  the anchor from `tools/art/godot_crag.py`.
+
 ## The Barranco Wall
 
 Barranco Camp (talk to Lena and Jun, read the signs) → the approach under
@@ -262,7 +299,7 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-61 tests: the engine replaying seven expeditions recorded from the
+67 tests: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume
@@ -272,7 +309,12 @@ input actions with every hazard live (the bot reads the same warnings a
 player sees), each hazard on its own (slabs hold a walker and drop someone
 who stops, a stone is announced before it falls, ice slides, water and gear,
 walking costs more breath on the summit), plus the order of difficulty and
-that every find stands on reachable ground. `test_body` covers the
+that every find stands on reachable ground. `test_crag` leads all five
+crag routes to the anchor with a scripted climber (walk to the line,
+traverse where it goes, rest on jugs, keep moving on crimps, dyno, pull
+over) and checks the rules one at a time: crimps drain and jugs give back,
+a lead fall stops at the last bolt, a dyno crosses the blank, styles,
+unlocks and the crag's own save. `test_body` covers the
 creatures (a hop clears a thistle, a sting or a bite is stamina gone, a
 raven hits someone standing still and misses someone who moved, a hit with
 no stamina left is a slip, poor party health is a smaller bar) and the camp reaching into the climb (a bad night, hunger and

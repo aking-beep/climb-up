@@ -22,6 +22,9 @@ const RATES := {
 	"rest": -18.0,     # sitting down on ordinary ground
 	"rest_stone": -26.0,
 	"helping": 0.0,
+	"crimp": 14.0,      # moving on small holds (the crag)
+	"crimp_hang": 10.0, # holding still on them: don't
+	"jug": -8.0,        # hanging off a big hold: a shake-out
 }
 const LOOSE_FACTOR := 1.6
 
@@ -36,7 +39,7 @@ var drain: float = 1.0
 var thin_air: float = 1.0
 ## Multiplies what holding on to rock costs (numb fingers in the cold).
 var grip: float = 1.0
-const ON_ROCK := ["climb", "hang", "traverse"]
+const ON_ROCK := ["climb", "hang", "traverse", "crimp", "crimp_hang"]
 const WALKING := ["walk", "walk_up", "ice"]
 
 

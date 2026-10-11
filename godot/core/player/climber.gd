@@ -16,6 +16,7 @@ signal mantled
 signal footstep(surface: String)
 signal wind_struck
 signal jumped
+signal dynoed
 signal hurt_taken(amount: float, reason: String)
 
 enum State { GROUND, AIR, CLIMB, MANTLE, REST, BRACE, SLIP, HELP, LOCKED, DONE }
@@ -48,6 +49,11 @@ const GUST_FIGHT := 6.0  # stamina per second, standing unbraced in a gust
 const JUMP_SPEED := 265.0
 const JUMP_COST := 2.0
 const AIR_CONTROL := 260.0
+## A dyno (the crag): a jump from the rock to a hold out of reach, across
+## blank wall. Up about three tiles; costs a hard move's breath.
+const DYNO_SPEED := 300.0
+const DYNO_SIDE := 80.0
+const DYNO_COST := 8.0
 
 var terrain: Terrain
 var wind: WindSchedule
@@ -85,6 +91,11 @@ var _hurt_cool := 0.0
 ## or a cramp (doubled over: no walking, no hopping), seconds left of each.
 var dizzy := 0.0
 var cramp := 0.0
+## The crag turns dynos on. In the air after one, the hands catch the first
+## hold they reach.
+var can_dyno := false
+var dynos := 0
+var _dyno_from := INF
 
 var _timer := 0.0
 var _mantle_from := Vector2.ZERO
@@ -299,12 +310,21 @@ func _air(delta: float, input: Vector2) -> void:
 	velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL)
 	# A fall is measured from where the feet left the ground (a hop up and
 	# down to the same level is no fall at all).
+	# After a dyno the hands catch the first hold they reach, once clear of
+	# the one they left (or on the way back down to it).
+	if _dyno_from < INF:
+		var risen := global_position.y < _dyno_from - 1.5 * T
+		if (risen or velocity.y > 0.0) and terrain.hold_at(body_rect()) != Terrain.Kind.AIR:
+			_dyno_from = INF
+			_grab()
+			return
 	# Catching the rock on the way down: only from a short fall.
 	if input.y > 0.5 and terrain.touches_climbable(body_rect()) and global_position.y - fall_from < SAFE_FALL * 0.5 and not stamina.is_empty():
 		_grab()
 		return
 	move_and_slide()
 	if is_on_floor():
+		_dyno_from = INF
 		var drop := global_position.y - fall_from
 		if drop > SAFE_FALL:
 			slip("fall")
@@ -435,6 +455,9 @@ func _climb(delta: float, input: Vector2) -> void:
 	if stamina.is_tired():
 		speed_up *= FATIGUE_SLOW
 		speed_side *= FATIGUE_SLOW
+	if can_dyno and GameInput.pressed_now("jump") and stamina.value >= DYNO_COST:
+		_dyno(input)
+		return
 	var want := Vector2(input.x * speed_side, -input.y * speed_up)
 	# Hands must stay on rock: no climbing up past the top of the face.
 	if want.y < 0.0:
@@ -464,6 +487,10 @@ func _climb(delta: float, input: Vector2) -> void:
 			Audio.play("rockfall", -14.0)
 	if scrambling:
 		last_activity = "scramble" if moving else "hang"
+	elif hold == Terrain.Kind.CRIMP:
+		last_activity = "crimp" if moving else "crimp_hang"
+	elif hold == Terrain.Kind.JUG and not moving:
+		last_activity = "jug"
 	elif moving and absf(want.x) > absf(want.y):
 		last_activity = "traverse"
 	else:
@@ -478,6 +505,26 @@ func _climb(delta: float, input: Vector2) -> void:
 		return
 	if input.y < -0.5 and on_ground_cell():
 		state = State.GROUND
+
+
+func _dyno(input: Vector2) -> void:
+	stamina.value -= DYNO_COST
+	velocity = Vector2(signf(input.x) * DYNO_SIDE if absf(input.x) > 0.3 else 0.0, -DYNO_SPEED)
+	state = State.AIR
+	fall_from = global_position.y
+	_dyno_from = global_position.y
+	dynos += 1
+	Audio.play("grip", -4.0)
+	dynoed.emit()
+
+
+## Hanging on the rope at a bolt after a fall (the crag): back on the rock
+## if there is rock to hold there.
+func hang_at(feet: Vector2) -> void:
+	respawn(feet)
+	_dyno_from = INF
+	if terrain.touches_climbable(body_rect()):
+		state = State.CLIMB
 
 
 func _let_go() -> void:

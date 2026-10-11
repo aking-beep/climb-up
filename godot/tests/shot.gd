@@ -34,6 +34,9 @@ func _ready() -> void:
 			Expedition.trek()["sick"][arg.substr(6)] = {"kind": "ams", "stage": 3}
 		elif arg == "touch":
 			Settings.touch_controls = true
+		elif arg.begins_with("crag="):
+			# A crag route: crag=leap-of-faith (with scene=res://modes/crag/crag_level.tscn).
+			Crag.current = arg.substr(5)
 		elif arg.begins_with("park="):
 			# The expedition at a climb's gate; "park=barranco-wall:card" shows
 			# the card with the climb's choice instead of the pending climb.
@@ -69,6 +72,13 @@ func _ready() -> void:
 			scene.mate_cooldown = true
 			climber.lock(false)
 			climber.global_position = Terrain.feet(Vector2i(spots[i]))
+			if scene is CragLevel:
+				# On the rock, with the bolts below clipped.
+				climber.hang_at(Terrain.feet(Vector2i(spots[i])))
+				for c in scene.clips:
+					if c["cell"].y > spots[i].y:
+						c["clipped"] = true
+						c["node"].texture.region = Rect2(8, 0, 8, 14)
 			scene.camera.snap()
 		await get_tree().create_timer(hold).timeout
 		get_viewport().get_texture().get_image().save_png("%s_%d.png" % [out, i])

@@ -7,7 +7,7 @@ extends RefCounted
 
 const TILE := 16
 
-enum Kind { AIR, ROCK, SLOPE_R, SLOPE_L, FACE, LOOSE, SCRAMBLE, EXPOSED, REST, ICE, CRUMBLE }
+enum Kind { AIR, ROCK, SLOPE_R, SLOPE_L, FACE, LOOSE, SCRAMBLE, EXPOSED, REST, ICE, CRUMBLE, CRIMP, JUG }
 
 const SOLID_CHARS := "#/\\"
 const KIND_OF := {
@@ -15,12 +15,16 @@ const KIND_OF := {
 	"C": Kind.FACE, "L": Kind.LOOSE, "s": Kind.SCRAMBLE,
 	"E": Kind.EXPOSED, "R": Kind.REST,
 	"i": Kind.ICE, "c": Kind.CRUMBLE,
+	# Crag rock: small holds that wear the arms out (k), big ones to hang on
+	# and shake out (J).
+	"k": Kind.CRIMP, "J": Kind.JUG,
 }
 ## Markers stand on air. r: rockfall comes down this column (the marker is
 ## where rocks start); w: a water cache; *: lost gear to find; b / d: a
 ## stone rolls from here along the ground, leftward (b) or rightward (d);
-## f: an everlasting (a flower to pick up).
-const MARKERS := "PXMljmpSTFgoVKrw*bdfnav"
+## f: an everlasting (a flower to pick up); n, a, v: a thistle, siafu, a
+## raven; Q: a bolt with a quickdraw to clip (the crag).
+const MARKERS := "PXMljmpSTFgoVKrw*bdfnavQ"
 
 var width := 0
 var height := 0
@@ -80,7 +84,7 @@ func set_kind(cell: Vector2i, k: int) -> void:
 
 func is_climbable(cell: Vector2i) -> bool:
 	var k := kind(cell)
-	return k == Kind.FACE or k == Kind.LOOSE or k == Kind.SCRAMBLE
+	return k == Kind.FACE or k == Kind.LOOSE or k == Kind.SCRAMBLE or k == Kind.CRIMP or k == Kind.JUG
 
 
 static func cell_of(p: Vector2) -> Vector2i:
@@ -138,14 +142,16 @@ func kinds_in(rect: Rect2) -> Array[int]:
 
 func touches_climbable(rect: Rect2) -> bool:
 	var ks := kinds_in(rect)
-	return ks.has(Kind.FACE) or ks.has(Kind.LOOSE) or ks.has(Kind.SCRAMBLE)
+	return ks.has(Kind.FACE) or ks.has(Kind.LOOSE) or ks.has(Kind.SCRAMBLE) or ks.has(Kind.CRIMP) or ks.has(Kind.JUG)
 
 
 ## The climbable kind under the hands (the top quarter of the body), or AIR.
+## When the hands span two, the smaller hold is the one that counts.
 func hold_at(rect: Rect2) -> int:
 	var hands := Rect2(rect.position, Vector2(rect.size.x, rect.size.y * 0.35))
-	for k in kinds_in(hands):
-		if k == Kind.FACE or k == Kind.LOOSE or k == Kind.SCRAMBLE:
+	var ks := kinds_in(hands)
+	for k in [Kind.CRIMP, Kind.FACE, Kind.LOOSE, Kind.SCRAMBLE, Kind.JUG]:
+		if ks.has(k):
 			return k
 	return Kind.AIR
 
