@@ -3,6 +3,12 @@ extends Node
 ## particles, fog layers, lights. The simulation never reads it.
 
 signal changed
+## The game lost the player: the app went to the background, the window or
+## browser tab lost focus, or the phone locked. Levels pause and save.
+signal interrupted
+## The Android back button (or gesture). Levels open their pause menu,
+## menus go back a screen.
+signal back_requested
 
 enum Quality { FULL, REDUCED, LOW_POWER }
 
@@ -15,9 +21,13 @@ var touch_controls: Variant = null
 var master_volume := 0.8
 ## A frame-rate readout in the corner, for playtests.
 var show_fps := false
+## Short buzzes on phones (grabs, clips, falls). Apart from reduced motion.
+var haptics := true
 
 
 func _ready() -> void:
+	# The back button is the game's to handle (pause, or back a screen).
+	get_tree().set_quit_on_go_back(false)
 	load_settings()
 	get_tree().root.size_changed.connect(_fit_view)
 	_fit_view()
@@ -34,6 +44,14 @@ func _fit_view() -> void:
 		return
 	var k := maxf(1.0, roundf(screen.y / 270.0))
 	root.content_scale_size = Vector2i(ceili(screen.x / k), ceili(screen.y / k))
+
+
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+			interrupted.emit()
+		NOTIFICATION_WM_GO_BACK_REQUEST:
+			back_requested.emit()
 
 
 func touch_enabled() -> bool:
@@ -89,6 +107,12 @@ func set_show_fps(value: bool) -> void:
 	changed.emit()
 
 
+func set_haptics(value: bool) -> void:
+	haptics = value
+	save_settings()
+	changed.emit()
+
+
 func set_touch_controls(value: Variant) -> void:
 	touch_controls = value
 	save_settings()
@@ -96,18 +120,26 @@ func set_touch_controls(value: Variant) -> void:
 
 
 func to_dict() -> Dictionary:
-	return {"quality": quality, "reducedMotion": reduced_motion, "touchControls": touch_controls, "volume": master_volume, "showFps": show_fps}
+	return {"quality": quality, "reducedMotion": reduced_motion, "touchControls": touch_controls, "volume": master_volume, "showFps": show_fps, "haptics": haptics}
 
 
 func apply_dict(d: Variant) -> void:
 	if typeof(d) != TYPE_DICTIONARY:
 		return
-	quality = clampi(int(d.get("quality", Quality.FULL)), 0, 2)
-	reduced_motion = d.get("reducedMotion") == true
+	var q: Variant = d.get("quality", Quality.FULL)
+	quality = clampi(int(q), 0, 2) if typeof(q) == TYPE_INT or typeof(q) == TYPE_FLOAT else Quality.FULL
+	reduced_motion = _flag(d.get("reducedMotion"), false)
 	var t: Variant = d.get("touchControls")
 	touch_controls = t if typeof(t) == TYPE_BOOL else null
-	master_volume = clampf(float(d.get("volume", 0.8)), 0.0, 1.0)
-	show_fps = d.get("showFps") == true
+	var v: Variant = d.get("volume", 0.8)
+	master_volume = clampf(float(v), 0.0, 1.0) if typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT else 0.8
+	show_fps = _flag(d.get("showFps"), false)
+	haptics = _flag(d.get("haptics"), true)
+
+
+## A yes/no from a saved file, or `default` when it is anything else.
+static func _flag(v: Variant, default: bool) -> bool:
+	return v if typeof(v) == TYPE_BOOL else default
 
 
 func save_settings() -> void:

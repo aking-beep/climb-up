@@ -44,3 +44,7 @@ func _quality() -> void:
 func _motion() -> void:
 	Settings.set_reduced_motion(not Settings.reduced_motion)
 	get_tree().reload_current_scene()
+
+
+func on_back() -> void:
+	Expedition.go("res://modes/title/title.tscn")

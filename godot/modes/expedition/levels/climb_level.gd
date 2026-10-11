@@ -189,6 +189,8 @@ func _ready() -> void:
 	add_child(panel)
 	panel.chosen.connect(_on_choice)
 	TouchControls.attach(self)
+	Settings.interrupted.connect(_on_interrupted)
+	Settings.back_requested.connect(_on_back)
 
 	_resume_from_save()
 	Audio.set_camp(1.0)
@@ -255,7 +257,17 @@ func _place_props() -> void:
 			add_child(c)
 			c.global_position = Terrain.feet(cell)
 			c.sprite.flip_h = true
-			people.append({"node": c, "title": who[1], "lines": who[2]})
+			var said: Array = []
+			for line in who[2]:
+				var names_gone := false
+				for id in Expedition.trek()["gone"]:
+					if id != "you" and Trek.NAMES.get(id, "?") in String(line):
+						names_gone = true
+				if not names_gone:
+					said.append(line)
+			if said.is_empty():
+				said = ["Let's get up this."]
+			people.append({"node": c, "title": who[1], "lines": said})
 
 
 func _sprite(name: String, feet: Vector2) -> Sprite2D:
@@ -304,6 +316,7 @@ func _resume_from_save() -> void:
 	elif mate and mate_state == "left":
 		mate.left_behind()
 	camera.snap()
+	hazards.skip_to(climber.clock)
 	hud.flash("Back at cairn %d" % checkpoint)
 
 
@@ -335,12 +348,30 @@ func brief() -> void:
 		facts += "\nWatch for: " + ", ".join(dangers) + "."
 	if hazards.gear_total() > 0:
 		facts += " Lost gear found here: %d of %d." % [hazards.gear_count, hazards.gear_total()]
+	# What the climb costs back at camp, before you start it.
+	var stakes: Dictionary = Coordinator.CLIMBS.get(spec["id"], {}).get("stakes", {})
+	if not stakes.is_empty():
+		facts += "\nAfter: each slip costs the party %d health at camp (up to %d); topping out under 25%% stamina costs 4 energy." % [int(stakes["slip"]), int(stakes["slipMax"])]
 	var choices: Array = [["start", "Start the climb"]]
 	if not dosed and Condition.medicine_helps(Expedition.session):
 		var what: String = {"ams": "Take a painkiller first (like Tylenol)", "stomach": "Take stomach pills first", "cold": "Hand warmers first"}.get(String(condition["sick"]), "Take medicine first")
 		choices.append(["medicine", "%s · %d left in the kit" % [what, condition["medicine"]]])
 	choices.append(["backoff", copy["backOff"]])
-	panel.show_panel(copy["kicker"], copy["title"], "%s\n%s" % [copy["brief"], facts], choices)
+	panel.show_panel(copy["kicker"], copy["title"], "%s\n%s" % [_brief_words(), facts], choices)
+
+
+## The level's brief, without the line about a teammate who has gone down.
+func _brief_words() -> String:
+	var words: String = spec["copy"]["brief"]
+	if mate == null and mate_name() != "":
+		var keep: Array = []
+		for sentence in words.split(". "):
+			if not (mate_name() in sentence and "somewhere" in sentence):
+				keep.append(sentence)
+		words = ". ".join(keep)
+		if not words.ends_with("."):
+			words += "."
+	return words
 
 
 # --- The climb --------------------------------------------------------------
@@ -425,6 +456,10 @@ func _arrive() -> void:
 			engage("cairn")
 			Audio.play("cairn", -8.0)
 			hud.flash("Cairn %d of %d" % [checkpoint, cairns.size() - 1])
+			# The teammate you helped climbs with you, and says so.
+			var said: Array = spec.get("mate", {}).get("climbLines", [])
+			if mate_state == "helped" and not said.is_empty():
+				hud.flash("Cairn %d of %d · %s" % [checkpoint, cairns.size() - 1, said[checkpoint % said.size()]], 3.0)
 			_remember()
 	for cell in terrain.markers.get("X", []):
 		if climber.body_rect().intersects(Rect2(Vector2(cell) * Terrain.TILE, Vector2.ONE * Terrain.TILE)):
@@ -434,6 +469,21 @@ func _arrive() -> void:
 		if not _vista_seen and feet.distance_to(Terrain.feet(v)) < 3 * Terrain.TILE:
 			_vista_seen = true
 			hud.flash(spec["copy"]["vista"])
+
+
+## The app went to the background, the tab or window lost focus, or the
+## phone locked: stop the clock under the pause menu, and save where the
+## climb is so a closed app resumes from here.
+func _on_interrupted() -> void:
+	if _ended or panel.open or climber == null:
+		return
+	pause_menu()
+	_remember()
+
+
+func _on_back() -> void:
+	if not _ended and not panel.open:
+		pause_menu()
 
 
 func _remember() -> void:
@@ -525,13 +575,22 @@ func mate_panel() -> void:
 	panel.show_panel(
 		"Teammate",
 		copy["mateTitle"],
-		"%s Helping costs you %d stamina now; %s would climb behind you after, and catch you if you slip. %s" % [copy["mateBody"], int(climber.helper_cost), spec["mate"].get("they", "they"),
+		"%s%s Helping costs you %d stamina now; %s would climb behind you after, and catch you if you slip. %s" % [copy["mateBody"], _mate_sick_words(), int(climber.helper_cost), spec["mate"].get("they", "they"),
 			"Lena is an hour behind." if not _no_lena() else "Lena went down. If you leave %s, %s turns back for good." % [spec["mate"].get("them", "them"), spec["mate"].get("they", "they")]],
 		[
 			["help", ("Help %s" % mate_name()) if can else "Help %s (need %d stamina: step back and rest)" % [mate_name(), int(climber.helper_cost)], not can],
 			["leave", ("Leave %s for Lena" % spec["mate"].get("them", "them")) if not _no_lena() else "Go on without %s" % spec["mate"].get("them", "them")],
 			["back", "Step back"],
 		])
+
+
+## A teammate who is sick at camp is sick on the rock too: they stop for
+## breath more often.
+func _mate_sick_words() -> String:
+	var sick := Trek.sickness(Expedition.session, String(spec["mate"].get("person", "")))
+	if int(sick.get("stage", 0)) <= 0:
+		return ""
+	return " %s is unwell (%s): %s will need to stop for breath more often." % [mate_name(), Trek.describe(String(sick.get("kind", "")), int(sick["stage"])), spec["mate"].get("they", "they")]
 
 
 func decide_panel() -> void:
@@ -541,7 +600,7 @@ func decide_panel() -> void:
 		"Halfway up",
 		copy["decideHelped"] if mate_state == "helped" else (copy["decideLeft"] if not _no_lena() else "On your own. Now what?"),
 		"%s %s Stamina %d%%." % [line, copy["decideBody"], int(stamina.fraction() * 100)],
-		[["continue", "Keep climbing"], ["regroup", "Regroup here (half an hour, full stamina)"], ["retreat", spec["copy"]["backOff"]]])
+		[["continue", "Keep climbing"], ["regroup", "Regroup here (about an hour: full stamina, +2 energy at camp)"], ["retreat", spec["copy"]["backOff"]]])
 
 
 func pause_menu() -> void:
@@ -556,6 +615,7 @@ func pause_menu() -> void:
 			["quality", "Graphics: %s" % ["Full", "Reduced", "Low power"][Settings.quality]],
 			["motion", "Reduced motion: %s" % ("On" if Settings.reduced_motion else "Off")],
 			["touch", "Touch controls: %s" % ("On" if Settings.touch_enabled() else "Off")],
+			["haptics", "Vibration: %s" % ("On" if Settings.haptics else "Off")],
 			["fps", "Show FPS: %s" % ("On" if Settings.show_fps else "Off")],
 			["quit", "Save and go to the menu"],
 		])
@@ -598,7 +658,9 @@ func _on_choice(id: String) -> void:
 			regrouped = true
 			stamina.refill(1.0)
 			climber.clock += REGROUP_SECONDS
-			hud.flash("The party catches up. Half an hour passes.")
+			# Time passed: the stones of that hour are long gone.
+			hazards.skip_to(climber.clock)
+			hud.flash("The party catches up. About an hour passes.")
 			_remember()
 			climber.lock(false)
 		"retreat":
@@ -612,6 +674,10 @@ func _on_choice(id: String) -> void:
 			pause_menu()
 		"fps":
 			Settings.set_show_fps(not Settings.show_fps)
+			pause_menu()
+		"haptics":
+			Settings.set_haptics(not Settings.haptics)
+			Haptics.tap(30)
 			pause_menu()
 		"touch":
 			Settings.set_touch_controls(not Settings.touch_enabled())
@@ -645,6 +711,8 @@ func _on_slipped(saved: bool, reason: String) -> void:
 		line = "The gust takes your balance."
 	elif reason == "hurt":
 		line = "Too hurt to go on: you collapse. Back to the last cairn."
+	if climber.slips >= max_slips:
+		line = "Slip %d of %d: the climb is over." % [climber.slips, max_slips]
 	var lost := hazards.drop_flowers()
 	if lost > 0:
 		# Picked flowers are this attempt's: forget them in the save too.
@@ -839,7 +907,7 @@ func finish(kind: String) -> void:
 	await get_tree().create_timer(1.2 if is_inside_tree() else 0.0).timeout
 	panel.show_panel("Climb over", head, "\n".join(lines), [["camp", "Back to camp"]])
 	# Lands by itself if nobody taps.
-	await get_tree().create_timer(15.0 if is_inside_tree() else 0.0).timeout
+	await get_tree().create_timer(45.0 if is_inside_tree() else 0.0).timeout
 	land()
 
 

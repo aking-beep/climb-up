@@ -114,6 +114,30 @@ def main():
     x[:fade] *= np.linspace(0, 1, fade)
     x[-fade:] *= np.linspace(1, 0, fade)
     write("camp_loop", x)
+    # The crag. Made after everything above so those stay byte-identical.
+    # A clip: the gate snapping shut, two quick metal clicks and a short ring.
+    n = seconds(0.22)
+    t = np.arange(n) / RATE
+    x = np.zeros(n)
+    for at, f in ((0, 3100), (seconds(0.035), 2600)):
+        m = n - at
+        x[at:] += np.sin(2 * np.pi * f * t[:m]) * env(m, 0.0003, 0.03) * 0.5
+        x[at:at + 200] += rng.normal(0, 1, 200) * env(200, 0.0002, 0.002) * 0.6
+    write("clip", x)
+    # Chalk: a soft dry puff.
+    n = seconds(0.25)
+    write("chalk", lowpass(rng.normal(0, 1, n), 0.25) * env(n, 0.02, 0.06) * 1.1)
+    # A lead fall: rope running through the draws, a rising whoosh.
+    n = seconds(0.6)
+    x = rng.normal(0, 1, n)
+    x = lowpass(x, 0.35) - lowpass(x, 0.05)
+    write("whip", x * np.linspace(0.1, 1.0, n) ** 2 * env(n, 0.3, 0.25) * 2.5)
+    # Hitting the ground: a low thump.
+    n = seconds(0.35)
+    t = np.arange(n) / RATE
+    x = np.sin(2 * np.pi * (70 - 30 * t / t[-1]) * t) * env(n, 0.002, 0.09) * 1.2
+    x += lowpass(rng.normal(0, 1, n), 0.1) * env(n, 0.001, 0.05) * 0.8
+    write("thud", x)
     print("wrote", len(list(OUT.glob("*.wav"))), "placeholder sounds to", OUT)
 
 

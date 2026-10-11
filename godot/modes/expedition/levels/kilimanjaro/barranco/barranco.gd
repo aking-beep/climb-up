@@ -23,7 +23,8 @@ func _init() -> void:
 			"mid": "res://assets/scenery/barranco-valley.png",
 			"foreground": "res://assets/scenery/barranco-foreground.png",
 		},
-		"mate": {"person": "marco", "name": "Marco", "they": "he", "They": "He", "them": "him", "passDir": 1},
+		"mate": {"person": "marco", "name": "Marco", "they": "he", "They": "He", "them": "him", "passDir": 1,
+			"climbLines": ["Marco: Thanks for coming back for me.", "Marco: Right behind you. Slow is fine.", "Marco: I can see the top from here.", "Marco: Wind's picking up. Wait for it."]},
 		"people": {
 			"l": ["lena", "Lena · Guide", [
 				"The wall looks worse than it is. Hands on rock, feet on rock, and nothing in a hurry.",

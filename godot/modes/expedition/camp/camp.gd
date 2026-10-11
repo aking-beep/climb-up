@@ -228,7 +228,7 @@ func _last(s: Dictionary) -> void:
 			if o.get("assisted") == true:
 				bits.append("you helped")
 			elif o.get("assisted") == false:
-				bits.append("you left them for Lena")
+				bits.append("you left them for Lena" if not Trek.is_gone(Expedition.session, "lena") else "you went on without them")
 			if o.get("regrouped") == true:
 				bits.append("regrouped")
 			if int(o.get("stars", 0)) > 0:

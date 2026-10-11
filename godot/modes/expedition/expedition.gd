@@ -198,6 +198,8 @@ func finish_climb(outcome: Dictionary) -> String:
 			Trek._depart(session, mate)
 			var sm: Dictionary = state().duplicate(true)
 			sm["teamCondition"] = maxi(0, int(sm["teamCondition"]) - 10)
+			# The climb's note still says Lena brings them up: she can't.
+			sm["lastNote"] = String(sm["lastNote"]).replace(" and Lena brings %s up later" % Trek.NAMES[mate], "")
 			sm["lastNote"] = (String(sm["lastNote"]) + " With no Lena to bring %s up, %s turns back down alone." % [Trek.NAMES[mate], Trek.NAMES[mate]]).strip_edges()
 			session["state"] = sm
 		# What bit, stung and struck you on the climb comes back to camp, as

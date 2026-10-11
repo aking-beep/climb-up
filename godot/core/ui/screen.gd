@@ -11,6 +11,7 @@ var card: VBoxContainer
 
 
 func _ready() -> void:
+	Settings.back_requested.connect(on_back)
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var sky := ColorRect.new()
 	sky.color = Color("#7f98a6")
@@ -52,6 +53,11 @@ func _ready() -> void:
 	card = VBoxContainer.new()
 	card.add_theme_constant_override("separation", 4)
 	panel.add_child(card)
+
+
+## The Android back button on this screen.
+func on_back() -> void:
+	pass
 
 
 func kicker(text: String) -> Label:

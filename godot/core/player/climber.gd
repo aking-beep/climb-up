@@ -18,6 +18,9 @@ signal wind_struck
 signal jumped
 signal dynoed
 signal hurt_taken(amount: float, reason: String)
+## A hand moved to the next hold on the rock (every MOVE_LENGTH climbed):
+## what kind of hold it took.
+signal moved(hold: int)
 
 enum State { GROUND, AIR, CLIMB, MANTLE, REST, BRACE, SLIP, HELP, LOCKED, DONE }
 
@@ -99,12 +102,17 @@ var can_dyno := false
 ## Resting on the rope after a clip (the crag): holding still costs nothing.
 var on_rope := false
 var dynos := 0
+## Hand moves made on the rock this climb.
+var moves := 0
 var _dyno_from := INF
 
 var _timer := 0.0
 var _mantle_from := Vector2.ZERO
 var _mantle_to := Vector2.ZERO
 var _step_distance := 0.0
+var _move_distance := 0.0
+## How far the hands travel between holds.
+const MOVE_LENGTH := 9.0
 var _breath := 0.0
 var _rest_stone := false
 var sprite: AnimatedSprite2D
@@ -494,6 +502,15 @@ func _climb(delta: float, input: Vector2) -> void:
 			var mid := col * T + T / 2.0
 			global_position.x = move_toward(global_position.x, mid, CLIMB_SIDE * delta)
 	var moving := global_position.distance_to(before) > 0.05
+	# Hold to hold: each reach is a move, with its own sound by the hold.
+	_move_distance += global_position.distance_to(before)
+	if _move_distance >= MOVE_LENGTH:
+		_move_distance = 0.0
+		moves += 1
+		if not scrambling:
+			var vol := {Terrain.Kind.CRIMP: -13.0, Terrain.Kind.JUG: -10.0}.get(hold, -16.0) as float
+			Audio.play("grip", vol, 0.15)
+		moved.emit(hold)
 	var loose := terrain.kinds_in(body_rect()).has(Terrain.Kind.LOOSE)
 	if loose:
 		loose_seconds += delta

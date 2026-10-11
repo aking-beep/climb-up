@@ -13,3 +13,7 @@ func _ready() -> void:
 	text("Lead a team of four up Africa's highest mountain. Make the decisions at camp, keep everyone healthy, and play the three hardest climbs yourself.", 8, MUTED)
 	button("Crag · rock climbing", func() -> void: Crag.go(Crag.MENU), true)
 	text("Six climbs up one cliff, easy to hardest. Tap to clip your rope in, tap to hang on to tiny holds, jump for holds out of reach. Finish one to open the next.", 8, MUTED)
+
+
+func on_back() -> void:
+	get_tree().quit()

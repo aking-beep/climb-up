@@ -341,6 +341,20 @@ func warned_here() -> bool:
 	return false
 
 
+## The clock jumped (a regroup, or resuming a save): the stones that would
+## have come down meanwhile are long gone. Every chute and roller moves on
+## to its next drop after `now`, past the warning, instead of catching up
+## all at once.
+func skip_to(now: float) -> void:
+	for chute in chutes:
+		while _drop_time(chute, chute["next"]) < now + WARN:
+			chute["next"] = int(chute["next"]) + 1
+		chute["warned"] = int(chute["next"]) - 1
+	for sp in rollers:
+		while _roll_time(sp, sp["next"]) < now + WARN:
+			sp["next"] = int(sp["next"]) + 1
+
+
 # --- Rolling stones -------------------------------------------------------------
 
 func _roll_time(sp: Dictionary, k: int) -> float:
@@ -352,6 +366,10 @@ func _roll(dt: float, now: float) -> void:
 		var k: int = sp["next"]
 		if now >= _roll_time(sp, k):
 			sp["next"] = k + 1
+			# Never start a stone right on top of the climber (a cairn beside
+			# a spawner would be a respawn into a hit).
+			if (Terrain.feet(sp["cell"]) - Vector2(0, ROLL_HALF)).distance_to(climber.global_position) < 3.0 * Terrain.TILE:
+				continue
 			var n := Sprite2D.new()
 			n.texture = _rock_tex
 			n.scale = Vector2(1.4, 1.4)

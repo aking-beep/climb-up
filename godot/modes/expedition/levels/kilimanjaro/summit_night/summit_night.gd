@@ -33,7 +33,8 @@ func _init() -> void:
 			"grass": false,
 			"sunShafts": false,
 		},
-		"mate": {"person": "jun", "name": "Jun", "they": "he", "They": "He", "them": "him", "passDir": -1},
+		"mate": {"person": "jun", "name": "Jun", "they": "he", "They": "He", "them": "him", "passDir": -1,
+			"climbLines": ["Jun: My hands are coming back. Thank you.", "Jun: Count the zigzags with me.", "Jun: There's the rim. Keep going.", "Jun: Breathe. Then go."]},
 		"people": {
 			"l": ["lena", "Lena · Guide", [
 				"Pole pole. Nobody overtakes the headlamp in front of them.",

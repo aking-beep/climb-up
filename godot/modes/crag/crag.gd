@@ -2,10 +2,17 @@ extends Node
 ## Crag mode (autoload `Crag`): single sport routes at one cliff, nothing to
 ## do with the expedition. Its own routes, progress and save file.
 ##
-## A route is led: clip each bolt as you pass it; a fall drops you back to
-## the last bolt you clipped. Send it (reach the anchor) to unlock the next.
-## How you sent it is the style: onsight (first go, no falls), redpoint (no
-## falls, after earlier goes), or with falls.
+## A route is led: clip each bolt as you pass it; a fall is caught by the
+## last bolt you clipped. Send it (reach the anchor) to unlock the next.
+## How you sent it is the style: onsight (first go, no falls, no beta),
+## flash (first go, no falls, with beta), redpoint (no falls, after earlier
+## goes), or with falls (not a clean ascent). A go counts from when you tie
+## in, not when you read the brief. Lowering off keeps your high point.
+##
+## Three things describe a route, apart from each other: the grade (how hard
+## the moves are), the bolting (how far apart the bolts are) and the
+## exposure (how far a fall can go, and whether it can reach the ground).
+## facts() works the last two out from the route's map.
 
 const TITLE := "res://modes/title/title.tscn"
 const MENU := "res://modes/crag/crag_menu.tscn"
@@ -42,9 +49,10 @@ const ROUTES := [
 ]
 
 const STYLES := {
-	"onsight": ["Onsight", "You climbed it on your first try without falling. The best way to do a route."],
+	"onsight": ["Onsight", "You climbed it on your first try without falling, and without beta. The best way to do a route."],
+	"flash": ["Flash", "You climbed it on your first try without falling, with beta (tips on how to climb it)."],
 	"redpoint": ["Redpoint", "You climbed it without falling, after trying it before."],
-	"falls": ["Sent, with falls", "You made it to the top, but fell on the way. Try it again without falling."],
+	"falls": ["Top, with falls", "You made it to the top, but fell on the way: not a clean ascent yet. Climb it again without falling for a redpoint."],
 }
 ## The shoes, picked before each route. `pace` multiplies climbing speed,
 ## `stamina` what being on the rock costs.
@@ -55,9 +63,13 @@ const SHOES := {
 		"text": "Tight and bent: you climb faster, but use more stamina."},
 }
 
-const STYLE_RANK := {"": 0, "falls": 1, "redpoint": 2, "onsight": 3}
+const STYLE_RANK := {"": 0, "falls": 1, "redpoint": 2, "flash": 3, "onsight": 4}
+## Metres per row of the map (a row is about half a metre of rock).
+const ROW_M := 0.5
 
-## Per route: {attempts, sends, best (style), bestFalls, bestSeconds}.
+## Per route: {attempts, sends, best (style), bestFalls, bestSeconds,
+## highpoint (most bolts clipped on a go that did not reach the top), beta
+## (tips taken: a first-go send is then a flash, not an onsight)}.
 var progress: Dictionary = {}
 ## The route being climbed.
 var current := "warm-up"
@@ -89,7 +101,73 @@ func map_path(id: String) -> String:
 
 
 func record(id: String) -> Dictionary:
-	return progress.get(id, {"attempts": 0, "sends": 0, "best": "", "bestFalls": -1, "bestSeconds": -1})
+	return progress.get(id, {"attempts": 0, "sends": 0, "best": "", "bestFalls": -1, "bestSeconds": -1, "highpoint": 0, "beta": false})
+
+
+var _facts := {}
+
+
+## What a route's map says about it, apart from the grade: {bolts, gaps
+## (rows between bolts, bottom up), first (rows from the ground to the
+## first bolt), height (m), longest (m between bolts), protection
+## (well/sporty/runout), worstFall (m), groundFall (a fall low down can
+## reach the ground), exposure (low/medium/high)}.
+func facts(id: String) -> Dictionary:
+	if _facts.has(id):
+		return _facts[id]
+	var t := Terrain.load_file(map_path(id))
+	var foot: int = (t.markers["P"][0] as Vector2i).y
+	var top: int = (t.markers["X"][0] as Vector2i).y
+	var rows: Array = []
+	for q in t.markers.get("Q", []):
+		rows.append((q as Vector2i).y)
+	rows.sort()
+	rows.reverse()
+	var gaps: Array = []
+	for i in range(1, rows.size()):
+		gaps.append(int(rows[i - 1]) - int(rows[i]))
+	var longest: int = gaps.max() if not gaps.is_empty() else 0
+	var first: int = foot - int(rows[0]) if not rows.is_empty() else 0
+	# A lead fall: twice the distance above the last bolt, plus slack.
+	var worst := (2 * longest + 2) * ROW_M
+	# A high first bolt, or a long way to the second: a fall low down can
+	# reach the ground.
+	var ground := first >= 5 or (not gaps.is_empty() and int(gaps[0]) >= first + 3)
+	var protection := "well" if longest <= 7 else ("sporty" if longest <= 12 else "runout")
+	var exposure := "medium"
+	if worst >= 12.0 or first >= 5:
+		exposure = "high"
+	elif worst <= 7.0 and first <= 3:
+		exposure = "low"
+	var f := {"bolts": rows.size(), "gaps": gaps, "first": first, "height": (foot - top) * ROW_M,
+		"longest": longest * ROW_M, "protection": protection, "worstFall": worst, "groundFall": ground, "exposure": exposure}
+	_facts[id] = f
+	return f
+
+
+## The bolting and exposure in words, for the menu and the brief.
+func protection_words(id: String) -> String:
+	var f := facts(id)
+	var name: String = {"well": "Well bolted", "sporty": "Sporty", "runout": "Run-out"}[f["protection"]]
+	return "%s: %d bolts, up to %s m apart" % [name, int(f["bolts"]), _m(f["longest"])]
+
+
+func exposure_words(id: String) -> String:
+	var f := facts(id)
+	var name: String = {"low": "Low", "medium": "Medium", "high": "High"}[f["exposure"]]
+	var words := "%s exposure: %s m tall, falls up to %s m" % [name, _m(f["height"]), _m(f["worstFall"])]
+	if f["groundFall"]:
+		words += ", and a fall before the second bolt can reach the ground"
+	return words
+
+
+## A whole number from a save, or `default` when it is not a number.
+static func _num(v: Variant, default: int) -> int:
+	return int(v) if typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT else default
+
+
+static func _m(v: float) -> String:
+	return str(int(v)) if is_equal_approx(v, roundf(v)) else "%.1f" % v
 
 
 ## The first route is always open; each one after opens when the one
@@ -99,34 +177,51 @@ func unlocked(id: String) -> bool:
 	return i == 0 or int(record(ROUTES[i - 1]["id"])["sends"]) > 0
 
 
-## Starts an attempt: counts it, and opens the route.
+## Opens a route at its brief. Reading the brief is not a go.
 func climb(id: String) -> void:
 	if not unlocked(id):
 		return
 	current = id
+	go(LEVEL)
+
+
+## Tying in starts a go: it counts from here.
+func tie_in(id: String) -> void:
 	var r := record(id)
 	r["attempts"] = int(r["attempts"]) + 1
 	progress[id] = r
 	save_progress()
-	go(LEVEL)
+
+
+## Tips on how to climb it: from now on a first-go send is a flash.
+func take_beta(id: String) -> void:
+	var r := record(id)
+	r["beta"] = true
+	progress[id] = r
+	save_progress()
 
 
 ## The style a send at `falls` falls has on this route, given the goes
-## before it (`attempts` includes this one).
-static func style_for(falls: int, attempts: int) -> String:
+## before it (`attempts` includes this one) and whether beta was taken.
+static func style_for(falls: int, attempts: int, beta: bool = false) -> String:
 	if falls > 0:
 		return "falls"
-	return "onsight" if attempts <= 1 else "redpoint"
+	if attempts <= 1:
+		return "flash" if beta else "onsight"
+	return "redpoint"
 
 
 ## A finished attempt. Returns {style, better, unlocked (next route's id or
 ## "")} for the results card.
-func finish(id: String, sent: bool, falls: int, seconds: int) -> Dictionary:
+func finish(id: String, sent: bool, falls: int, seconds: int, bolts: int = 0) -> Dictionary:
 	var r := record(id)
-	var out := {"style": "", "better": false, "unlocked": ""}
+	var out := {"style": "", "better": false, "unlocked": "", "highpoint": false}
+	if not sent and bolts > int(r.get("highpoint", 0)):
+		r["highpoint"] = bolts
+		out["highpoint"] = true
 	if sent:
 		var was_sent := int(r["sends"]) > 0
-		var style := style_for(falls, int(r["attempts"]))
+		var style := style_for(falls, int(r["attempts"]), bool(r.get("beta", false)))
 		out["style"] = style
 		r["sends"] = int(r["sends"]) + 1
 		if STYLE_RANK[style] > STYLE_RANK[String(r["best"])]:
@@ -162,11 +257,13 @@ func load_progress() -> void:
 			continue
 		var best := String(d.get("best", ""))
 		progress[r["id"]] = {
-			"attempts": maxi(0, int(d.get("attempts", 0))),
-			"sends": maxi(0, int(d.get("sends", 0))),
+			"attempts": maxi(0, _num(d.get("attempts"), 0)),
+			"sends": maxi(0, _num(d.get("sends"), 0)),
 			"best": best if STYLE_RANK.has(best) else "",
-			"bestFalls": int(d.get("bestFalls", -1)),
-			"bestSeconds": int(d.get("bestSeconds", -1)),
+			"bestFalls": _num(d.get("bestFalls"), -1),
+			"bestSeconds": _num(d.get("bestSeconds"), -1),
+			"highpoint": clampi(_num(d.get("highpoint"), 0), 0, 99),
+			"beta": typeof(d.get("beta")) == TYPE_BOOL and d["beta"],
 		}
 
 
