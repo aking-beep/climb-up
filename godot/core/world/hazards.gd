@@ -432,6 +432,8 @@ func roller_near(x: float, y: float, reach: float) -> bool:
 # --- Finds --------------------------------------------------------------------
 
 func _pickups() -> void:
+	if climber.state == Climber.State.SLIP:
+		return  # Nothing is picked up on the way down after a fall.
 	var body := climber.body_rect()
 	for p in pickups:
 		if p["taken"]:
@@ -467,6 +469,21 @@ func _pickups() -> void:
 			var words: Array = gear_words[mini(p["index"], gear_words.size() - 1)] if not gear_words.is_empty() else ["Lost gear", ""]
 			level.hud.flash("Found: %s. %s" % [words[0], words[1]], 4.5)
 			found_gear.emit(p["index"])
+
+
+## A fall that counted: everything picked on this climb is dropped and goes
+## back on the ground. You start again from the cairn with nothing.
+func drop_flowers() -> int:
+	var lost := flowers
+	if lost == 0:
+		return 0
+	flowers = 0
+	for p in pickups:
+		if p["kind"] == "flower" and p["taken"]:
+			p["taken"] = false
+			p["node"].visible = true
+	_burst(climber.global_position - Vector2(0, 12), Color(1.0, 0.98, 0.85), mini(30, 6 + lost))
+	return lost
 
 
 func gear_total() -> int:

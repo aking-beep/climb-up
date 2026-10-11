@@ -8,8 +8,8 @@ extends TestCase
 const T := 16.0
 ## The most moving time, in seconds, between two things to do (a flower, a
 ## cairn, a sign count), and between two real challenges (they do not).
-const QUIET_MAX := 6.0
-const CHALLENGE_MAX := 12.0
+const QUIET_MAX := 5.0
+const CHALLENGE_MAX := 8.0
 const NOT_CHALLENGES := ["flower", "cairn", "sign", "talk", "water"]
 
 var level: Node
@@ -38,10 +38,17 @@ func _hop(held: Dictionary) -> void:
 	var want := false
 	if c.state == Climber.State.GROUND and dir != 0:
 		want = c.hurdle_ahead(dir) or c.gap_ahead(dir)
-	if c.state == Climber.State.GROUND:
+	if c.state == Climber.State.GROUND or c.state == Climber.State.REST:
 		var hz: Hazards = level.get("hazards")
 		if hz and hz.roller_near(c.global_position.x, c.global_position.y, 26.0):
 			want = true
+			# One catching up from behind: stop and hop on the spot so it
+			# rolls under, rather than hopping along with it.
+			for st in hz.rolling:
+				var dx: float = c.global_position.x - st["node"].position.x
+				if int(st["dir"]) == dir and signf(dx) == float(dir) and absf(dx) < 40.0:
+					held.erase("move_right")
+					held.erase("move_left")
 	if c.exposed and not c.wind.calm_for(c.clock, 0.7):
 		want = false
 	if want and not _hopped:
@@ -247,7 +254,7 @@ func check_pacing(label: String) -> void:
 		for e in level.pace_log:
 			if e[1] in NOT_CHALLENGES:
 				continue
-			if e[2] - last[0] > 7.0:
+			if e[2] - last[0] > 4.0:
 				print("        gap %.1f s from %s to %s (%s)" % [e[2] - last[0], last[1], e[3], e[1]])
 			last = [e[2], e[3]]
 	check(quiet[0] <= QUIET_MAX, "%s: something to do every %.0f s of moving, but %.1f s ending at %s" % [label, QUIET_MAX, quiet[0], quiet[1]])

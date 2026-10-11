@@ -39,6 +39,7 @@ var pace_log: Array = []
 ## and reading are the player's choice).
 var travel := 0.0
 var _travel_clock := -1.0
+var _was_on_ice := false
 var _was_bracing := false
 var _outcome: ChallengeOutcome
 var stars := 0
@@ -321,6 +322,10 @@ func _physics_process(_delta: float) -> void:
 	if _travel_clock >= 0.0 and climber.last_activity in ["walk", "walk_up", "ice"]:
 		travel += clampf(climber.clock - _travel_clock, 0.0, 0.1)
 	_travel_clock = climber.clock
+	# Stepping onto ice is a challenge of its own: keep your footing.
+	if climber.on_ice and not _was_on_ice:
+		engage("ice")
+	_was_on_ice = climber.on_ice
 	var bracing := climber.state == Climber.State.BRACE
 	if bracing and not _was_bracing:
 		engage("brace")
@@ -550,6 +555,20 @@ func _on_helped() -> void:
 func _on_slipped(saved: bool, reason: String) -> void:
 	camera.kick(0.0 if saved else 0.8)
 	Haptics.tap(20 if saved else 60)
+	if not saved:
+		var lost := hazards.drop_flowers()
+		if lost > 0:
+			# Picked flowers are this attempt's: forget them in the save too.
+			var taken: Array = Expedition.climb.get("taken", [])
+			var keep: Array = []
+			for k in taken:
+				var parts: PackedStringArray = String(k).split(",")
+				var cell := Vector2i(int(parts[0]), int(parts[1]))
+				if not terrain.markers.get("f", []).has(cell):
+					keep.append(k)
+			Expedition.remember({"taken": keep})
+			hud.flash("You fall, and drop all %d everlastings. They are back on the ground." % lost, 3.0)
+			return
 	if saved:
 		hud.flash("%s grabs your pack. That slip doesn't count." % mate_name())
 	elif reason == "wind":

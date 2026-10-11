@@ -45,7 +45,7 @@ const GUST_FIGHT := 6.0  # stamina per second, standing unbraced in a gust
 ## you get over a boulder, a stream cut or a crack in the ice. It costs
 ## breath like a hard step, more in thin air.
 const JUMP_SPEED := 265.0
-const JUMP_COST := 4.0
+const JUMP_COST := 2.0
 const AIR_CONTROL := 260.0
 
 var terrain: Terrain
@@ -246,7 +246,8 @@ func _ground(delta: float, input: Vector2) -> void:
 
 ## Hops, if there is breath for it. A hop on open ground in a gust is a slip.
 func _jump() -> bool:
-	var cost := JUMP_COST * stamina.drain * stamina.thin_air
+	# Hops come often; thin air makes them cost more, but not as much as walking.
+	var cost := JUMP_COST * stamina.drain * (0.5 + 0.5 * stamina.thin_air)
 	if stamina.value < cost:
 		return false
 	stamina.value -= cost
@@ -561,6 +562,10 @@ func _rest(delta: float, input: Vector2) -> void:
 	_weather(delta, Vector2.ZERO)
 	if state == State.REST and (input.length() > 0.3 or GameInput.pressed_now("rest")):
 		state = State.GROUND
+	elif state == State.REST and GameInput.pressed_now("jump"):
+		# Up and over in one go: a stone rolling at you while you sit.
+		state = State.GROUND
+		_jump()
 
 
 func _brace(delta: float) -> void:

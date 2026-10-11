@@ -173,8 +173,8 @@ func test_stones_are_announced_and_miss_the_next_column() -> void:
 
 func test_ice_slides() -> void:
 	await _load("summit-night")
-	await _put(Vector2i(64, 76))
-	check(c.terrain.kind(Vector2i(64, 77)) == Terrain.Kind.ICE, "on ice")
+	await _put(Vector2i(90, 58))
+	check(c.terrain.kind(Vector2i(90, 59)) == Terrain.Kind.ICE, "on ice")
 	await drive(["move_right"], func() -> bool: return absf(c.velocity.x) >= Climber.WALK * 0.95, 5.0, "up to speed on ice")
 	var from := c.global_position.x
 	await drive([], func() -> bool: return absf(c.velocity.x) < 1.0, 5.0, "sliding to a stop")
@@ -321,3 +321,23 @@ func test_each_level_has_what_its_climb_needs() -> void:
 			for cell in t.markers.get(ch, []):
 				check(not t.is_solid(cell) and t.is_solid(cell + Vector2i.DOWN), "%s: %s at %s stands on ground" % [id, ch, cell])
 		lvl.free()
+
+
+func test_a_fall_drops_every_everlasting_back_on_the_ground() -> void:
+	await _load("lava-tower")
+	var hz: Hazards = level.hazards
+	var cells: Array = level.terrain.markers.get("f", [])
+	check(cells.size() >= 2, "everlastings to pick")
+	for cell in cells.slice(0, 2):
+		await _put(cell)
+	eq(hz.flowers, 2, "two picked")
+	c.slip("test")
+	await physics_frames(2)
+	eq(hz.flowers, 0, "a fall drops them all")
+	for p in hz.pickups:
+		if p["kind"] == "flower":
+			check(not p["taken"] and p["node"].visible, "every everlasting is back on the ground")
+	var taken: Array = Expedition.climb.get("taken", [])
+	for cell in cells:
+		check(not taken.has("%d,%d" % [cell.x, cell.y]), "and the save forgets them")
+	await _done()

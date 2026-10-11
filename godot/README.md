@@ -31,7 +31,7 @@ screen, so pixel art stays sharp with no black bars.
 | Climb down, let go | ↓ / S | down | pull the stick down |
 | Talk, read, help | E / Enter | X | the context button (TALK, READ, HELP) |
 | Brace against the wind | Shift / B | shoulders | BRACE (hold) |
-| Sit and rest | R | Y | REST |
+| Sit and rest (HOP gets you straight up and over) | R | Y | REST |
 | Pause (turn back, settings, save and quit) | Esc / P | Start | II |
 
 Touch controls appear automatically on phones; the pause menu toggles them.
@@ -126,17 +126,32 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
 - **Everlastings** (the papery Kilimanjaro flower) line the walkable ground:
   each is a breath back, they glint so the eye finds the next one, and the
   count shows at the top of the screen.
-- **A route bar** at the top shows how far along the climb you are.
+- **Fall and you drop them.** A slip that counts scatters every everlasting
+  you are carrying back onto the ground where you found it: the count goes
+  to 0 and you pick them up again on the next go. (Lost gear stays found.)
+- **No length meter.** The HUD does not say how far along the climb you
+  are; you see the next obstacle, not the distance left.
+- **An obstacle every few steps.** `tools/levels/gauntlet.py` lines every
+  walkable stretch with something to get past, roughly every six tiles (a
+  second or two at a walk): a boulder to hop, a two-wide pit to jump,
+  cracked slabs over a pit, or a short run of ice. It keeps them fair:
+  nothing near a camp, cairn, rest stone, person or find, near a face you
+  climb or land from, in a rolling stone's lane, on wind-exposed ground
+  (the wind is the challenge there), right before an existing gap, or
+  without room overhead to hop.
 - **Stars at the top:** one for topping out, one for no slips that counted,
   one for three in four of the everlastings. The results card shows them
   and your best is kept; a three-star climb lifts the party at camp
   (+3 team, +2 energy).
 - **Pacing is tested.** Every climb logs each moment the player has to act
   (a hop, a grab, a pull-over, a brace, a dodged stone, a cracked slab, a
-  rolling stone, a find, a cairn). The full-ascent tests fail if a climb
-  has more than 6 s of walking with nothing to do, or more than 12 s of
+  rolling stone, a step onto ice, a find, a cairn). The full-ascent tests fail if a climb
+  has more than 5 s of walking with nothing to do, or more than 8 s of
   walking without a real challenge (flowers and cairns do not count as
-  challenges). Climbing a face counts as play in itself.
+  challenges). Climbing a face counts as play in itself. On the open
+  stretches the gauntlet puts something in the way every second or two;
+  the longest gaps left are around camps, cairns and people, where the
+  ground is kept clear on purpose.
 
 | Climb | Hazards | Lost gear |
 | --- | --- | --- |

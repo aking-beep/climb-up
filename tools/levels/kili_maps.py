@@ -295,8 +295,10 @@ def preview(m, path):
 def main():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from flowers import sprinkle
+    from gauntlet import gauntlet
     for name, build in (("lava_tower", lava_tower), ("summit_night", summit_night)):
         m = build()
+        print(name, "challenges:", gauntlet(m.g))
         print(name, "everlastings:", sprinkle(m.g, spacing=9 if name == "summit_night" else 5))
         out = LEVELS / name / f"{name}.txt"
         out.parent.mkdir(parents=True, exist_ok=True)

@@ -58,7 +58,7 @@ func _ready() -> void:
 	_flash.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_flash.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_flash)
-	# The route, top right (left of pause): how far, and the everlastings.
+	# Top right (left of pause): the everlastings carried.
 	var top := VBoxContainer.new()
 	top.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	top.anchor_left = 1.0
@@ -71,7 +71,9 @@ func _ready() -> void:
 	_route_label = _label(8, Color(0.98, 0.97, 0.94))
 	_route_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	top.add_child(_route_label)
+	# How far along is not shown: the climb is about the next move.
 	_route = ProgressBar.new()
+	_route.visible = false
 	_route.custom_minimum_size = Vector2(150, 4)
 	_route.show_percentage = false
 	_route.max_value = 1.0
@@ -128,7 +130,7 @@ func update_from(level: Node) -> void:
 		var flowers := ""
 		if hz and hz.flowers_total > 0:
 			flowers = "  ·  everlastings %d/%d" % [hz.flowers, hz.flowers_total]
-		_route_label.text = "Route %d%%%s" % [int(_route.value * 100.0), flowers]
+		_route_label.text = ("Everlastings %d" % hz.flowers) if hz and hz.flowers_total > 0 else ""
 	_stats.text = "Stamina %d%% · Slips %d/%d · Cairn %d/%d%s%s" % [pct, c.slips, level.max_slips, level.checkpoint, level.cairns.size() - 1, gear, mate]
 	if level.get("mate_winded"):
 		_wind.text = "%s is out of breath: go back and REST beside them" % level.mate_name()
