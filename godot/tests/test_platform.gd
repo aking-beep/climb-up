@@ -113,3 +113,32 @@ func test_menus_go_back() -> void:
 	menu.queue_free()
 	await tree.process_frame
 	check(not tree.is_quit_on_go_back(), "back no longer quits the app outright")
+
+
+func test_panels_fit_a_short_screen() -> void:
+	# A phone held sideways: 270 logical pixels tall.
+	var screen_vp := SubViewport.new()
+	screen_vp.size = Vector2i(480, 270)
+	root.add_child(screen_vp)
+	var p := StoryPanel.new()
+	screen_vp.add_child(p)
+	await tree.process_frame
+	var long := "\n".join(PackedStringArray(range(30).map(func(i): return "Line %d of a long brief that will not fit." % i)))
+	var choices: Array = []
+	for i in 6:
+		choices.append(["c%d" % i, "Choice %d" % i])
+	p.show_panel("Kicker", "A long one", long, choices)
+	await tree.process_frame
+	await tree.process_frame
+	var screen := p.get_viewport().get_visible_rect().size.y
+	var tall: float = p._box.size.y
+	check(tall <= screen, "a long panel fits the screen and scrolls (%.0f of %.0f)" % [tall, screen])
+	check(p._scroll.get_v_scroll_bar().max_value > p._scroll.size.y, "with more to scroll to")
+	eq(p._scroll.scroll_vertical, 0, "opening at the top")
+	p.show_panel("Kicker", "A short one", "One line.", [["x", "Got it"]])
+	await tree.process_frame
+	await tree.process_frame
+	check(p._box.size.y < tall * 0.6, "a short panel after it is short (%.0f, was %.0f)" % [p._box.size.y, tall])
+	check(absf(p._box.get_global_rect().end.y - (screen - 10.0)) < 2.0, "and sits on the bottom edge")
+	screen_vp.queue_free()
+	await tree.process_frame

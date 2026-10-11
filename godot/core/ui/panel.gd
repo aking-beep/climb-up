@@ -92,6 +92,8 @@ func show_panel(kicker: String, title: String, body: String, choices: Array) -> 
 	_body.text = body
 	_body.visible = not body.is_empty()
 	for c in _buttons.get_children():
+		# Out of the layout now, so the new panel is measured without them.
+		_buttons.remove_child(c)
 		c.queue_free()
 	var first: Button = null
 	for choice in choices:
@@ -120,13 +122,23 @@ func show_panel(kicker: String, title: String, body: String, choices: Array) -> 
 func _fit() -> void:
 	if not is_inside_tree():
 		return
+	_size_box()
+	# Open at the top (the title first), after focus has had its say; and
+	# measure again once the labels have wrapped.
+	await get_tree().process_frame
+	if is_inside_tree():
+		_size_box()
+		_scroll.scroll_vertical = 0
+
+
+func _size_box() -> void:
 	var want := _v.get_combined_minimum_size().y
 	var room := get_viewport().get_visible_rect().size.y * MAX_SHARE - 16.0
 	_scroll.custom_minimum_size = Vector2(0, minf(want, room))
-	# Open at the top (the title first), after focus has had its say.
-	await get_tree().process_frame
-	if is_inside_tree():
-		_scroll.scroll_vertical = 0
+	# Shrink to this panel's content (it grows from the bottom edge, and
+	# would otherwise keep the height of a taller panel before it).
+	_box.offset_bottom = -10
+	_box.offset_top = _box.offset_bottom - _box.get_combined_minimum_size().y
 
 
 func _choose(id: String) -> void:

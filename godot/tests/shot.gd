@@ -61,6 +61,9 @@ func _ready() -> void:
 		get_tree().quit(0)
 		return
 	await get_tree().create_timer(0.5).timeout
+	if "shrink" in OS.get_cmdline_user_args() and scene.get("panel"):
+		# A tall panel, then a short one: the short one must not keep the height.
+		scene.panel.show_panel("Short", "A short one", "One line.", [["x", "Got it"]])
 	if "look" in OS.get_cmdline_user_args() and scene is CragLevel:
 		# Reading the route: partway up the preview.
 		scene.panel.choose("look")

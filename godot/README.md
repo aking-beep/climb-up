@@ -390,7 +390,7 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-87 tests: the engine replaying seven expeditions recorded from the
+88 tests: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume
@@ -411,7 +411,7 @@ not mashing, grade, bolting and exposure are apart, reading the route and
 beta (a flash), styles, high points, unlocks, a go counts at tie-in, and
 a bad save loads safely. `test_platform` covers the phone: going to the
 background mid-climb pauses (and saves the expedition), the back button,
-vibration as its own setting, a bad settings file. `test_pacing` covers
+vibration as its own setting, a bad settings file, panels that fit and scroll on a short screen. `test_pacing` covers
 the expedition fixes: a regroup does not bring down an hour of stones at
 once, no stone starts on the climber, the brief names the cost of a slip
 at camp and leaves out a teammate who has gone down, the last slip says
