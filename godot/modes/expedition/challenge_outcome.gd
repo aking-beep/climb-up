@@ -25,6 +25,9 @@ var gear_found := 0
 var flowers := 0
 var flowers_total := 0
 var stars := 0
+## Health lost on the climb (thorns, ants, ravens), and medicine taken for it.
+var hurt := 0
+var dosed := false
 
 
 func to_expo() -> Dictionary:
@@ -51,6 +54,8 @@ func to_dict() -> Dictionary:
 	d["flowers"] = flowers
 	d["flowersTotal"] = flowers_total
 	d["stars"] = stars
+	d["hurt"] = hurt
+	d["dosed"] = dosed
 	return d
 
 

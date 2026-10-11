@@ -295,10 +295,16 @@ def preview(m, path):
 def main():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from flowers import sprinkle
-    from gauntlet import gauntlet
+    from gauntlet import gauntlet, wildlife
     for name, build in (("lava_tower", lava_tower), ("summit_night", summit_night)):
         m = build()
-        print(name, "challenges:", gauntlet(m.g))
+        # The tower has thistles, ants and ravens; up on the summit night
+        # only the ravens live that high.
+        kinds = (("hop", "plant", "pit", "raven", "slabs", "ants", "ice") if name == "lava_tower"
+                 else ("hop", "pit", "raven", "slabs", "hop", "ice", "pit"))
+        print(name, "challenges:", gauntlet(m.g, kinds=kinds))
+        if name == "lava_tower":
+            print(name, "wildlife:", wildlife(m.g, every=4, kinds=("ants", "plant")))
         print(name, "everlastings:", sprinkle(m.g, spacing=9 if name == "summit_night" else 5))
         out = LEVELS / name / f"{name}.txt"
         out.parent.mkdir(parents=True, exist_ok=True)

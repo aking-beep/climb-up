@@ -7,7 +7,7 @@ every `spacing` walkable cells, away from other markers and hazards.
 
 SOLID = set("#/\\ic")
 OPEN = set(".")
-MARKERS = set("PXMljmpSTFgoVKrw*bdRf")
+MARKERS = set("PXMljmpSTFgoVKrw*bdRfnav")
 
 
 def sprinkle(g, spacing=6, skip_rows=()):

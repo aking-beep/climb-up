@@ -22,19 +22,19 @@ const ROUTES := {
 	"lemosho": {
 		"name": "The long way", "line": "Lemosho, 10-day permit",
 		"text": "Ten days. The slow walk in through forest and over the Shira plateau. The body has time to catch the air.",
-		"permit": 10, "supplies": 86, "upEnergy": 0, "upAcclim": 0, "upHealth": 0, "risk": 0, "climb": 1.0,
+		"permit": 10, "supplies": 86, "medicine": 3, "upEnergy": 0, "upAcclim": 0, "upHealth": 0, "risk": 0, "climb": 1.0,
 	},
 	"machame": {
 		"name": "The steep way", "line": "Machame-style, 8-day permit",
 		"text": "Eight days. A steep first day straight up to Shira 1, then shorter, steeper days with less food carried. Every day up costs more, and sickness comes sooner.",
 		"start": "ebc", "startHours": 24,
-		"permit": 8, "supplies": 72, "upEnergy": -5, "upAcclim": -3, "upHealth": 0, "risk": 10, "climb": 1.15,
+		"permit": 8, "supplies": 72, "medicine": 2, "upEnergy": -5, "upAcclim": -3, "upHealth": 0, "risk": 10, "climb": 1.15,
 	},
 	"umbwe": {
 		"name": "The direct way", "line": "Umbwe-style, 7-day permit",
 		"text": "Seven days, straight up a forest ridge to Shira 2 in a day and a half. The least food, the fastest height, the hardest climbs. Only for a party that is fit and lucky.",
 		"start": "camp1", "startHours": 36,
-		"permit": 7, "supplies": 68, "upEnergy": -7, "upAcclim": -5, "upHealth": -2, "risk": 16, "climb": 1.3,
+		"permit": 7, "supplies": 68, "medicine": 1, "upEnergy": -7, "upAcclim": -5, "upHealth": -2, "risk": 16, "climb": 1.3,
 	},
 }
 
@@ -58,7 +58,11 @@ static func ensure(session: Dictionary) -> Dictionary:
 
 static func fresh(route: String = "") -> Dictionary:
 	# base: the height the party has slept at (adapted to), in metres.
-	return {"route": route, "sick": {}, "gone": [], "emergency": null, "ending": "", "treated": {}, "base": 0}
+	# medicine: doses in the kit. sleep: how the last night went (well,
+	# badly, or "" before the first), for the climbs.
+	var doses: int = ROUTES[route]["medicine"] if ROUTES.has(route) else 0
+	return {"route": route, "sick": {}, "gone": [], "emergency": null, "ending": "", "treated": {}, "base": 0,
+		"medicine": doses, "sleep": ""}
 
 
 static func route(session: Dictionary) -> Dictionary:
@@ -103,6 +107,7 @@ static func route_card() -> Dictionary:
 static func choose_route(session: Dictionary, id: String) -> void:
 	var t := ensure(session)
 	t["route"] = id
+	t["medicine"] = int(ROUTES[id]["medicine"])
 	var s: Dictionary = session["state"].duplicate(true)
 	s["supplies"] = int(ROUTES[id]["supplies"])
 	t["base"] = float(s["altitude"])
@@ -142,6 +147,10 @@ static func advance(session: Dictionary, before: Dictionary, def: Dictionary) ->
 	var notes: Array = []
 	var climbed: bool = int(s["altitude"]) > int(before["altitude"])
 	var descended: bool = int(s["altitude"]) < int(before["altitude"])
+	# A night is a long stop that does not go up: it was sleep if it gave
+	# energy back, and a bad night if it did not.
+	if hours >= 8.0 and not climbed:
+		t["sleep"] = "well" if int(s["energy"]) > int(before["energy"]) else "badly"
 	if climbed:
 		s["energy"] += r["upEnergy"]
 		s["acclimatization"] += r["upAcclim"]
@@ -209,6 +218,11 @@ static func _sicken(session: Dictionary, s: Dictionary, before: Dictionary, clim
 			if s["marks"].get("water-" + String(before["checkpoint"])) != true and _roll(s, 23, i) < 9:
 				t["sick"][id] = {"kind": "stomach", "stage": 1}
 				notes.append("%s has %s." % [NAMES[id], describe("stomach", 1)])
+				continue
+			# Food gone bad: thin stores are old stores.
+			if int(s["supplies"]) < 30 and _roll(s, 27, i) < 10:
+				t["sick"][id] = {"kind": "stomach", "stage": 1}
+				notes.append("The food has gone bad. %s has %s." % [NAMES[id], describe("stomach", 1)] if id != "you" else "The food has gone bad. You have %s." % describe("stomach", 1))
 				continue
 			# The cold, high and at night, with thin stores or tired bodies.
 			var hour := Party.expedition_hour(float(s["elapsedHours"]))
@@ -330,6 +344,35 @@ static func treat(session: Dictionary, id: String) -> Dictionary:
 	return {"note": "Jun sits with %s, with water and what the kit has. It helps." % ("you" if id == "you" else NAMES[id]),
 		"move": "hold", "hours": 2, "supplies": -4, "teamCondition": 2,
 		"scores": {"teamwork": {"label": "Jun cared for %s" % ("you" if id == "you" else NAMES[id]), "delta": 3, "mark": "trek-care-%s-%s" % [id, session["state"]["checkpoint"]]}}}
+
+
+## A dose from the kit for someone unwell: no Jun needed, an hour, and one
+## dose fewer for the climbs.
+static func can_medicate(session: Dictionary, id: String) -> bool:
+	var t := ensure(session)
+	return int(t.get("medicine", 0)) > 0 and t["sick"].has(id)
+
+
+static func medicate(session: Dictionary, id: String) -> Dictionary:
+	var t := ensure(session)
+	t["medicine"] = int(t["medicine"]) - 1
+	var sick: Dictionary = t["sick"][id]
+	sick["stage"] -= 1
+	if sick["stage"] <= 0:
+		t["sick"].erase(id)
+	var who: String = "you" if id == "you" else NAMES[id]
+	return {"note": "A dose from the kit for %s. %d left." % [who, int(t["medicine"])],
+		"move": "hold", "hours": 1, "teamCondition": 1,
+		"scores": {"judgment": {"label": "You used the medicine on %s" % who, "delta": 2, "mark": "trek-med-%s-%s" % [id, session["state"]["checkpoint"]]}}}
+
+
+## A dose taken before a climb, to keep the symptoms off while you climb.
+static func dose_for_climb(session: Dictionary) -> bool:
+	var t := ensure(session)
+	if int(t.get("medicine", 0)) <= 0:
+		return false
+	t["medicine"] = int(t["medicine"]) - 1
+	return true
 
 
 static func send_down(session: Dictionary, id: String) -> Dictionary:

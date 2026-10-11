@@ -79,9 +79,33 @@ exactly (the parity test still holds); a trek layer on top
 - **Different endings:** summit with all four, summit but not all of you,
   turned back together, a hard walk out, out of days, carried down, or the
   mountain kept the day.
-- **It reaches into the climbs:** a teammate sent down is not on the climb;
-  being unwell shrinks your stamina and makes every step cost more; a steep
-  route brings more wind and faster stonefall.
+- **Medicine.** The kit holds 3 doses on the long way, 2 on the steep
+  way, 1 on the direct way. At camp a dose ("Medicine") eases someone's
+  sickness a stage without Jun; before a climb a dose keeps your symptoms
+  off for that climb.
+- **Sleep and food.** A long stop that gives no energy back is a bad night;
+  one that does is a good night. On thin stores (supplies under 30) the
+  food can go bad and turn someone's stomach.
+- **It reaches into the climbs** (`modes/expedition/engine/condition.gd`).
+  The body you climb in is the one the camp choices left you, and the brief
+  lists why:
+
+  | At camp | On the climb |
+  | --- | --- |
+  | The party's health | where your health bar starts (lower again when unwell) |
+  | A bad night | a smaller stamina bar, slower to get your breath back |
+  | A good night | breath back a little faster |
+  | Worn out (energy under 35) | a smaller bar |
+  | Thin rations (supplies under 30) | slower to recover |
+  | Altitude sickness | thinner air for you, and dizzy spells (half speed, your feet wander) |
+  | A bad stomach | cramps that double you over (no walking or hopping for a second) |
+  | The cold | numb fingers: holding on to rock costs more |
+  | A dose of medicine before the climb | none of those symptoms, and +10 health |
+  | A teammate sent down | not on the climb |
+  | A steep route | more wind, faster stonefall |
+
+  It also goes back the other way: health lost to thorns, ants and ravens
+  on the climb costs the party health at camp (a fifth of it, up to 12).
 
 Measured by the tests (8 seeds per row, climbs landed as completed):
 
@@ -116,6 +140,18 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
 - **Ice** (summit night). Little grip: you slide, and the edge guard cannot
   hold you on ice. On the fourth switchback the ice runs up to a crevasse,
   crossed on a band of rock.
+- **Health.** A red bar under stamina. Thorns, bites and beaks take it;
+  at none left you collapse, which is a slip (back to the cairn, with some
+  health back). After a hit you get a second's grace.
+- **Thistles and nettles.** The spiny Kilimanjaro thistle on the tower, a
+  stinging nettle in the Barranco valley. Walk into one and it stings
+  (-10); hop over it.
+- **Siafu.** A column of safari ants marching back and forth on a short
+  stretch of ground. They bite (-8) and the bites cost breath; hop over.
+- **White-necked ravens** circle over stretches of the path on every climb
+  (the summit night has four). Stand about under one and it calls, then
+  dives at the spot where you were: keep moving and it misses. A hit costs
+  12 health and it flies off with one of your everlastings.
 - **Water caches** give most of the stamina bar back, once per attempt.
 - **Lost gear.** Three things per climb, hidden off the obvious line (an
   alcove up a side face, the back of a niche, a ledge up a pinnacle). Found
@@ -138,7 +174,10 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
   nothing near a camp, cairn, rest stone, person or find, near a face you
   climb or land from, in a rolling stone's lane, on wind-exposed ground
   (the wind is the challenge there), right before an existing gap, or
-  without room overhead to hop.
+  without room overhead to hop. Its rotation also places the creatures
+  (a thistle or nettle, an ant column, a raven), and a second pass
+  (`wildlife`) adds plants and ants where a boulder would not fit, with a
+  full hop's headroom and six tiles between any two.
 - **Stars at the top:** one for topping out, one for no slips that counted,
   one for three in four of the everlastings. The results card shows them
   and your best is kept; a three-star climb lifts the party at camp
@@ -189,6 +228,7 @@ Levels are ASCII maps stamped by `tools/levels/barranco_map.py` and
 of the TypeScript engine for the parity test. Art: `tools/art/godot_barranco.py`
 (tiles, props), `tools/art/godot_backwalls.py` (rock strata),
 `tools/art/godot_hazards.py` (ice, slabs, stones, water, gear),
+`tools/art/godot_creatures.py` (thistle, nettle, siafu, raven),
 `tools/art/godot_kili.py` (diorama plates, map sprites, scenery from the
 Expo game); sounds from `tools/audio/placeholders.py` (placeholders).
 
@@ -200,7 +240,7 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-49 tests: the engine replaying seven expeditions recorded from the
+59 tests: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume
@@ -210,7 +250,13 @@ input actions with every hazard live (the bot reads the same warnings a
 player sees), each hazard on its own (slabs hold a walker and drop someone
 who stops, a stone is announced before it falls, ice slides, water and gear,
 walking costs more breath on the summit), plus the order of difficulty and
-that every find stands on reachable ground.
+that every find stands on reachable ground. `test_body` covers the
+creatures (a hop clears a thistle, ants bite and cost breath, a raven hits
+someone standing still and misses someone who moved, no health left is a
+slip) and the camp reaching into the climb (a bad night, hunger and
+altitude sickness shrink the bar, slow recovery and bring dizzy spells; a
+dose keeps them off; a bad stomach brings cramps, the cold costs grip; what
+hurt you on the climb costs the party; sleep and medicine at camp).
 
 Tools (need a display; under Linux CI use `xvfb-run`):
 

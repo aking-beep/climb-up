@@ -275,6 +275,13 @@ func _beats(s: Dictionary) -> void:
 func _party(s: Dictionary) -> void:
 	paper.add_child(_label("THE PARTY", 7, MUTED, UiFont.body()))
 	var session := Expedition.session
+	# What the next climb will feel like: camp choices carry onto the rock.
+	var t := Expedition.trek()
+	var night: String = {"well": "Last night: slept well.", "badly": "Last night: slept badly."}.get(String(t.get("sleep", "")), "")
+	_text_label(("%s Medicine kit: %d dose%s." % [night, int(t.get("medicine", 0)), "" if int(t.get("medicine", 0)) == 1 else "s"]).strip_edges(), 8, MUTED)
+	var body: Array = Condition.of(session)["lines"]
+	if not body.is_empty():
+		_text_label("On the next climb: " + " ".join(body), 8, Color("#8a6a1e"))
 	for id in Expedition.trek()["gone"]:
 		_text_label("%s went down with the porters." % Trek.NAMES[id], 8, MUTED)
 	for m in Party.members(s):
@@ -297,6 +304,8 @@ func _party(s: Dictionary) -> void:
 			row.add_child(_small_button("Sit with", Expedition.tend.bind(m["id"])))
 		if Trek.can_treat(session, m["id"]):
 			row.add_child(_small_button("Jun treats", Expedition.treat.bind(m["id"])))
+		if Trek.can_medicate(session, m["id"]):
+			row.add_child(_small_button("Medicine", Expedition.medicate.bind(m["id"])))
 		if not sick.is_empty() and m["id"] != "you":
 			row.add_child(_small_button("Send down", Expedition.send_down.bind(m["id"])))
 		paper.add_child(row)

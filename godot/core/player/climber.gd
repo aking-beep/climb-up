@@ -16,6 +16,7 @@ signal mantled
 signal footstep(surface: String)
 signal wind_struck
 signal jumped
+signal hurt_taken(amount: float, reason: String)
 
 enum State { GROUND, AIR, CLIMB, MANTLE, REST, BRACE, SLIP, HELP, LOCKED, DONE }
 
@@ -74,6 +75,19 @@ var helper_cost := 15.0
 var on_ice := false
 const ICE_ACCEL := 150.0
 const ICE_DECEL := 70.0
+
+## Health: thorns, bites and beaks take it; at none left you collapse (a
+## slip). It starts where the expedition's health is.
+var health := 100.0
+var max_health := 100.0
+var hurt_total := 0.0
+## A moment after a hit when nothing else can hurt you.
+const HURT_GUARD := 1.0
+var _hurt_cool := 0.0
+## Being unwell, from the trek: a dizzy spell (half speed, the feet wander)
+## or a cramp (doubled over: no walking, no hopping), seconds left of each.
+var dizzy := 0.0
+var cramp := 0.0
 
 var _timer := 0.0
 var _mantle_from := Vector2.ZERO
@@ -147,6 +161,10 @@ func respawn(feet: Vector2) -> void:
 	state = State.GROUND
 	fall_from = feet.y
 	stamina.refill(0.75 if spotter_caught_last else 0.5)
+	# Collapsing is not the end: you come round with something left.
+	health = maxf(health, max_health * 0.4)
+	dizzy = 0.0
+	cramp = 0.0
 	spotter_caught_last = false
 
 
@@ -155,6 +173,11 @@ func _physics_process(delta: float) -> void:
 		return
 	if state != State.LOCKED and state != State.DONE:
 		clock += delta
+		dizzy = maxf(0.0, dizzy - delta)
+		cramp = maxf(0.0, cramp - delta)
+	if _hurt_cool > 0.0:
+		_hurt_cool = maxf(0.0, _hurt_cool - delta)
+		sprite.modulate = Color(1, 0.55, 0.5) if fmod(_hurt_cool, 0.2) > 0.1 else Color.WHITE
 	var input := GameInput.move()
 	var kinds := terrain.kinds_in(body_rect())
 	exposed = kinds.has(Terrain.Kind.EXPOSED)
@@ -206,11 +229,15 @@ func _ground(delta: float, input: Vector2) -> void:
 		state = State.REST
 		velocity.x = 0.0
 		return
-	if GameInput.pressed_now("jump") and _jump():
+	if GameInput.pressed_now("jump") and cramp <= 0.0 and _jump():
 		return
 	on_ice = _on_kind(Terrain.Kind.ICE)
 	var limit := EXPOSED_WALK if exposed else (TIRED_WALK if stamina.is_tired() else WALK)
 	var target := input.x * limit
+	if cramp > 0.0:
+		target = 0.0
+	elif dizzy > 0.0:
+		target = target * 0.5 + sin(clock * 7.0) * 16.0
 	var rate := ACCEL if absf(target) > absf(velocity.x) else DECEL
 	if on_ice:
 		rate = ICE_ACCEL if absf(target) > absf(velocity.x) and signf(target) == signf(velocity.x) else ICE_DECEL
@@ -593,6 +620,21 @@ func _weather(delta: float, input: Vector2) -> void:
 	# Standing unbraced: the wind shoves you along the ledge and costs breath.
 	velocity.x = GUST_PUSH
 	stamina.value = maxf(0.0, stamina.value - GUST_FIGHT * delta)
+
+
+## Something hurt you. Returns false when it could not (just hit, falling,
+## done). At no health left you collapse, and that is a slip.
+func hurt(amount: float, reason: String) -> bool:
+	if _hurt_cool > 0.0 or state in [State.SLIP, State.DONE, State.LOCKED]:
+		return false
+	_hurt_cool = HURT_GUARD
+	health = maxf(0.0, health - amount)
+	hurt_total += amount
+	Audio.play("slip", -12.0)
+	hurt_taken.emit(amount, reason)
+	if health <= 0.0:
+		slip("hurt")
+	return true
 
 
 ## A slip: the next one is caught if a teammate is spotting you.

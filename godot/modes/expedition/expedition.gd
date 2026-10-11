@@ -148,6 +148,12 @@ func treat(id: String) -> void:
 		_beat(Trek.treat(session, id), "treat-" + id)
 
 
+## A dose from the medicine kit for someone unwell.
+func medicate(id: String) -> void:
+	if Trek.can_medicate(session, id) and pending() == null:
+		_beat(Trek.medicate(session, id), "medicine-" + id)
+
+
 ## Sends someone down with a porter before it becomes a rescue.
 func send_down(id: String) -> void:
 	if id != "you" and not Trek.is_gone(session, id) and pending() == null:
@@ -182,6 +188,14 @@ func finish_climb(outcome: Dictionary) -> String:
 			s["teamCondition"] = mini(100, int(s["teamCondition"]) + 3)
 			s["energy"] = mini(100, int(s["energy"]) + 2)
 			s["lastNote"] = (String(s["lastNote"]) + " A clean climb: the party's spirits lift.").strip_edges()
+			session["state"] = s
+		# What bit, stung and struck you on the climb comes back to camp.
+		var hurt := int(outcome.get("hurt", 0))
+		if hurt >= 10 and active():
+			var s: Dictionary = state().duplicate(true)
+			var cost := mini(12, hurt / 5)
+			s["health"] = maxi(0, int(s["health"]) - cost)
+			s["lastNote"] = (String(s["lastNote"]) + " Stings and bites from the climb: health %d." % -cost).strip_edges()
 			session["state"] = s
 		last = {"kind": "climb", "label": p["choiceLabel"], "before": before, "outcome": outcome}
 	climb = {}

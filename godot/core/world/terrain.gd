@@ -20,7 +20,7 @@ const KIND_OF := {
 ## where rocks start); w: a water cache; *: lost gear to find; b / d: a
 ## stone rolls from here along the ground, leftward (b) or rightward (d);
 ## f: an everlasting (a flower to pick up).
-const MARKERS := "PXMljmpSTFgoVKrw*bdf"
+const MARKERS := "PXMljmpSTFgoVKrw*bdfnav"
 
 var width := 0
 var height := 0

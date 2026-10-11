@@ -486,6 +486,22 @@ func drop_flowers() -> int:
 	return lost
 
 
+## A raven takes one everlasting you were carrying; it turns up back where it
+## grew. False when you had none.
+func steal_flower() -> bool:
+	if flowers == 0:
+		return false
+	for i in range(pickups.size() - 1, -1, -1):
+		var p: Dictionary = pickups[i]
+		if p["kind"] == "flower" and p["taken"]:
+			p["taken"] = false
+			p["node"].visible = true
+			flowers -= 1
+			level.forget_taken([p["key"]])
+			return true
+	return false
+
+
 func gear_total() -> int:
 	return terrain.markers.get("*", []).size()
 

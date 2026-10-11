@@ -34,6 +34,9 @@ var drain: float = 1.0
 ## Multiplies what walking costs: how thin the air is for this party, from
 ## the climb's altitude and how acclimatized they are (thin_air_for).
 var thin_air: float = 1.0
+## Multiplies what holding on to rock costs (numb fingers in the cold).
+var grip: float = 1.0
+const ON_ROCK := ["climb", "hang", "traverse"]
 const WALKING := ["walk", "walk_up", "ice"]
 
 
@@ -62,6 +65,8 @@ func tick(dt: float, activity: String, loose: bool = false) -> float:
 	var rate: float = RATES.get(activity, 0.0)
 	if activity in WALKING:
 		rate *= thin_air
+	elif activity in ON_ROCK:
+		rate *= grip
 	if rate > 0.0:
 		value -= rate * drain * (LOOSE_FACTOR if loose else 1.0) * dt
 	else:

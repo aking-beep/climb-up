@@ -30,6 +30,12 @@ var panel: StoryPanel
 var hud: Hud
 var mate: Companion
 var hazards: Hazards
+var creatures: Creatures
+## The body the trek left you (Condition.of): health, sleep, food, sickness.
+var condition: Dictionary = {}
+var dosed := false
+var _next_dizzy := -1.0
+var _next_cramp := -1.0
 var ground_layer: TileMapLayer
 var gear_this_attempt := 0
 ## Pacing: every moment the player had to do something, [clock, kind]. The
@@ -83,11 +89,16 @@ func _ready() -> void:
 		seed = int(p["seed"])
 	stamina = StaminaModel.new(float(s["energy"]), float(d["recovery"]), float(d["drain"]))
 	stamina.thin_air = StaminaModel.thin_air_for(float(spec.get("meters", 4000)), float(s["acclimatization"]))
-	# The trek reaches into the climb: a steeper route, and being unwell.
+	# The trek reaches into the climb: a steeper route, and the body the
+	# camp choices left you (sleep, food, sickness, medicine).
 	trek_factor = Trek.climb_factor(Expedition.session)
-	stamina.max_value = roundf(stamina.max_value * trek_factor["stamina"])
+	dosed = Expedition.climb.get("challengeId") == spec["id"] and Expedition.climb.get("dosed") == true
+	condition = Condition.of(Expedition.session, dosed)
+	stamina.max_value = roundf(stamina.max_value * condition["stamina"])
 	stamina.value = stamina.max_value
-	stamina.thin_air *= 1.0 + 0.25 * trek_factor["sick"]
+	stamina.recovery = clampf(stamina.recovery * condition["recovery"], 0.2, 1.2)
+	stamina.thin_air *= condition["thinAir"]
+	stamina.grip = condition["grip"]
 	wind = WindSchedule.new(float(s["weatherRisk"]), seed, float(d["wind"]) + (trek_factor["steep"] - 1.0) * 40.0)
 	if Expedition.climb.get("challengeId") == spec["id"]:
 		attempt_id = Expedition.climb.get("attemptId", attempt_id)
@@ -119,6 +130,7 @@ func _ready() -> void:
 	climber.name = "Climber"
 	climber.helper_cost = float(d["helpCost"])
 	climber.setup(terrain, wind, stamina)
+	climber.health = condition["health"]
 	add_child(climber)
 	climber.global_position = cairns[0]
 	climber.slipped.connect(_on_slipped)
@@ -129,6 +141,9 @@ func _ready() -> void:
 	climber.jumped.connect(func() -> void: engage("hop"))
 	climber.mantled.connect(func() -> void: engage("mantle"))
 	climber.mantled.connect(func() -> void: camera.kick(0.0))
+	climber.hurt_taken.connect(func(_amount: float, _reason: String) -> void:
+		camera.kick(0.3)
+		Haptics.tap(30))
 
 	hazards = Hazards.new()
 	hazards.name = "Hazards"
@@ -140,6 +155,12 @@ func _ready() -> void:
 	hazards.found_gear.connect(func(i: int) -> void:
 		gear_this_attempt += 1
 		Expedition.find_gear(spec["id"], i))
+
+	creatures = Creatures.new()
+	creatures.name = "Creatures"
+	add_child(creatures)
+	creatures.setup(self, terrain, climber, spec["id"] == "barranco-wall")
+	creatures.engaged.connect(engage)
 
 	var m: Dictionary = spec.get("mate", {})
 	if not m.is_empty() and terrain.markers.has("M") and not Trek.is_gone(Expedition.session, m["person"]):
@@ -271,6 +292,8 @@ func _resume_from_save() -> void:
 	checkpoint = clampi(int(saved["checkpoint"]), 0, cairns.size() - 1)
 	climber.slips = clampi(int(saved.get("slips", 0)), 0, max_slips - 1)
 	climber.clock = float(saved.get("seconds", 0.0))
+	if saved.has("health"):
+		climber.health = clampf(float(saved["health"]), climber.max_health * 0.4, climber.max_health)
 	if mate:
 		mate_state = String(saved.get("mate", "waiting"))
 	regrouped = saved.get("regrouped") == true
@@ -299,8 +322,9 @@ func brief() -> void:
 	if d["recovery"] < 0.8:
 		facts += " · the cold slows recovery"
 	facts += " · at %s m even walking costs breath" % ExpeditionEngine.format_meters(float(spec.get("meters", 4000)))
-	if trek_factor["sick"] > 0:
-		facts += "\nYou are unwell: less in your arms, and every step costs more breath."
+	facts += " · health %d" % int(climber.health)
+	for line in condition["lines"]:
+		facts += "\n" + line
 	if trek_factor["steep"] > 1.0:
 		facts += "\nYour route is steep: more wind, and the stones come faster."
 	var dangers: Array = spec.get("dangers", [])
@@ -308,8 +332,11 @@ func brief() -> void:
 		facts += "\nWatch for: " + ", ".join(dangers) + "."
 	if hazards.gear_total() > 0:
 		facts += " Lost gear found here: %d of %d." % [hazards.gear_count, hazards.gear_total()]
-	panel.show_panel(copy["kicker"], copy["title"], "%s\n%s" % [copy["brief"], facts],
-		[["start", "Start the climb"], ["backoff", copy["backOff"]]])
+	var choices: Array = [["start", "Start the climb"]]
+	if not dosed and Condition.medicine_helps(Expedition.session):
+		choices.append(["medicine", "Take medicine first (%d dose%s left)" % [condition["medicine"], "" if condition["medicine"] == 1 else "s"]])
+	choices.append(["backoff", copy["backOff"]])
+	panel.show_panel(copy["kicker"], copy["title"], "%s\n%s" % [copy["brief"], facts], choices)
 
 
 # --- The climb --------------------------------------------------------------
@@ -318,6 +345,8 @@ func _physics_process(_delta: float) -> void:
 	if _ended or climber == null:
 		return
 	hazards.step()
+	creatures.step()
+	_symptoms()
 	_mate_breath()
 	if _travel_clock >= 0.0 and climber.last_activity in ["walk", "walk_up", "ice"]:
 		travel += clampf(climber.clock - _travel_clock, 0.0, 0.1)
@@ -357,6 +386,30 @@ func _physics_process(_delta: float) -> void:
 	hud.update_from(self)
 
 
+## Being unwell, from the trek: a dizzy spell or a cramp now and then, on
+## the ground, until medicine or a descent sorts it out.
+func _symptoms() -> void:
+	if climber.state != Climber.State.GROUND or panel.open:
+		return
+	var now := climber.clock
+	var dizzy: int = condition.get("dizzy", 0)
+	if dizzy > 0:
+		if _next_dizzy < 0.0:
+			_next_dizzy = now + Condition.spell_period(dizzy, false)
+		elif now >= _next_dizzy:
+			_next_dizzy = now + Condition.spell_period(dizzy, false)
+			climber.dizzy = 1.4
+			hud.flash("Dizzy: the ground tilts. Slow down and it passes.", 1.6)
+	var cramps: int = condition.get("cramps", 0)
+	if cramps > 0:
+		if _next_cramp < 0.0:
+			_next_cramp = now + Condition.spell_period(cramps, true) * 0.6
+		elif now >= _next_cramp:
+			_next_cramp = now + Condition.spell_period(cramps, true)
+			climber.cramp = 1.0
+			hud.flash("A cramp doubles you over.", 1.4)
+
+
 func _arrive() -> void:
 	if climber.state != Climber.State.GROUND and climber.state != Climber.State.REST:
 		return
@@ -387,6 +440,7 @@ func _remember() -> void:
 		"regrouped": regrouped,
 		"spotter": climber.spotter,
 		"seconds": climber.clock,
+		"health": climber.health,
 	})
 
 
@@ -497,6 +551,17 @@ func _on_choice(id: String) -> void:
 		"start":
 			briefed = true
 			climber.lock(false)
+		"medicine":
+			if Trek.dose_for_climb(Expedition.session):
+				dosed = true
+				condition = Condition.of(Expedition.session, true)
+				stamina.grip = condition["grip"]
+				climber.health = minf(climber.max_health, climber.health + 10.0)
+				Expedition.remember({"dosed": true})
+				Expedition.save()
+				hud.flash("You take a dose. The symptoms stay off for this climb.", 3.0)
+			briefed = true
+			climber.lock(false)
 		"backoff":
 			_ended = true
 			Expedition.abandon_climb()
@@ -555,26 +620,23 @@ func _on_helped() -> void:
 func _on_slipped(saved: bool, reason: String) -> void:
 	camera.kick(0.0 if saved else 0.8)
 	Haptics.tap(20 if saved else 60)
-	if not saved:
-		var lost := hazards.drop_flowers()
-		if lost > 0:
-			# Picked flowers are this attempt's: forget them in the save too.
-			var taken: Array = Expedition.climb.get("taken", [])
-			var keep: Array = []
-			for k in taken:
-				var parts: PackedStringArray = String(k).split(",")
-				var cell := Vector2i(int(parts[0]), int(parts[1]))
-				if not terrain.markers.get("f", []).has(cell):
-					keep.append(k)
-			Expedition.remember({"taken": keep})
-			hud.flash("You fall, and drop all %d everlastings. They are back on the ground." % lost, 3.0)
-			return
 	if saved:
 		hud.flash("%s grabs your pack. That slip doesn't count." % mate_name())
-	elif reason == "wind":
-		hud.flash("The gust takes your balance.")
-	else:
-		hud.flash("Slipped. Back to the last cairn.")
+		return
+	var line := "Slipped. Back to the last cairn."
+	if reason == "wind":
+		line = "The gust takes your balance."
+	elif reason == "hurt":
+		line = "Too hurt to go on: you collapse. Back to the last cairn."
+	var lost := hazards.drop_flowers()
+	if lost > 0:
+		# Picked flowers are this attempt's: forget them in the save too.
+		var keys: Array = []
+		for cell in terrain.markers.get("f", []):
+			keys.append("%d,%d" % [cell.x, cell.y])
+		forget_taken(keys)
+		line += " You drop all %d everlastings: they are back on the ground." % lost
+	hud.flash(line, 3.0)
 
 
 func _on_slip_finished() -> void:
@@ -669,6 +731,12 @@ func route_progress() -> float:
 	return clampf((i + along) / float(points.size() - 1), 0.0, 1.0)
 
 
+## Puts picked things back in the save's list of what is still on the ground.
+func forget_taken(keys: Array) -> void:
+	var taken: Array = Expedition.climb.get("taken", [])
+	Expedition.remember({"taken": taken.filter(func(k: Variant) -> bool: return not keys.has(k))})
+
+
 func on_water(key: String) -> void:
 	var taken: Array = Expedition.climb.get("taken", [])
 	if not taken.has(key):
@@ -695,6 +763,8 @@ func outcome_now(kind: String) -> ChallengeOutcome:
 	o.flowers = hazards.flowers
 	o.flowers_total = hazards.flowers_total
 	o.stars = star_count(kind, o)
+	o.hurt = int(round(climber.hurt_total))
+	o.dosed = dosed
 	return o
 
 
@@ -744,6 +814,9 @@ func finish(kind: String) -> void:
 		lines.append("Everlastings %d of %d · cairn %d of %d" % [o.flowers, o.flowers_total, checkpoint, cairns.size() - 1])
 	if o.gear_found > 0:
 		lines.append("Lost gear found: %d" % o.gear_found)
+	if o.hurt > 0:
+		lines.append("Hurt on the climb: %d health (thistles %d, ants %d, ravens %d)%s" % [o.hurt, creatures.stings, creatures.bites, creatures.raven_hits,
+			"; the party feels it at camp" if o.hurt >= 10 else ""])
 	lines.append("%d min on the mountain" % maxi(1, o.seconds / 60))
 	hud.flash(head)
 	await get_tree().create_timer(1.2 if is_inside_tree() else 0.0).timeout

@@ -4,6 +4,7 @@ extends CanvasLayer
 ## in colour is also shown in words.
 
 var _bar: ProgressBar
+var _health: ProgressBar
 var _stats: Label
 var _hint: Label
 var _flash: Label
@@ -43,6 +44,18 @@ func _ready() -> void:
 	_bar.show_percentage = false
 	_bar.max_value = 100
 	v.add_child(_bar)
+	# Health under stamina: thorns, bites and beaks take it.
+	_health = ProgressBar.new()
+	_health.custom_minimum_size = Vector2(140, 3)
+	_health.show_percentage = false
+	_health.max_value = 100
+	var hf := StyleBoxFlat.new()
+	hf.bg_color = Color("#d0604e")
+	_health.add_theme_stylebox_override("fill", hf)
+	var hb := StyleBoxFlat.new()
+	hb.bg_color = Color(0, 0, 0, 0.45)
+	_health.add_theme_stylebox_override("background", hb)
+	v.add_child(_health)
 	_stats = _label(9, Color(0.95, 0.94, 0.91))
 	v.add_child(_stats)
 	_wind = _label(9, Color(1.0, 0.85, 0.55))
@@ -131,13 +144,21 @@ func update_from(level: Node) -> void:
 		if hz and hz.flowers_total > 0:
 			flowers = "  ·  everlastings %d/%d" % [hz.flowers, hz.flowers_total]
 		_route_label.text = ("Everlastings %d" % hz.flowers) if hz and hz.flowers_total > 0 else ""
-	_stats.text = "Stamina %d%% · Slips %d/%d · Cairn %d/%d%s%s" % [pct, c.slips, level.max_slips, level.checkpoint, level.cairns.size() - 1, gear, mate]
+	_health.max_value = c.max_health
+	_health.value = c.health
+	_stats.text = "Health %d · Stamina %d%% · Slips %d/%d · Cairn %d/%d%s%s" % [int(ceil(c.health)), pct, c.slips, level.max_slips, level.checkpoint, level.cairns.size() - 1, gear, mate]
 	if level.get("mate_winded"):
 		_wind.text = "%s is out of breath: go back and REST beside them" % level.mate_name()
 	elif hz and hz.warned_here():
 		_wind.text = "Rocks coming down: step aside!"
 	elif hz and hz.slab_breaking():
 		_wind.text = "The slab is cracking: keep moving!"
+	elif c.cramp > 0.0:
+		_wind.text = "Cramp: wait for it to pass"
+	elif c.dizzy > 0.0:
+		_wind.text = "Dizzy: slow down"
+	elif level.get("creatures") and level.creatures.raven_coming():
+		_wind.text = "A raven is diving: keep moving!"
 	elif c.on_ice and c.state == Climber.State.GROUND:
 		_wind.text = "Ice: small steps, it slides"
 	else:
@@ -174,6 +195,9 @@ func _hint_for(level: Node) -> String:
 		return "A gap: %s to hop across." % key
 	if c.state == Climber.State.GROUND and c.hurdle_ahead(c.facing):
 		return "A boulder in the way: %s to hop over." % key
+	var cr: Creatures = level.get("creatures")
+	if cr and c.state == Climber.State.GROUND and cr.danger_ahead(c.global_position.x, c.global_position.y, c.facing, 40.0):
+		return "Thorns or ants ahead: %s over them." % key
 	var hz: Hazards = level.get("hazards")
 	if hz and c.state == Climber.State.GROUND and hz.roller_near(c.global_position.x, c.global_position.y, 6.0 * Terrain.TILE):
 		return "A stone is rolling at you: %s!" % key

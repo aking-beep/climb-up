@@ -38,6 +38,9 @@ func _hop(held: Dictionary) -> void:
 	var want := false
 	if c.state == Climber.State.GROUND and dir != 0:
 		want = c.hurdle_ahead(dir) or c.gap_ahead(dir)
+		var cr: Creatures = level.get("creatures")
+		if cr and cr.danger_ahead(c.global_position.x, c.global_position.y, dir):
+			want = true
 	if c.state == Climber.State.GROUND or c.state == Climber.State.REST:
 		var hz: Hazards = level.get("hazards")
 		if hz and hz.roller_near(c.global_position.x, c.global_position.y, 26.0):
@@ -53,6 +56,9 @@ func _hop(held: Dictionary) -> void:
 		want = false
 	if want and not _hopped:
 		held["jump"] = true
+		if OS.get_environment("HOP_DEBUG") != "":
+			var cr2: Creatures = level.get("creatures")
+			print("HOPDBG x=", c.global_position, " hurdle=", c.hurdle_ahead(dir), " gap=", c.gap_ahead(dir), " danger=", cr2.danger_ahead(c.global_position.x, c.global_position.y, dir) if cr2 else false)
 	_hopped = want and not _hopped
 
 

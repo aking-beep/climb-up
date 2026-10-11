@@ -222,8 +222,10 @@ put(222, TOP + 3, "X", absolute=True)
 def main():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from flowers import sprinkle
-    from gauntlet import gauntlet
-    print("challenges:", gauntlet(g))
+    from gauntlet import gauntlet, wildlife
+    # The lush Barranco valley: nettles, ants and ravens among the rock.
+    print("challenges:", gauntlet(g, kinds=("hop", "plant", "pit", "ants", "slabs", "raven", "hop", "plant", "ice", "ants")))
+    print("wildlife:", wildlife(g, every=4, kinds=("ants", "plant")))
     print("everlastings:", sprinkle(g))
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join("".join(row) for row in g) + "\n")

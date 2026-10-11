@@ -10,6 +10,10 @@ Each slot takes the next challenge in turn that fits there:
   pit    a two-wide pit to jump, five deep with rock all round
   slabs  cracked slabs over a pit: keep walking or fall
   ice    a short stretch of ice
+  plant  a thistle or nettle on the path ('n'): hop it or get stung
+  ants   a column of siafu marching on a flat stretch ('a'): hop them
+  raven  a raven circling three tiles over the path ('v'): keep moving
+         when it calls. At most one every RAVEN_GAP tiles.
 
 Nothing is placed near markers (camp, cairns, signs, people, finds), near
 faces you climb or land from, or where it would not be fair.
@@ -22,7 +26,8 @@ CLIMB = set("CLs")
 # Where you start, respawn, finish, meet people or rest: keep obstacles off
 # the approach. Signs, views and finds only need their own cell kept clear.
 MARKERS = set("PXMljmpTFKR")
-SOFT = set("SVw*rbd")
+SOFT = set("SVw*rbdnav")
+RAVEN_GAP = 26
 # Rolling stones run along their row: nothing in their lane they would stop
 # against or drop into (slabs and ice are fine).
 ROLLERS = set("bd")
@@ -53,6 +58,15 @@ def _headroom(g, x0, x1, y, rows=3):
     return above and path and floor
 
 
+def _hop_room(g, x, y):
+    """A full hop over (x, y): no roof for four rows over the run-up, the
+    thing and the landing, or the arc is cut short onto it; and no other
+    plant or ant column within six tiles (ants wander two either way), so
+    one hop never lands you on the next."""
+    return (all(_get(g, xx, yy) not in SOLID | CLIMB for xx in range(x - 3, x + 4) for yy in range(y - 4, y + 1))
+            and not _near(g, x, y, "na", 6, 0, 0))
+
+
 def _pit_ok(g, x, y):
     # Floor cells x, x+1 at row y+1; rock five deep under them and beside them,
     # and something solid under the pit.
@@ -80,7 +94,7 @@ def _lanes(g):
     return lanes
 
 
-def gauntlet(g, every=6, kinds=("hop", "pit", "slabs", "hop", "ice", "pit")):
+def gauntlet(g, every=6, kinds=("hop", "pit", "slabs", "hop", "ice", "pit"), raven_max=4):
     h, w = len(g), len(g[0])
     lanes = _lanes(g)
     placed = {k: 0 for k in set(kinds)}
@@ -114,10 +128,24 @@ def gauntlet(g, every=6, kinds=("hop", "pit", "slabs", "hop", "ice", "pit")):
                 kind = kinds[(turn + attempt) % len(kinds)]
                 if (x, y) in lanes and kind in ("hop", "pit"):
                     continue  # a rolling stone has to get by: only slabs or ice
+                if kind in ("plant", "ants", "raven") and below != "#":
+                    continue
+                if kind in ("plant", "ants") and not _hop_room(g, x, y):
+                    continue
                 if below == "i" and kind != "hop":
                     continue  # on ice, only a lump of ice to hop
                 if kind == "hop":
                     g[y][x] = "i" if below == "i" else "#"
+                    done = True
+                elif kind == "plant":
+                    g[y][x] = "n"
+                    done = True
+                elif kind == "ants" and all(_get(g, xx, y + 1) == "#" and _get(g, xx, y) in OPEN for xx in range(x - 2, x + 3)):
+                    g[y][x] = "a"
+                    done = True
+                elif (kind == "raven" and placed.get("raven", 0) < raven_max and _get(g, x, y - 3) == "." and not _near(g, x, y - 3, "v", RAVEN_GAP, 6, 6)
+                      and not _near(g, x, y, "E", 6, 1, 0)):
+                    g[y - 3][x] = "v"
                     done = True
                 elif kind in ("pit", "slabs") and _pit_ok(g, x, y) and _get(g, x + 1, y) in OPEN and _get(g, x + 2, y + 1) in SOLID:
                     for yy in range(y + 1, y + 6):
@@ -135,6 +163,43 @@ def gauntlet(g, every=6, kinds=("hop", "pit", "slabs", "hop", "ice", "pit")):
                     placed[kind] += 1
                     turn = (turn + attempt + 1) % len(kinds)
                     break
+            run = 0
+            x += 3
+    return placed
+
+
+def wildlife(g, every=6, kinds=("plant", "ants")):
+    """A second, lighter pass for plants and ants only: they are not solid,
+    so they can go where a boulder cannot (a marker takes its cell, so not
+    on windy ledges: the cell would lose its wind). Keeps
+    them off markers, faces, cracked slabs and ice, with room to hop."""
+    h, w = len(g), len(g[0])
+    placed = {k: 0 for k in kinds}
+    turn = 0
+    for y in range(1, h - 1):
+        run = 0
+        x = 1
+        while x < w - 1:
+            here, below = g[y][x], _get(g, x, y + 1)
+            if not (here == "." and below == "#"):
+                run = 0
+                x += 1
+                continue
+            run += 1
+            if run < every:
+                x += 1
+                continue
+            ok = (not _near(g, x, y, "PXMK", 2, 2, 0) and not _near(g, x, y, MARKERS | SOFT, 1, 1, 0)
+                  and not _near(g, x, y, CLIMB, 2, 4, 2) and not _near(g, x, y + 1, "ic", 2, 0, 0)
+                  and _hop_room(g, x, y)
+                  and all(_get(g, xx, y + 1) == "#" for xx in range(x - 1, x + 2)))
+            if not ok:
+                x += 1
+                continue
+            kind = kinds[turn % len(kinds)]
+            turn += 1
+            g[y][x] = "n" if kind == "plant" else "a"
+            placed[kind] += 1
             run = 0
             x += 3
     return placed
