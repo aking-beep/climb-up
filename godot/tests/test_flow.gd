@@ -96,7 +96,9 @@ func test_a_saved_session_plays_on_identically() -> void:
 	check(Expedition.load_saved(), "restored")
 	var p: Dictionary = Expedition.pending()
 	var o := TestSessions.complete(p)
+	var before: Dictionary = unsaved["state"]
 	var direct := Coordinator.resolve(unsaved, o, Expedition.def)
+	Trek.advance(direct["session"], before, Expedition.def)
 	eq(Expedition.finish_climb(o), "applied", "the restored session takes the outcome")
 	var a := Expedition.state()
 	var b: Dictionary = direct["session"]["state"]
@@ -136,7 +138,7 @@ func test_the_screens_build() -> void:
 	for c in camp.paper.get_children():
 		if c is Label:
 			text += c.text + " "
-	check("Home" in text, "the scorecard shows")
+	check("Turned back together" in text, "the scorecard shows the ending")
 	camp.queue_free()
 	await tree.process_frame
 	SaveGame.erase()

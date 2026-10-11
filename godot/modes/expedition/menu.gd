@@ -20,7 +20,7 @@ func _ready() -> void:
 		fresh.grab_focus()
 	button("Graphics: %s" % ["Full", "Reduced", "Low power"][Settings.quality], _quality)
 	button("Reduced motion: %s" % ("On" if Settings.reduced_motion else "Off"), _motion)
-	text("Keys: arrows or WASD · UP on rock climbs · E talk / climb · Shift brace · R rest · Esc pause. Phones: left thumb moves, right thumb acts.", 7, MUTED)
+	text("Keys: arrows or WASD · UP on rock climbs · SPACE jump · E talk / climb · Shift brace · R rest · Esc pause. Phones: left thumb moves, right thumb jumps and acts.", 7, MUTED)
 
 
 func _continue() -> void:

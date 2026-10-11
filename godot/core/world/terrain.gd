@@ -17,8 +17,9 @@ const KIND_OF := {
 	"i": Kind.ICE, "c": Kind.CRUMBLE,
 }
 ## Markers stand on air. r: rockfall comes down this column (the marker is
-## where rocks start); w: a water cache; *: lost gear to find.
-const MARKERS := "PXMljmpSTFgoVKrw*"
+## where rocks start); w: a water cache; *: lost gear to find; b / d: a
+## stone rolls from here along the ground, leftward (b) or rightward (d).
+const MARKERS := "PXMljmpSTFgoVKrw*bd"
 
 var width := 0
 var height := 0

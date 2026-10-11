@@ -29,6 +29,12 @@ const ROCK_GRAVITY := 520.0
 const ROCK_MAX := 300.0
 const ROCK_HALF := 4.0
 const WATER := 0.45
+## Rolling stones: one every ROLL_PERIOD seconds from each b / d marker,
+## announced by a rumble, rolling along the ground at ROLL_SPEED.
+const ROLL_PERIOD := 6.5
+const ROLL_SPEED := 70.0
+const ROLL_HALF := 6.0
+const ROLL_RANGE := 34.0 * 16.0
 
 var level: Node
 var terrain: Terrain
@@ -42,6 +48,8 @@ var slabs := {}      # cell -> {t, state, gone_at}
 var chutes: Array = []
 var rocks: Array = []
 var pickups: Array = []
+var rollers: Array = []      # spawners: {cell, dir, offset, next}
+var rolling: Array = []      # stones on the move: {node, dir, vy, start}
 var gear_count := 0
 var _clock := -1.0
 var _rock_tex: Texture2D
@@ -79,6 +87,10 @@ func setup(lvl: Node, t: Terrain, g: TileMapLayer, c: Climber, period: float, wo
 		chutes.append({"cell": cell, "offset": float(posmod(cell.x * 37 + cell.y * 11, 100)) / 100.0 * period,
 			"next": 0, "grit": grit, "warned": -1, "index": i})
 		i += 1
+	for ch in ["b", "d"]:
+		for cell in terrain.markers.get(ch, []):
+			rollers.append({"cell": cell, "dir": -1 if ch == "b" else 1, "next": 0,
+				"offset": float(posmod(cell.x * 53 + cell.y * 7, 100)) / 100.0 * ROLL_PERIOD})
 	var gears: Array = terrain.markers.get("*", []).duplicate()
 	gears.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y > b.y or (a.y == b.y and a.x < b.x))
 	for n in gears.size():
@@ -126,6 +138,7 @@ func step() -> void:
 	_clock = now
 	_slabs(dt, now)
 	_rockfall(dt, now)
+	_roll(dt, now)
 	_pickups()
 	var t := Time.get_ticks_msec() / 1000.0
 	for p in pickups:
@@ -286,6 +299,91 @@ func warned_here() -> bool:
 		if below and absf(x - (cell.x * Terrain.TILE + Terrain.TILE / 2.0)) < Terrain.TILE * 2.5:
 			if climber.clock >= _drop_time(chute, k) - WARN or not rocks.is_empty():
 				return threat_at(x, WARN)
+	return false
+
+
+# --- Rolling stones -------------------------------------------------------------
+
+func _roll_time(sp: Dictionary, k: int) -> float:
+	return 2.5 + sp["offset"] + k * ROLL_PERIOD
+
+
+func _roll(dt: float, now: float) -> void:
+	for sp in rollers:
+		var k: int = sp["next"]
+		if now >= _roll_time(sp, k):
+			sp["next"] = k + 1
+			var n := Sprite2D.new()
+			n.texture = _rock_tex
+			n.scale = Vector2(1.4, 1.4)
+			var at := Terrain.feet(sp["cell"]) - Vector2(0, ROLL_HALF)
+			n.position = at
+			add_child(n)
+			rolling.append({"node": n, "dir": sp["dir"], "vy": 0.0, "start": at.x})
+			if at.distance_to(climber.global_position) < 360.0:
+				Audio.play("rockfall", -10.0)
+	for st in rolling.duplicate():
+		var n: Sprite2D = st["node"]
+		var dir: int = st["dir"]
+		n.position.x += dir * ROLL_SPEED * dt
+		n.rotation += dir * ROLL_SPEED / ROLL_HALF * dt
+		# Follow the ground, slopes included: drop over edges, stop against rock.
+		var ground := _surface(n.position.x, n.position.y + ROLL_HALF)
+		if ground < n.position.y + ROLL_HALF - 1.5:
+			# Stones do not roll uphill.
+			_end_roll(st)
+			continue
+		if ground <= n.position.y + ROLL_HALF + 2.0:
+			st["vy"] = 0.0
+			n.position.y = ground - ROLL_HALF
+		else:
+			st["vy"] = minf(st["vy"] + ROCK_GRAVITY * dt, ROCK_MAX)
+			n.position.y += st["vy"] * dt
+		var box := Rect2(n.position - Vector2.ONE * ROLL_HALF, Vector2.ONE * ROLL_HALF * 2.0)
+		if box.intersects(climber.body_rect()) and climber.state != Climber.State.SLIP and climber.state != Climber.State.DONE and climber.state != Climber.State.LOCKED:
+			_end_roll(st)
+			climber.slip("rock")
+			continue
+		var ahead := Terrain.cell_of(n.position + Vector2(dir * (ROLL_HALF + 1), -2))
+		var k := terrain.kind(ahead)
+		var wall := terrain.is_solid(ahead) and k != Terrain.Kind.SLOPE_R and k != Terrain.Kind.SLOPE_L
+		if wall or absf(n.position.x - st["start"]) > ROLL_RANGE or n.position.y > terrain.pixel_size().y:
+			_end_roll(st)
+
+
+## The ground's height under x, near y (pixels): slope tiles count by their
+## surface, not their top. INF when there is no ground within a tile.
+func _surface(x: float, y: float) -> float:
+	var col := Terrain.cell_of(Vector2(x, 0)).x
+	var row := Terrain.cell_of(Vector2(0, y - Terrain.TILE / 2.0)).y
+	for k in 3:
+		var cell := Vector2i(col, row + k)
+		var kind := terrain.kind(cell)
+		var f := fposmod(x, Terrain.TILE) / Terrain.TILE
+		match kind:
+			Terrain.Kind.SLOPE_R:
+				return cell.y * Terrain.TILE + Terrain.TILE * (1.0 - f)
+			Terrain.Kind.SLOPE_L:
+				return cell.y * Terrain.TILE + Terrain.TILE * f
+		if terrain.is_solid(cell):
+			return cell.y * Terrain.TILE
+	return INF
+
+
+func _end_roll(st: Dictionary) -> void:
+	rolling.erase(st)
+	var n: Sprite2D = st["node"]
+	_burst(n.position, Color(0.6, 0.52, 0.44), 8)
+	n.queue_free()
+
+
+## A rolling stone coming at x (within `reach` pixels, heading this way).
+func roller_near(x: float, y: float, reach: float) -> bool:
+	for st in rolling:
+		var n: Sprite2D = st["node"]
+		var dx := x - n.position.x
+		if absf(n.position.y - (y - ROLL_HALF)) < Terrain.TILE and absf(dx) < reach and signf(dx) == float(st["dir"]):
+			return true
 	return false
 
 

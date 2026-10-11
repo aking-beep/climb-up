@@ -155,7 +155,14 @@ func show_state(s: Dictionary) -> void:
 	camping = Kili.camping(checkpoint, float(s["altitude"])) and s["status"] == "active"
 	retreating = s["retreating"]
 	phase = Party.day_phase(Party.expedition_hour(float(s["elapsedHours"])))
-	members = Party.members(s)
+	members = []
+	for m in Party.members(s):
+		if Trek.is_gone(Expedition.session, m["id"]):
+			continue
+		var sick := Trek.sickness(Expedition.session, m["id"])
+		if not sick.is_empty():
+			m["pose"] = "kneel" if sick["stage"] >= 2 else "lag"
+		members.append(m)
 	weather = clampf(float(s["weatherRisk"]) / 100.0, 0.0, 1.0)
 	var tints := {"day": Color(1, 1, 1), "dawn": Color(1.0, 0.86, 0.82), "dusk": Color(1.0, 0.8, 0.7), "night": Color(0.42, 0.5, 0.74)}
 	_tint.color = tints[phase]

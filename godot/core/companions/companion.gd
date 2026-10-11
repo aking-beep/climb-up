@@ -8,7 +8,7 @@ extends Node2D
 ## A helped companion follows the climber's own path a moment behind, so
 ## they walk, scramble and climb exactly where the player did.
 
-enum State { CAMP, WAITING, FOLLOWING, LEFT }
+enum State { CAMP, WAITING, FOLLOWING, LEFT, WINDED }
 
 const DELAY_FRAMES := 42
 
@@ -39,6 +39,13 @@ func helped() -> void:
 	state = State.FOLLOWING
 	trust = mini(100, trust + 15)
 	_trail.clear()
+
+
+## Out of breath: sits where they are until you come back and rest with them.
+func winded() -> void:
+	state = State.WINDED
+	_trail.clear()
+	sprite.play("rest")
 
 
 func left_behind() -> void:

@@ -26,9 +26,10 @@ screen, so pixel art stays sharp with no black bars.
 | Action | Keys | Gamepad | Touch |
 | --- | --- | --- | --- |
 | Walk (analog on the stick) | ← → / A D | d-pad, left stick | left thumb, anywhere on the left half |
+| Hop | Space / K / Z | A | JUMP |
 | Climb (on rock), pull over (at the top) | ↑ / W | up | push the stick up, or tap CLIMB |
 | Climb down, let go | ↓ / S | down | pull the stick down |
-| Talk, read, help | E / Space / Enter | A | the context button (TALK, READ, HELP) |
+| Talk, read, help | E / Enter | X | the context button (TALK, READ, HELP) |
 | Brace against the wind | Shift / B | shoulders | BRACE (hold) |
 | Sit and rest | R | Y | REST |
 | Pause (turn back, settings, save and quit) | Esc / P | Start | II |
@@ -59,8 +60,49 @@ leaves their camp, easiest first:
 Each starts with a brief; backing off there (or turning back later) is a
 retreat that costs the day, not the expedition. The outcome lands once.
 
-**What the mountain throws at you.** No jumping: these are climbing
-problems, in the spirit of Mega Man stages or Metroid rooms.
+**The strategy is hard on purpose.** The engine is the Expo game's, kept
+exactly (the parity test still holds); a trek layer on top
+(`modes/expedition/engine/trek.gd`) adds:
+
+- **A route and a permit.** The first card is the route: the long way
+  (10 days), the steep way (8 days, starts higher, less food, harder days up)
+  or the direct way (7 days, starts higher still, the hardest climbs). Every
+  choice shows the hours it spends; when the days run out before the summit,
+  the rangers walk you down.
+- **Sickness, per person.** Altitude sickness when the party climbs faster
+  than its nights allow or is worn out; a stomach bug when the water was not
+  put on at camp; the cold, high at night with thin stores. It worsens going
+  up and eases going down, with rest, or with Jun's care ("Jun treats"). You
+  can send someone down early ("Send down"). At its worst it becomes an
+  emergency card with only hard answers: everyone down, send them down with
+  porters, or wait and see. Game fiction, not medical advice.
+- **Different endings:** summit with all four, summit but not all of you,
+  turned back together, a hard walk out, out of days, carried down, or the
+  mountain kept the day.
+- **It reaches into the climbs:** a teammate sent down is not on the climb;
+  being unwell shrinks your stamina and makes every step cost more; a steep
+  route brings more wind and faster stonefall.
+
+Measured by the tests (8 seeds per row, climbs landed as completed):
+
+| Route | careful | brisk (skips the rest days) | reckless (always up) |
+| --- | --- | --- | --- |
+| Long way | 8/8 summit together | 8/8 | 0/8 together (7 lost) |
+| Steep way | 4/8 (rest days collide with the permit) | 8/8 | 0/8 (7 lost) |
+| Direct way | 0/8 (out of days) | 7/8 | 0/8 (6 lost) |
+
+**What the mountain throws at you.** Climbing problems in the spirit of
+Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
+
+- **Hop** (SPACE, or JUMP on a phone): about two tiles up and two across.
+  It costs breath (more in thin air), and a hop in a gust on open ground is
+  a slip. Boulders on the path to hop, stream cuts and cracks to jump (miss
+  and it is a fall), and stones that roll along the ground at you: hop them
+  or step aside.
+- **Your teammate's breath.** Someone you helped follows you, but walking
+  drains their breath (more in thin air, more if they are unwell). When it
+  runs out they sit down; go back and REST beside them. Walk off and leave
+  them sitting, and Lena brings them instead: that counts as leaving them.
 
 - **Thin air.** Walking costs breath, a little at the tower, more on the
   summit, and more again for a party that has not acclimatized at camp.
@@ -126,7 +168,7 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-39 tests: the engine replaying seven expeditions recorded from the
+49 tests: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume

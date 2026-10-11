@@ -169,6 +169,14 @@ fill(164, TOP - 10, 166, TOP - 4, "C", absolute=True)
 fill(167, TOP - 10, 170, TOP - 9, "#", absolute=True)
 put(169, TOP - 11, "*", absolute=True)
 put(51, 44, "w")       # water at the rest ledge
+# The walk: a boulder out of camp, a stream cut at the camp's edge, a boulder
+# on the shoulder, and on the plateau a boulder, a rolling stone and a crack.
+put(27, 77, "#")
+fill(33, 78, 34, 86, ".")
+put(101, SH - 1, "#", absolute=True)
+put(134, TOP - 1, "#", absolute=True)
+put(196, TOP + 3, "b", absolute=True)
+fill(205, TOP + 4, 206, TOP + 12, ".", absolute=True)
 put(94, SH - 1, "w", absolute=True)
 
 # People, places, things.
@@ -182,7 +190,6 @@ put(24, 77, "P")
 put(29, 77, "o")
 put(31, 77, "S")       # sign 0: Barranco Camp
 put(2, 77, "g")
-put(33, 77, "g")
 put(56, 67, "K")       # cairn 1, at the wall foot
 put(53, 67, "S")       # sign 1: the wall
 put(70, 59, "g") if False else None
@@ -219,7 +226,7 @@ def main():
             "#": (70, 60, 52), "/": (90, 78, 66), "\\": (90, 78, 66), "C": (140, 120, 100), "L": (170, 140, 110),
             "s": (150, 130, 110), "E": (200, 120, 120), ".": (150, 180, 205), "K": (240, 220, 80), "R": (90, 160, 90),
             "P": (60, 200, 60), "X": (220, 60, 60), "M": (230, 110, 50), "S": (200, 160, 90),
-            "c": (120, 60, 160), "r": (255, 0, 0), "w": (0, 90, 255), "*": (255, 255, 0),
+            "c": (120, 60, 160), "r": (255, 0, 0), "w": (0, 90, 255), "*": (255, 255, 0), "b": (255, 120, 0),
         }
         img = Image.new("RGB", (W, H))
         px = img.load()

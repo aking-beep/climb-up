@@ -32,6 +32,14 @@ var mate: Companion
 var hazards: Hazards
 var ground_layer: TileMapLayer
 var gear_this_attempt := 0
+## A helped teammate's breath: walking drains it (more in thin air, more if
+## they are unwell), sitting near them gives it back. At zero they stop.
+var mate_breath := 100.0
+var mate_winded := false
+var _mate_away := 0.0
+var _mate_clock := -1.0
+var _mate_spotter := false
+var trek_factor: Dictionary = {"steep": 1.0, "sick": 0, "stamina": 1.0}
 var people: Array = []        # [{node, title, lines}]
 var signs: Array = []         # [{pos, index}]
 var cairns: Array[Vector2] = []
@@ -64,7 +72,12 @@ func _ready() -> void:
 		seed = int(p["seed"])
 	stamina = StaminaModel.new(float(s["energy"]), float(d["recovery"]), float(d["drain"]))
 	stamina.thin_air = StaminaModel.thin_air_for(float(spec.get("meters", 4000)), float(s["acclimatization"]))
-	wind = WindSchedule.new(float(s["weatherRisk"]), seed, float(d["wind"]))
+	# The trek reaches into the climb: a steeper route, and being unwell.
+	trek_factor = Trek.climb_factor(Expedition.session)
+	stamina.max_value = roundf(stamina.max_value * trek_factor["stamina"])
+	stamina.value = stamina.max_value
+	stamina.thin_air *= 1.0 + 0.25 * trek_factor["sick"]
+	wind = WindSchedule.new(float(s["weatherRisk"]), seed, float(d["wind"]) + (trek_factor["steep"] - 1.0) * 40.0)
 	if Expedition.climb.get("challengeId") == spec["id"]:
 		attempt_id = Expedition.climb.get("attemptId", attempt_id)
 
@@ -106,14 +119,14 @@ func _ready() -> void:
 	hazards.name = "Hazards"
 	add_child(hazards)
 	var mine: bool = Expedition.climb.get("challengeId") == spec["id"]
-	hazards.setup(self, terrain, ground, climber, float(d.get("rockPeriod", 5.0)), spec.get("gear", []),
+	hazards.setup(self, terrain, ground, climber, float(d.get("rockPeriod", 5.0)) / trek_factor["steep"], spec.get("gear", []),
 		Expedition.climb.get("taken", []) if mine else [], Expedition.gear_found(spec["id"]))
 	hazards.found_gear.connect(func(i: int) -> void:
 		gear_this_attempt += 1
 		Expedition.find_gear(spec["id"], i))
 
 	var m: Dictionary = spec.get("mate", {})
-	if not m.is_empty() and terrain.markers.has("M"):
+	if not m.is_empty() and terrain.markers.has("M") and not Trek.is_gone(Expedition.session, m["person"]):
 		mate = Companion.new()
 		mate.person = m["person"]
 		mate.name = "Mate"
@@ -198,6 +211,8 @@ func _place_props() -> void:
 	for ch in cast:
 		for cell in terrain.markers.get(ch, []):
 			var who: Array = cast[ch]
+			if Trek.is_gone(Expedition.session, who[0]):
+				continue
 			var c := Companion.new()
 			c.person = who[0]
 			add_child(c)
@@ -268,6 +283,10 @@ func brief() -> void:
 	if d["recovery"] < 0.8:
 		facts += " · the cold slows recovery"
 	facts += " · at %s m even walking costs breath" % ExpeditionEngine.format_meters(float(spec.get("meters", 4000)))
+	if trek_factor["sick"] > 0:
+		facts += "\nYou are unwell: less in your arms, and every step costs more breath."
+	if trek_factor["steep"] > 1.0:
+		facts += "\nYour route is steep: more wind, and the stones come faster."
 	var dangers: Array = spec.get("dangers", [])
 	if not dangers.is_empty():
 		facts += "\nWatch for: " + ", ".join(dangers) + "."
@@ -283,6 +302,7 @@ func _physics_process(_delta: float) -> void:
 	if _ended or climber == null:
 		return
 	hazards.step()
+	_mate_breath()
 	if mate:
 		mate.record(climber.global_position, climber.sprite.animation, climber.sprite.flip_h)
 	_arrive()
@@ -357,6 +377,50 @@ func _meet_mate() -> void:
 		mate_state = "left"
 		mate.left_behind()
 		hud.flash("You climb on past %s. Lena will bring %s." % [mate_name(), spec["mate"].get("them", "them")])
+
+
+func _mate_breath() -> void:
+	var now := climber.clock
+	var dt := clampf(now - _mate_clock, 0.0, 0.1) if _mate_clock >= 0.0 else 0.0
+	_mate_clock = now
+	if mate == null or mate_state != "helped" or dt <= 0.0:
+		return
+	var near := climber.global_position.distance_to(mate.global_position) < 4.0 * Terrain.TILE
+	var resting := climber.state == Climber.State.REST
+	if not mate_winded:
+		var sick: int = Trek.sickness(Expedition.session, spec["mate"]["person"]).get("stage", 0)
+		if climber.state == Climber.State.GROUND and climber.last_activity in ["walk", "walk_up", "ice"]:
+			mate_breath -= 1.3 * stamina.thin_air * (1.0 + 0.5 * sick) * dt
+		elif near and resting:
+			mate_breath += 14.0 * dt
+		elif near and climber.last_activity == "still":
+			mate_breath += 5.0 * dt
+		if mate_breath <= 0.0 and climber.state == Climber.State.GROUND:
+			mate_winded = true
+			_mate_away = 0.0
+			_mate_spotter = climber.spotter
+			climber.spotter = false
+			mate.winded()
+			hud.flash("%s has to stop: no breath left. Go back and sit with %s." % [mate_name(), spec["mate"].get("them", "them")], 3.5)
+	else:
+		if near and resting:
+			mate_breath += 20.0 * dt
+		elif climber.global_position.distance_to(mate.global_position) > 18.0 * Terrain.TILE:
+			_mate_away += dt
+			if _mate_away > 30.0:
+				mate_winded = false
+				mate_state = "left"
+				mate.left_behind()
+				hud.flash("You went on without %s. Lena will bring %s up." % [mate_name(), spec["mate"].get("them", "them")], 3.5)
+				_remember()
+				return
+		if mate_breath >= 100.0:
+			mate_winded = false
+			climber.spotter = _mate_spotter
+			mate.helped()
+			mate.catch_up(climber.global_position)
+			hud.flash("%s is ready. On you go, together." % mate_name())
+	mate_breath = clampf(mate_breath, 0.0, 100.0)
 
 
 func mate_panel() -> void:

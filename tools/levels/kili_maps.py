@@ -131,6 +131,15 @@ def lava_tower():
     m.put(90, 13, "g")
     m.put(126, 23, "o")
     m.put(145, 23, "X")
+    # The walk: a boulder to hop and a stream cut to jump on the way out of
+    # camp, a stone that rolls down the approach, a boulder on the windy
+    # bench, and a crack and a boulder on the way down.
+    m.put(33, CAMP - 1, "#")
+    m.fill(37, CAMP, 38, 63, ".")
+    m.put(50, 49, "b")
+    m.put(62, 29, "#")
+    m.fill(137, 24, 138, 30, ".")
+    m.put(141, 23, "#")
     # Water, and the lost gear: out on the windy lip, in the chimney's
     # niche, and on the ledge beyond the tower.
     m.put(70, 41, "w")
@@ -202,6 +211,15 @@ def summit_night():
     m.put(x1 + 3, floors[2] - 1, "*")
     m.put(35, RIM - 8, "*")
     m.put(66, floors[3] - 1, "w")
+    # The walk between the steps: gaps to jump, boulders and an ice block to
+    # hop, stones rolling along two benches.
+    m.fill(50, floors[0], 51, 91, ".")
+    m.put(70, floors[0] - 1, "#")
+    m.put(60, floors[1] - 1, "i")
+    m.put(95, floors[2] - 1, "b")
+    m.fill(55, floors[4], 56, floors[4] + 2, ".")
+    m.put(26, floors[5] - 1, "d")
+    m.put(75, RIM - 1, "#")
     m.put(x0 + 10, RIM - 1, "w")
     # Camp, people, cairns, signs.
     f0 = floors[0] - 1
@@ -237,6 +255,7 @@ def preview(m, path):
         "s": (150, 130, 110), "E": (200, 120, 120), ".": (150, 180, 205), "K": (240, 220, 80), "R": (90, 160, 90),
         "P": (60, 200, 60), "X": (220, 60, 60), "M": (230, 110, 50), "S": (200, 160, 90),
         "i": (200, 235, 255), "c": (120, 60, 160), "r": (255, 0, 0), "w": (0, 90, 255), "*": (255, 255, 0),
+        "b": (255, 120, 0), "d": (255, 120, 0),
     }
     img = Image.new("RGB", (m.w, m.h))
     px = img.load()

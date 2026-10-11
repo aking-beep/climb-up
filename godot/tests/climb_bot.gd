@@ -24,15 +24,41 @@ func where() -> String:
 	return "(%.2f, %.2f) state=%d stamina=%.0f/%.0f slips=%d cp=%d clock=%.1f" % [tx(), ty(), c.state, c.stamina.value, c.stamina.max_value, c.slips, level.checkpoint, c.clock]
 
 
+var _hopped := false
+
+
+## While walking: hop boulders and gaps ahead, and a stone rolling this way.
+func _hop(held: Dictionary) -> void:
+	var dir := 1 if held.get("move_right", false) else (-1 if held.get("move_left", false) else 0)
+	var want := false
+	if c.state == Climber.State.GROUND and dir != 0:
+		want = c.hurdle_ahead(dir) or c.gap_ahead(dir)
+	if c.state == Climber.State.GROUND:
+		var hz: Hazards = level.get("hazards")
+		if hz and hz.roller_near(c.global_position.x, c.global_position.y, 26.0):
+			want = true
+	if c.exposed and not c.wind.calm_for(c.clock, 0.7):
+		want = false
+	if want and not _hopped:
+		held["jump"] = true
+	_hopped = want and not _hopped
+
+
 ## Holds `keys` until `done` is true, or fails after `seconds` of game time.
+## On the way it hops what needs hopping, and goes back for a teammate who
+## has run out of breath.
 func drive(keys: Array, done: Callable, seconds: float = 40.0, label: String = "") -> bool:
 	for i in int(seconds * 60.0):
 		if done.call():
 			GameInput.scripted = {"_": false}
 			return true
+		if level.get("mate_winded") and label != "breather":
+			await breather()
+			continue
 		var held := {"_": false}
 		for k in keys:
 			held[k] = true
+		_hop(held)
 		GameInput.scripted = held
 		await tree.physics_frame
 		if level.panel.open and label != "panel":
@@ -44,11 +70,21 @@ func drive(keys: Array, done: Callable, seconds: float = 40.0, label: String = "
 	return ok
 
 
+## Walk back to a winded teammate and sit with them until they can go on.
+func breather() -> void:
+	var m: Node2D = level.mate
+	var dir := "move_left" if m.global_position.x < c.global_position.x else "move_right"
+	await drive([dir], func() -> bool: return absf(m.global_position.x - c.global_position.x) < 2.0 * T or not level.mate_winded, 40.0, "breather")
+	GameInput.scripted = {"_": false, "rest": true}
+	await tree.physics_frame
+	await drive([], func() -> bool: return not level.mate_winded, 30.0, "breather")
+
+
 func rest_up(fraction: float = 0.95) -> void:
 	GameInput.scripted = {"_": false, "rest": true}
 	await tree.physics_frame
 	GameInput.scripted = {"_": false}
-	await drive([], func() -> bool: return c.stamina.fraction() >= fraction, 90.0, "resting")
+	await drive([], func() -> bool: return c.stamina.fraction() >= fraction and (level.get("mate_state") != "helped" or level.get("mate_breath") >= 90.0 or level.get("mate_winded")), 90.0, "resting")
 
 
 func _slab_near(dir: int, tiles: int) -> bool:
@@ -87,6 +123,7 @@ func cross(until_x: float) -> bool:
 			held["brace"] = true
 		else:
 			held[dir] = true
+		_hop(held)
 		GameInput.scripted = held
 		await tree.physics_frame
 	GameInput.scripted = {"_": false}

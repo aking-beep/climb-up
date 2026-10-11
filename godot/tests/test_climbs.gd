@@ -195,13 +195,69 @@ func test_walking_costs_more_breath_on_the_summit_than_at_the_tower() -> void:
 	var lost := {}
 	for id in ["lava-tower", "summit-night"]:
 		await _load(id)
+		await _put(Vector2i(5, 55) if id == "lava-tower" else Vector2i(16, 85))
 		var start := c.stamina.value
-		await drive(["move_right"], func() -> bool: return false, 3.0, "")
+		# Flat ground, a few seconds of walking, nothing to hop.
+		await drive(["move_right"], func() -> bool: return false, 2.0, "")
 		failures.clear()
-		lost[id] = start - c.stamina.value
+		lost[id] = [start - c.stamina.value, c.stamina.thin_air]
 		await _done()
-	check(lost["lava-tower"] > 0.0, "walking costs breath at the tower (%.1f)" % lost["lava-tower"])
-	check(lost["summit-night"] > lost["lava-tower"], "and more on the summit night (%.1f)" % lost["summit-night"])
+	check(lost["lava-tower"][0] > 0.0, "walking costs breath at the tower (%.1f)" % lost["lava-tower"][0])
+	check(lost["summit-night"][0] > lost["lava-tower"][0], "and more on the summit night (%.1f vs %.1f)" % [lost["summit-night"][0], lost["lava-tower"][0]])
+	check(lost["summit-night"][1] > lost["lava-tower"][1], "the air is thinner up there")
+
+
+func test_a_hop_clears_a_gap_and_costs_breath() -> void:
+	await _load("lava-tower")
+	await _put(Vector2i(34, 55))
+	var before := c.stamina.value
+	await drive(["move_right"], func() -> bool: return tx() >= 39.5, 8.0, "over the stream cut")
+	eq(c.slips, 0, "hopped the gap")
+	check(c.jumps >= 1, "with a hop")
+	check(c.stamina.value < before, "which cost breath")
+	await _done()
+
+
+func test_a_rolling_stone_knocks_down_someone_who_stands_in_its_way() -> void:
+	await _load("summit-night")
+	await _put(Vector2i(80, 67))
+	# Standing still, no hop (the bot's drive would hop it).
+	for i in 60 * 15:
+		GameInput.scripted = {"_": false}
+		await tree.physics_frame
+		if c.slips > 0:
+			break
+	eq(c.slips, 1, "a rolling stone is a slip")
+	await _done()
+
+
+func test_a_teammate_who_runs_out_of_breath_waits_for_you() -> void:
+	await _load("summit-night")
+	var lvl: ClimbLevel = level
+	lvl.mate_state = "helped"
+	lvl.mate.helped()
+	lvl.mate.global_position = c.global_position
+	lvl.mate_breath = 2.0
+	await drive(["move_right"], func() -> bool: return lvl.mate_winded, 5.0, "walking until Jun is winded")
+	check(lvl.mate_winded, "Jun has to stop")
+	# Sitting beside him brings him round.
+	await drive(["move_left"], func() -> bool: return absf(lvl.mate.global_position.x - c.global_position.x) < 2.0 * T, 10.0, "back to Jun")
+	GameInput.scripted = {"_": false, "rest": true}
+	await tree.physics_frame
+	await drive([], func() -> bool: return not lvl.mate_winded, 15.0, "sitting with Jun")
+	check(not lvl.mate_winded and lvl.mate_state == "helped", "Jun is ready again")
+	# Walking off and leaving him sitting there: Lena brings him.
+	lvl.mate_breath = 0.5
+	# Walking away from him (inputs held directly: the bot would go back).
+	for i in 60 * 70:
+		var held := {"_": false, "move_right": true}
+		_hop(held)
+		GameInput.scripted = held
+		await tree.physics_frame
+		if lvl.mate_state == "left":
+			break
+	eq(lvl.mate_state, "left", "a teammate left sitting is left")
+	await _done()
 
 
 func test_the_climbs_get_harder_up_the_mountain() -> void:

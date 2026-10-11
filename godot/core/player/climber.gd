@@ -15,6 +15,7 @@ signal grabbed
 signal mantled
 signal footstep(surface: String)
 signal wind_struck
+signal jumped
 
 enum State { GROUND, AIR, CLIMB, MANTLE, REST, BRACE, SLIP, HELP, LOCKED, DONE }
 
@@ -40,6 +41,12 @@ const MANTLE_TIME := 0.45
 const HELP_TIME := 1.2
 const GUST_PUSH := 20.0
 const GUST_FIGHT := 6.0  # stamina per second, standing unbraced in a gust
+## A hop: about two tiles up and two across at a walk. Not a leap; it is how
+## you get over a boulder, a stream cut or a crack in the ice. It costs
+## breath like a hard step, more in thin air.
+const JUMP_SPEED := 265.0
+const JUMP_COST := 4.0
+const AIR_CONTROL := 260.0
 
 var terrain: Terrain
 var wind: WindSchedule
@@ -59,6 +66,7 @@ var caught := 0
 var wind_strikes := 0
 var loose_seconds := 0.0
 var rest_seconds := 0.0
+var jumps := 0
 var last_activity := "still"
 var spotter_caught_last := false
 var helper_cost := 15.0
@@ -198,6 +206,8 @@ func _ground(delta: float, input: Vector2) -> void:
 		state = State.REST
 		velocity.x = 0.0
 		return
+	if GameInput.pressed_now("jump") and _jump():
+		return
 	on_ice = _on_kind(Terrain.Kind.ICE)
 	var limit := EXPOSED_WALK if exposed else (TIRED_WALK if stamina.is_tired() else WALK)
 	var target := input.x * limit
@@ -234,9 +244,38 @@ func _ground(delta: float, input: Vector2) -> void:
 		fall_from = global_position.y
 
 
+## Hops, if there is breath for it. A hop on open ground in a gust is a slip.
+func _jump() -> bool:
+	var cost := JUMP_COST * stamina.drain * stamina.thin_air
+	if stamina.value < cost:
+		return false
+	stamina.value -= cost
+	if exposed and gust == WindSchedule.Phase.BLOW:
+		wind_strikes += 1
+		wind_struck.emit()
+		slip("wind")
+		return true
+	velocity.y = -JUMP_SPEED
+	# A hop from a standstill still goes the way you are pushing.
+	# A hop has a little forward spring in it.
+	var push := GameInput.move().x
+	if absf(push) > 0.2:
+		velocity.x = signf(push) * maxf(absf(velocity.x), (EXPOSED_WALK if exposed else WALK) * 1.15)
+	state = State.AIR
+	fall_from = global_position.y
+	jumps += 1
+	Audio.play("grip", -8.0)
+	jumped.emit()
+	return true
+
+
 func _air(delta: float, input: Vector2) -> void:
-	velocity.x = move_toward(velocity.x, 0.0, 200.0 * delta)
+	# Some steering in the air, as a walker leans; no speed is gained.
+	var limit := (EXPOSED_WALK if exposed else WALK) * 1.15
+	velocity.x = move_toward(velocity.x, input.x * limit, AIR_CONTROL * delta) if absf(input.x) > 0.2 else move_toward(velocity.x, 0.0, 120.0 * delta)
 	velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL)
+	# A fall is measured from where the feet left the ground (a hop up and
+	# down to the same level is no fall at all).
 	# Catching the rock on the way down: only from a short fall.
 	if input.y > 0.5 and terrain.touches_climbable(body_rect()) and global_position.y - fall_from < SAFE_FALL * 0.5 and not stamina.is_empty():
 		_grab()
@@ -260,10 +299,39 @@ func _ahead(dir: int) -> Vector2i:
 ## True when a step in `dir` would walk off a drop longer than a safe step.
 func drop_ahead(dir: int) -> bool:
 	var at := _ahead(dir)
+	if _supported(at):
+		return false
+	# Overhanging an edge already (landed on a lip): stepping toward the
+	# rock under the leading foot is stepping onto ground, not off it.
+	var toe := Vector2i(Terrain.cell_of(Vector2(global_position.x + dir * SIZE.x / 2.0, 0)).x, at.y)
+	return not _supported(toe)
+
+
+func _supported(at: Vector2i) -> bool:
+	for k in int(SAFE_FALL / T) + 1:
+		if terrain.is_solid(at + Vector2i(0, k)):
+			return true
+	return false
+
+
+## A boulder or step a hop clears: rock at the feet a step ahead, with room
+## above it.
+func hurdle_ahead(dir: int) -> bool:
+	var feet := global_position + Vector2(dir * (SIZE.x / 2.0 + 2.0), -4.0)
+	var c := Terrain.cell_of(feet)
+	return terrain.is_solid(c) and not terrain.is_solid(c + Vector2i.UP) and not terrain.is_solid(c + Vector2i(0, -2))
+
+
+## A gap a hop clears: a drop a step ahead, and floor again within reach.
+func gap_ahead(dir: int, lead: float = 6.0) -> bool:
+	var at := Vector2i(Terrain.cell_of(Vector2(global_position.x + dir * lead, 0)).x, Terrain.cell_of(global_position + Vector2(0, 2)).y)
 	for k in int(SAFE_FALL / T) + 1:
 		if terrain.is_solid(at + Vector2i(0, k)):
 			return false
-	return true
+	for k in range(1, 4):
+		if terrain.is_solid(at + Vector2i(dir * k, 0)) and not terrain.is_solid(at + Vector2i(dir * k, -1)):
+			return true
+	return false
 
 
 ## Rock to hold at chest height a step ahead.

@@ -6,8 +6,8 @@ extends CanvasLayer
 ## drag; the stick appears under the thumb, so there is no small target to
 ## find. It is analog: a small push walks slowly, a full push walks at pace;
 ## up or down climbs.
-## Right thumb: one context button that says what it will do (CLIMB, TALK,
-## READ, HELP), and BRACE (hold) and REST. Top right: pause.
+## Right thumb: JUMP, one context button that says what it will do (CLIMB,
+## TALK, READ, HELP), BRACE (hold) and REST. Top right: pause.
 ## Everything presses the same input actions as keys, so gameplay never
 ## knows the difference. Shown automatically on touch devices (Settings).
 
@@ -46,10 +46,11 @@ func _ready() -> void:
 	_stick.set("controls", self)
 	add_child(_stick)
 	var r := Vector2(vp.x - 16, vp.y - 14)
-	_act = _button("interact", "CLIMB", r + Vector2(-50, -52), 50.0)
+	_button("jump", "JUMP", r + Vector2(-50, -52), 50.0)
+	_act = _button("interact", "CLIMB", r + Vector2(-46, -104), 42.0)
 	_act_label = _act.get_child(0)
-	_button("brace", "BRACE", r + Vector2(-98, -38), 38.0)
-	_button("rest", "REST", r + Vector2(-44, -98), 38.0)
+	_button("brace", "BRACE", r + Vector2(-100, -42), 40.0)
+	_button("rest", "REST", r + Vector2(-96, -92), 34.0)
 	_button("pause", "II", Vector2(vp.x - 34, 6), 26.0)
 	# Rotating or resizing rebuilds the overlay against the new edges.
 	get_viewport().size_changed.connect(func() -> void: TouchControls.attach.call_deferred(level), CONNECT_ONE_SHOT)

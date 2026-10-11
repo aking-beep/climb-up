@@ -126,7 +126,7 @@ func _fill_stats(s: Dictionary) -> void:
 func _when(s: Dictionary) -> String:
 	var hour := Party.expedition_hour(float(s["elapsedHours"]))
 	var words := {"dawn": "dawn", "day": "daylight", "dusk": "dusk", "night": "night"}
-	return "Day %d · %02d:00 · %s" % [ExpeditionEngine.day_of(s), int(hour), words[Party.day_phase(hour)]]
+	return "Day %d · %02d:00 · %s" % [ExpeditionEngine.day_of(s) + 1, int(hour), words[Party.day_phase(hour)]]
 
 
 # --- The decision -------------------------------------------------------------
@@ -146,7 +146,8 @@ func _card(s: Dictionary) -> void:
 		_choice_button("Go back to %s" % CLIMB_NAMES.get(p["challengeId"], "the climb"), "Pick up where you left it.", true, Expedition.resume_climb).grab_focus()
 		return
 	var card := Expedition.card()
-	paper.add_child(_label(card["title"], 13, INK, UiFont.display()))
+	_permit(s, card)
+	paper.add_child(_label(card["title"], 13, EMBER if String(card["id"]).begins_with("trek-emergency") else INK, UiFont.display()))
 	_text_label(card["text"], 9, INK)
 	var playable := Expedition.playable()
 	var first: Button = null
@@ -156,14 +157,46 @@ func _card(s: Dictionary) -> void:
 		var detail: String = choice.get("detail", "")
 		if climb != "":
 			detail = "Played climb · %s. %s" % [CLIMB_NAMES[climb], detail]
+		detail = (detail + " " + _cost(choice)).strip_edges()
 		var b := _choice_button(choice["label"], detail, climb != "", Expedition.choose.bind(i))
 		if first == null:
 			first = b
 	if first:
 		first.call_deferred("grab_focus")
+	if card.get("trek", false):
+		return
 	_beats(s)
 	_party(s)
 	_text_label(String(Expedition.def["disclaimer"]), 7, MUTED)
+
+
+## The permit and the route, above every decision: the days are the budget.
+func _permit(s: Dictionary, card: Dictionary) -> void:
+	var t := Expedition.trek()
+	if t["route"] == "":
+		return
+	var r := Trek.route(Expedition.session)
+	var left := Trek.hours_left(Expedition.session) / 24.0
+	var line := "%s · permit day %d of %d · %s left" % [r["name"], ExpeditionEngine.day_of(s) + 1, int(r["permit"]),
+		("%.1f days" % left) if left > 0 else "none"]
+	paper.add_child(_wrap(_label(line.to_upper(), 7, EMBER if left < 2.0 else MUTED, UiFont.body())))
+
+
+## What a choice spends: hours of the permit, and the risk of going higher.
+func _cost(choice: Dictionary) -> String:
+	var e: Dictionary = choice.get("effect", {})
+	if e.is_empty():
+		return ""
+	var bits: Array = []
+	var h := float(e.get("hours", 6))
+	if h > 0:
+		bits.append("%d h of the permit" % int(h))
+	var move := String(e.get("move", "hold"))
+	if move == "up" or move == "summit":
+		bits.append("higher: sickness more likely")
+	elif move == "down" or move == "retreat":
+		bits.append("lower: the sick get better")
+	return "[" + " · ".join(bits) + "]" if not bits.is_empty() else ""
 
 
 ## What the last decision did: its note, the changes, any score notes.
@@ -237,7 +270,16 @@ func _beats(s: Dictionary) -> void:
 
 func _party(s: Dictionary) -> void:
 	paper.add_child(_label("THE PARTY", 7, MUTED, UiFont.body()))
+	var session := Expedition.session
+	for id in Expedition.trek()["gone"]:
+		_text_label("%s went down with the porters." % Trek.NAMES[id], 8, MUTED)
 	for m in Party.members(s):
+		if Trek.is_gone(session, m["id"]):
+			continue
+		var sick := Trek.sickness(session, m["id"])
+		if not sick.is_empty():
+			m["line"] = "Unwell: %s." % Trek.describe(sick["kind"], sick["stage"])
+			m["pose"] = "kneel" if sick["stage"] >= 2 else "lag"
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 4)
 		var who := _label("%s · %s" % [m["name"], m["role"]], 8, INK, UiFont.display())
@@ -249,6 +291,10 @@ func _party(s: Dictionary) -> void:
 		row.add_child(line)
 		if Party.tend_effect(s, m["id"]) != null:
 			row.add_child(_small_button("Sit with", Expedition.tend.bind(m["id"])))
+		if Trek.can_treat(session, m["id"]):
+			row.add_child(_small_button("Jun treats", Expedition.treat.bind(m["id"])))
+		if not sick.is_empty() and m["id"] != "you":
+			row.add_child(_small_button("Send down", Expedition.send_down.bind(m["id"])))
 		paper.add_child(row)
 
 
@@ -257,8 +303,10 @@ func _party(s: Dictionary) -> void:
 func _results(s: Dictionary) -> void:
 	var sc := ExpeditionEngine.score(s)
 	paper.add_child(_label("EXPEDITION OVER · %s" % _when(s).to_upper(), 7, MUTED, UiFont.body()))
-	var heading := "Home, with the summit" if sc["summitReached"] and sc["returnedSafely"] else ("Home safely" if sc["returnedSafely"] else "The mountain kept the day")
-	paper.add_child(_label(heading, 14, INK, UiFont.display()))
+	var end := Trek.ending(Expedition.session)
+	paper.add_child(_label(end[0], 14, INK, UiFont.display()))
+	_text_label(end[1], 9, INK)
+	_text_label(Trek.route(Expedition.session)["name"] + " · " + Trek.route(Expedition.session)["line"], 8, MUTED)
 	_last(s)
 	paper.add_child(_label("%d" % int(sc["overall"]), 26, SPRUCE if sc["successful"] else EMBER, UiFont.display()))
 	_text_label("Highest point %s m. %s" % [ExpeditionEngine.format_meters(sc["highestAltitude"]), sc["explanation"]], 9, INK)

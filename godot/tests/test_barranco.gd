@@ -36,6 +36,7 @@ func climb_the_wall(on_marco: String) -> void:
 	await drive(["climb_up"], func() -> bool: return c.state == Climber.State.GROUND and ty() <= 74.05, 20.0, "scramble")
 	# Ledge 1 to the first face.
 	await drive(["move_right"], func() -> bool: return tx() >= 85.6, 20.0, "ledge 1")
+	await rest_up()
 	await drive(["climb_up"], func() -> bool: return c.state == Climber.State.GROUND and ty() <= 60.05, 30.0, "first face")
 	await rest_up()
 	# Ledge 2 back left to the traverse; grab before the void.

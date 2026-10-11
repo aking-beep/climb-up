@@ -53,7 +53,16 @@ func active() -> bool:
 func card() -> Dictionary:
 	if not active():
 		return {}
+	var t := Trek.ensure(session)
+	if t["route"] == "":
+		return Trek.route_card()
+	if t["emergency"] != null and pending() == null:
+		return Trek.emergency_card(session)
 	return ExpeditionEngine.current_event(state(), def)
+
+
+func trek() -> Dictionary:
+	return Trek.ensure(session)
 
 
 ## Which choices of the current card are played climbs: id or "".
@@ -63,12 +72,13 @@ func playable() -> Array:
 	if c.is_empty():
 		return out
 	for i in c["choices"].size():
-		out.append(Coordinator.challenge_for(state(), c, i))
+		out.append("" if c.get("trek", false) else Coordinator.challenge_for(state(), c, i))
 	return out
 
 
 func new_expedition(seed: int = 7) -> void:
 	session = Coordinator.create_session(ExpeditionEngine.create(seed, def))
+	session["trek"] = Trek.fresh("")
 	climb = {}
 	last = {}
 	save()
@@ -82,6 +92,19 @@ func choose(index: int) -> void:
 	if c.is_empty() or index < 0 or index >= c["choices"].size():
 		return
 	var before := state()
+	if c.get("trek", false):
+		var choice: Dictionary = c["choices"][index]
+		if choice.has("route"):
+			Trek.choose_route(session, choice["route"])
+			last = {}
+		else:
+			var effect := Trek.resolve_emergency(session, choice["act"], def)
+			session = Coordinator.play(session, effect, def)
+			Trek.advance(session, before, def)
+			last = {"kind": "card", "label": choice["label"], "before": before}
+		save()
+		changed.emit()
+		return
 	var r := Coordinator.choose(session, index, def)
 	session = r["session"]
 	if r["launched"] != null:
@@ -89,6 +112,7 @@ func choose(index: int) -> void:
 		save()
 		go(LEVELS[r["launched"]["challengeId"]])
 		return
+	Trek.advance(session, before, def)
 	last = {"kind": "card", "label": c["choices"][index]["label"], "before": before}
 	save()
 	changed.emit()
@@ -118,11 +142,24 @@ func tend(id: String) -> void:
 	_beat(Party.tend_effect(state(), id), "tend-" + id)
 
 
+## Jun looks after someone who is unwell.
+func treat(id: String) -> void:
+	if Trek.can_treat(session, id) and pending() == null:
+		_beat(Trek.treat(session, id), "treat-" + id)
+
+
+## Sends someone down with a porter before it becomes a rescue.
+func send_down(id: String) -> void:
+	if id != "you" and not Trek.is_gone(session, id) and pending() == null:
+		_beat(Trek.send_down(session, id), "down-" + id)
+
+
 func _beat(effect: Variant, label: String) -> void:
 	if effect == null or pending() != null:
 		return
 	var before := state()
 	session = Coordinator.play(session, effect, def)
+	Trek.advance(session, before, def)
 	last = {"kind": "beat", "label": label, "before": before}
 	save()
 	changed.emit()
@@ -138,6 +175,7 @@ func finish_climb(outcome: Dictionary) -> String:
 	var r := Coordinator.resolve(session, outcome, def)
 	session = r["session"]
 	if r["status"] == "applied":
+		Trek.advance(session, before, def)
 		last = {"kind": "climb", "label": p["choiceLabel"], "before": before, "outcome": outcome}
 	climb = {}
 	save()
@@ -155,6 +193,7 @@ func abandon_climb() -> void:
 	var r := Coordinator.abandon(session, def)
 	session = r["session"]
 	if r["status"] == "applied":
+		Trek.advance(session, before, def)
 		last = {"kind": "climb", "label": p["choiceLabel"], "before": before,
 			"outcome": {"challengeId": p["challengeId"], "result": "retreat", "slips": 0, "staminaLeft": 100, "assisted": null, "regrouped": false, "seconds": 0}}
 	climb = {}
@@ -205,6 +244,15 @@ func load_saved() -> bool:
 	if p != null and (typeof(p) != TYPE_DICTIONARY or not LEVELS.has(p.get("challengeId"))):
 		p = null
 	session = {"state": st, "prior": null, "pending": p, "resolvedAttempts": s.get("resolvedAttempts", [])}
+	var tk: Variant = s.get("trek")
+	if typeof(tk) == TYPE_DICTIONARY and Trek.ROUTES.has(tk.get("route")) or (typeof(tk) == TYPE_DICTIONARY and tk.get("route") == ""):
+		var t := Trek.fresh(String(tk["route"]))
+		for key in t:
+			if tk.has(key) and typeof(tk[key]) == typeof(t[key]):
+				t[key] = tk[key]
+		if typeof(tk.get("emergency")) == TYPE_DICTIONARY and Party.ORDER.has(tk["emergency"].get("who")):
+			t["emergency"] = tk["emergency"]
+		session["trek"] = t
 	var f: Variant = _whole(data.get("found", {}))
 	found = f if typeof(f) == TYPE_DICTIONARY else {}
 	var c: Variant = data.get("climb", {})

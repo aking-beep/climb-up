@@ -18,6 +18,15 @@ func _ready() -> void:
 			path = arg.substr(6)
 		elif arg.begins_with("hold="):
 			hold = float(arg.substr(5))
+		elif arg == "fresh":
+			Expedition.navigate = false
+			Expedition.new_expedition(7)
+		elif arg.begins_with("sick="):
+			var b := arg.substr(5).split(":")
+			Expedition.trek()["sick"][b[0]] = {"kind": "ams", "stage": int(b[1])}
+		elif arg.begins_with("emerg="):
+			Expedition.trek()["emergency"] = {"who": arg.substr(6)}
+			Expedition.trek()["sick"][arg.substr(6)] = {"kind": "ams", "stage": 3}
 		elif arg == "touch":
 			Settings.touch_controls = true
 		elif arg.begins_with("park="):

@@ -89,14 +89,18 @@ func update_from(level: Node) -> void:
 	fill.bg_color = Color("#c0573e") if pct < 25 else (Color("#d9a441") if pct < 50 else Color("#7fa36b"))
 	_bar.add_theme_stylebox_override("fill", fill)
 	var mate := ""
-	if level.mate_state == "helped":
-		mate = " · %s: has your back" % level.mate_name() if c.spotter else " · %s with you" % level.mate_name()
+	if level.mate_state == "helped" and level.get("mate_winded"):
+		mate = " · %s: winded" % level.mate_name()
+	elif level.mate_state == "helped":
+		mate = " · %s %d%%" % [level.mate_name(), int(level.mate_breath)]
 	var gear := ""
 	var hz: Hazards = level.get("hazards")
 	if hz and hz.gear_total() > 0:
 		gear = " · Gear %d/%d" % [hz.gear_count, hz.gear_total()]
 	_stats.text = "Stamina %d%% · Slips %d/%d · Cairn %d/%d%s%s" % [pct, c.slips, level.max_slips, level.checkpoint, level.cairns.size() - 1, gear, mate]
-	if hz and hz.warned_here():
+	if level.get("mate_winded"):
+		_wind.text = "%s is out of breath: go back and REST beside them" % level.mate_name()
+	elif hz and hz.warned_here():
 		_wind.text = "Rocks coming down: step aside!"
 	elif hz and hz.slab_breaking():
 		_wind.text = "The slab is cracking: keep moving!"
@@ -131,6 +135,14 @@ func _hint_for(level: Node) -> String:
 		if c.terrain.hold_at(c.body_rect(c.global_position + Vector2(0, -4))) == Terrain.Kind.AIR:
 			return "Top of the face. Keep pushing UP to pull over."
 		return ""
+	var key := "JUMP" if Settings.touch_enabled() else "SPACE"
+	if c.state == Climber.State.GROUND and (c.gap_ahead(c.facing) and not c.on_ice):
+		return "A gap: %s to hop across." % key
+	if c.state == Climber.State.GROUND and c.hurdle_ahead(c.facing):
+		return "A boulder in the way: %s to hop over." % key
+	var hz: Hazards = level.get("hazards")
+	if hz and c.state == Climber.State.GROUND and hz.roller_near(c.global_position.x, c.global_position.y, 6.0 * Terrain.TILE):
+		return "A stone is rolling at you: %s!" % key
 	if c.state == Climber.State.GROUND and c.can_grab():
 		return "Rock. Tap CLIMB, or push UP." if Settings.touch_enabled() else "Rock. Hold UP to climb (DOWN to climb down)."
 	return ""

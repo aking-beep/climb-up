@@ -15,7 +15,7 @@ so there are no frame rates here.**
 | Teammate | Marco: help, leave, step back; helped Marco catches a slip | the same choices and catch, plus Marco physically follows your exact path up the wall; walking past him counts as leaving him |
 | Expedition | the full engine, 10 days, 3 gated climbs | the same Kilimanjaro expedition: the engine ported to GDScript and replayed against seven recorded TypeScript playthroughs (178 steps, identical); a camp screen with the diorama, cards, camp beats and party; all three climbs playable |
 | Other climbs | Lava Tower, summit night | Lava Tower (150 × 64 tiles) and summit night (132 × 92, by headlamp), with the Expo difficulty ramp |
-| Tests | 125 Jest tests | 33 headless Godot tests, including scripted full ascents of all three climbs |
+| Tests | 125 Jest tests | 49 headless Godot tests, including scripted full ascents of all three climbs with every hazard live, and whole expeditions played on each route |
 | Playable now | web build via the artifact link; Expo Go | web build via its own artifact link; a debug Android APK; or the Godot editor (4.7+) |
 
 A route-knowing bot climbs the Godot wall in **137 s of game time**, the
