@@ -21,6 +21,29 @@ func test_climbing_drains_and_resting_recovers() -> void:
 	near(s.value, before + 26.0, 0.001, "a rest stone gives 26/s")
 
 
+func test_walking_costs_breath_and_more_in_thin_air() -> void:
+	var low := StaminaModel.new(80)
+	low.thin_air = StaminaModel.thin_air_for(4000, 60)
+	var high := StaminaModel.new(80)
+	high.thin_air = StaminaModel.thin_air_for(5700, 60)
+	var raw := StaminaModel.new(80)
+	raw.thin_air = StaminaModel.thin_air_for(5700, 10)
+	for m in [low, high, raw]:
+		m.tick(10.0, "walk")
+	check(low.value < low.max_value, "walking costs a little even low down")
+	check(high.value < low.value, "more at the summit")
+	check(raw.value < high.value, "more again for a party that has not acclimatized")
+	var up := StaminaModel.new(80)
+	up.tick(10.0, "walk_up")
+	var flat := StaminaModel.new(80)
+	flat.tick(10.0, "walk")
+	check(up.value < flat.value, "uphill costs more than flat")
+	var still := StaminaModel.new(80)
+	still.value = 10.0
+	still.tick(1.0, "still")
+	check(still.value > 10.0, "standing still still recovers")
+
+
 func test_cold_slows_recovery_but_not_drain() -> void:
 	var warm := StaminaModel.new(80)
 	var cold := StaminaModel.new(80, 0.55)

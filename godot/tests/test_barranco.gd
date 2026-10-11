@@ -1,4 +1,4 @@
-extends TestCase
+extends ClimbBot
 ## The Barranco Wall, played. A scripted climber drives the real level
 ## through the same input actions a player presses (GameInput.scripted):
 ## walk out of camp, scramble, climb, traverse the void, rest, cross the
@@ -6,11 +6,7 @@ extends TestCase
 ## to Karanga. Run with --fixed-fps 60 so physics steps are exact.
 
 const LEVEL := "res://modes/expedition/levels/kilimanjaro/barranco/barranco.tscn"
-const T := 16.0
 
-var level: Node
-var c: Climber
-var outcome: ChallengeOutcome
 var log: Array[String] = []
 
 
@@ -30,63 +26,6 @@ func _done() -> void:
 	GameInput.scripted = {}
 	level.queue_free()
 	await physics_frames(2)
-
-
-func tx() -> float:
-	return c.global_position.x / T
-
-
-func ty() -> float:
-	return c.global_position.y / T
-
-
-func where() -> String:
-	return "(%.2f, %.2f) state=%d stamina=%.0f slips=%d cp=%d clock=%.1f" % [tx(), ty(), c.state, c.stamina.value, c.slips, level.checkpoint, c.clock]
-
-
-## Holds `keys` until `done` is true, or fails after `seconds` of game time.
-func drive(keys: Array, done: Callable, seconds: float = 40.0, label: String = "") -> bool:
-	var frames := int(seconds * 60.0)
-	for i in frames:
-		if done.call():
-			GameInput.scripted = {"_": false}
-			return true
-		var held := {"_": false}
-		for k in keys:
-			held[k] = true
-		GameInput.scripted = held
-		await tree.physics_frame
-		if level.panel.open and label != "panel":
-			break
-	GameInput.scripted = {"_": false}
-	var ok: bool = done.call()
-	if not ok:
-		failures.append("gave up %s at %s" % [label, where()])
-	return ok
-
-
-func rest_up(fraction: float = 0.92) -> void:
-	GameInput.scripted = {"_": false, "rest": true}
-	await tree.physics_frame
-	GameInput.scripted = {"_": false}
-	await drive([], func() -> bool: return c.stamina.fraction() >= fraction, 60.0, "resting")
-
-
-## Walk only when the wind will stay calm for the crossing step; brace otherwise.
-func cross_exposed(until_x: float) -> bool:
-	var frames := 60 * 120
-	for i in frames:
-		if tx() >= until_x or level.panel.open:
-			break
-		var held := {"_": false}
-		if c.exposed and not c.wind.calm_for(c.clock, 0.6):
-			held["brace"] = true
-		else:
-			held["move_right"] = true
-		GameInput.scripted = held
-		await tree.physics_frame
-	GameInput.scripted = {"_": false}
-	return tx() >= until_x or level.panel.open
 
 
 func climb_the_wall(on_marco: String) -> void:
@@ -112,7 +51,7 @@ func climb_the_wall(on_marco: String) -> void:
 	await rest_up()
 	check(level.checkpoint >= 3, "cairn 3 before the exposed ledge, got %d" % level.checkpoint)
 	# The exposed ledge, between gusts, to Marco.
-	await cross_exposed(77.0)
+	await cross(77.0)
 	await drive([], func() -> bool: return level.panel.open, 5.0, "panel")
 	check(level.panel.open, "meeting Marco opens a choice")
 	if on_marco == "help":
@@ -129,17 +68,17 @@ func climb_the_wall(on_marco: String) -> void:
 	await rest_up(0.98)
 	# The loose gully, with a breather in the niche halfway.
 	await drive(["move_right"], func() -> bool: return tx() >= 83.4, 10.0, "to the gully")
-	await drive(["climb_up"], func() -> bool: return ty() <= 33.90, 20.0, "lower gully")
+	await climb_dodging(func() -> bool: return ty() <= 33.90, "lower gully, under stonefall")
 	await drive(["move_right"], func() -> bool: return c.state == Climber.State.GROUND and tx() >= 84.5, 10.0, "into the niche")
 	await rest_up(0.98)
 	await drive(["move_left"], func() -> bool: return tx() <= 83.6, 5.0, "back to the gully")
 	await drive(["climb_up"], func() -> bool: return c.is_climbing(), 5.0, "regrab")
-	await drive(["climb_up"], func() -> bool: return c.state == Climber.State.GROUND and ty() <= 26.05, 30.0, "upper gully")
+	await up_to(26, "upper gully, under stonefall", "move_right")
 	check(level.checkpoint >= 4, "cairn 4 at Marco's ledge, got %d" % level.checkpoint)
 	# The shoulder, then the crouch ledge in the wind, to the upper face.
 	await drive(["move_right"], func() -> bool: return tx() >= 96.5, 15.0, "the shoulder")
 	await rest_up(0.98)
-	await cross_exposed(118.2)
+	await cross(118.2)
 	await drive(["climb_up"], func() -> bool: return c.state == Climber.State.GROUND and ty() <= 12.05, 30.0, "upper face")
 	# The top, over the rise, and down to Karanga.
 	await drive(["move_right"], func() -> bool: return outcome != null, 90.0, "to Karanga")

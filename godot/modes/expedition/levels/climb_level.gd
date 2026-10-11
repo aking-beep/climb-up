@@ -29,6 +29,9 @@ var camera: ExpeditionCamera
 var panel: StoryPanel
 var hud: Hud
 var mate: Companion
+var hazards: Hazards
+var ground_layer: TileMapLayer
+var gear_this_attempt := 0
 var people: Array = []        # [{node, title, lines}]
 var signs: Array = []         # [{pos, index}]
 var cairns: Array[Vector2] = []
@@ -60,6 +63,7 @@ func _ready() -> void:
 	if p != null and p["challengeId"] == spec["id"]:
 		seed = int(p["seed"])
 	stamina = StaminaModel.new(float(s["energy"]), float(d["recovery"]), float(d["drain"]))
+	stamina.thin_air = StaminaModel.thin_air_for(float(spec.get("meters", 4000)), float(s["acclimatization"]))
 	wind = WindSchedule.new(float(s["weatherRisk"]), seed, float(d["wind"]))
 	if Expedition.climb.get("challengeId") == spec["id"]:
 		attempt_id = Expedition.climb.get("attemptId", attempt_id)
@@ -75,6 +79,7 @@ func _ready() -> void:
 	ground.modulate = Color(theme.get("tint", "#ffffff"))
 	add_child(ground)
 	TerrainTiles.paint(terrain, ground, back, theme)
+	ground_layer = ground
 
 	# Cairns are reached bottom to top; the start is cairn 0.
 	var start: Vector2i = terrain.markers["P"][0]
@@ -96,6 +101,16 @@ func _ready() -> void:
 	climber.slip_finished.connect(_on_slip_finished)
 	climber.grabbed.connect(func() -> void: Haptics.tap(12))
 	climber.mantled.connect(func() -> void: camera.kick(0.0))
+
+	hazards = Hazards.new()
+	hazards.name = "Hazards"
+	add_child(hazards)
+	var mine: bool = Expedition.climb.get("challengeId") == spec["id"]
+	hazards.setup(self, terrain, ground, climber, float(d.get("rockPeriod", 5.0)), spec.get("gear", []),
+		Expedition.climb.get("taken", []) if mine else [], Expedition.gear_found(spec["id"]))
+	hazards.found_gear.connect(func(i: int) -> void:
+		gear_this_attempt += 1
+		Expedition.find_gear(spec["id"], i))
 
 	var m: Dictionary = spec.get("mate", {})
 	if not m.is_empty() and terrain.markers.has("M"):
@@ -252,6 +267,12 @@ func brief() -> void:
 		int(stamina.max_value), max_slips, wind.describe()]
 	if d["recovery"] < 0.8:
 		facts += " · the cold slows recovery"
+	facts += " · at %s m even walking costs breath" % ExpeditionEngine.format_meters(float(spec.get("meters", 4000)))
+	var dangers: Array = spec.get("dangers", [])
+	if not dangers.is_empty():
+		facts += "\nWatch for: " + ", ".join(dangers) + "."
+	if hazards.gear_total() > 0:
+		facts += " Lost gear found here: %d of %d." % [hazards.gear_count, hazards.gear_total()]
 	panel.show_panel(copy["kicker"], copy["title"], "%s\n%s" % [copy["brief"], facts],
 		[["start", "Start the climb"], ["backoff", copy["backOff"]]])
 
@@ -261,6 +282,7 @@ func brief() -> void:
 func _physics_process(_delta: float) -> void:
 	if _ended or climber == null:
 		return
+	hazards.step()
 	if mate:
 		mate.record(climber.global_position, climber.sprite.animation, climber.sprite.flip_h)
 	_arrive()
@@ -517,6 +539,13 @@ func _interact() -> void:
 
 # --- The end ----------------------------------------------------------------
 
+func on_water(key: String) -> void:
+	var taken: Array = Expedition.climb.get("taken", [])
+	if not taken.has(key):
+		taken.append(key)
+	Expedition.remember({"taken": taken})
+
+
 func outcome_now(kind: String) -> ChallengeOutcome:
 	var o := ChallengeOutcome.new()
 	o.attempt_id = attempt_id
@@ -532,6 +561,7 @@ func outcome_now(kind: String) -> ChallengeOutcome:
 	o.loose_seconds = climber.loose_seconds
 	o.rest_seconds = climber.rest_seconds
 	o.checkpoint = checkpoint
+	o.gear_found = gear_this_attempt
 	return o
 
 
@@ -555,4 +585,4 @@ func finish(kind: String) -> void:
 	hud.flash({"complete": copy["doneComplete"], "retreat": copy["doneRetreat"], "fail": copy["doneFail"]}[kind])
 	await get_tree().create_timer(1.8 if is_inside_tree() else 0.0).timeout
 	if Expedition.climb.get("attemptId") == attempt_id:
-		Expedition.finish_climb(o.to_expo())
+		Expedition.finish_climb(o.to_dict())

@@ -62,6 +62,10 @@ var rest_seconds := 0.0
 var last_activity := "still"
 var spotter_caught_last := false
 var helper_cost := 15.0
+## Standing on ice: little grip, and the edge guard cannot hold you.
+var on_ice := false
+const ICE_ACCEL := 150.0
+const ICE_DECEL := 70.0
 
 var _timer := 0.0
 var _mantle_from := Vector2.ZERO
@@ -95,6 +99,15 @@ func _ready() -> void:
 
 func body_rect(at: Vector2 = global_position) -> Rect2:
 	return Rect2(at + Vector2(-SIZE.x / 2.0, -SIZE.y), SIZE)
+
+
+## True when the floor under any part of the feet is `k`.
+func _on_kind(k: int) -> bool:
+	var feet := global_position + Vector2(0, 2)
+	for dx in [-SIZE.x / 2.0 + 1.0, 0.0, SIZE.x / 2.0 - 1.0]:
+		if terrain.kind(Terrain.cell_of(feet + Vector2(dx, 0))) == k:
+			return true
+	return false
 
 
 func on_ground_cell() -> bool:
@@ -178,29 +191,39 @@ func _ground(delta: float, input: Vector2) -> void:
 		return
 	if GameInput.held("brace"):
 		state = State.BRACE
-		velocity.x = 0.0
+		if not _on_kind(Terrain.Kind.ICE):
+			velocity.x = 0.0
 		return
 	if GameInput.pressed_now("rest"):
 		state = State.REST
 		velocity.x = 0.0
 		return
+	on_ice = _on_kind(Terrain.Kind.ICE)
 	var limit := EXPOSED_WALK if exposed else (TIRED_WALK if stamina.is_tired() else WALK)
 	var target := input.x * limit
 	var rate := ACCEL if absf(target) > absf(velocity.x) else DECEL
+	if on_ice:
+		rate = ICE_ACCEL if absf(target) > absf(velocity.x) and signf(target) == signf(velocity.x) else ICE_DECEL
+		if velocity.x == 0.0 and target != 0.0:
+			rate = ICE_ACCEL
 	velocity.x = move_toward(velocity.x, target, rate * delta)
 	# The edge guard: walking never carries you off a drop that would be a
 	# slip. Going down is a choice (DOWN onto the rock), not a stumble.
-	# Walking off a ledge onto a face grabs the face instead.
+	# Walking off a ledge onto a face grabs the face instead. On ice there
+	# is no stopping at the edge: you slide.
 	if absf(velocity.x) > 0.0 and drop_ahead(int(signf(velocity.x))):
 		if _face_ahead(int(signf(velocity.x))):
 			_grab()
 			return
-		velocity.x = 0.0
+		if not on_ice:
+			velocity.x = 0.0
 	velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL)
 	var before := global_position
 	move_and_slide()
 	var moving := absf(velocity.x) > 6.0
-	last_activity = "walk" if moving else "still"
+	last_activity = "still"
+	if moving:
+		last_activity = "ice" if on_ice else ("walk_up" if global_position.y < before.y - 0.15 else "walk")
 	stamina.tick(delta, last_activity)
 	_steps(before, delta)
 	_weather(delta, input)
@@ -435,6 +458,10 @@ func _mantle(delta: float) -> void:
 func _rest(delta: float, input: Vector2) -> void:
 	velocity = Vector2(0.0, minf(velocity.y + GRAVITY * delta, MAX_FALL))
 	move_and_slide()
+	if not is_on_floor():
+		state = State.AIR
+		fall_from = global_position.y
+		return
 	rest_seconds += delta
 	last_activity = "rest_stone" if _rest_stone else "rest"
 	stamina.tick(delta, last_activity)
@@ -444,8 +471,13 @@ func _rest(delta: float, input: Vector2) -> void:
 
 
 func _brace(delta: float) -> void:
-	velocity = Vector2(0.0, minf(velocity.y + GRAVITY * delta, MAX_FALL))
+	var slide := move_toward(velocity.x, 0.0, ICE_DECEL * delta) if _on_kind(Terrain.Kind.ICE) else 0.0
+	velocity = Vector2(slide, minf(velocity.y + GRAVITY * delta, MAX_FALL))
 	move_and_slide()
+	if not is_on_floor():
+		state = State.AIR
+		fall_from = global_position.y
+		return
 	last_activity = "brace"
 	stamina.tick(delta, "brace")
 	if not GameInput.held("brace"):

@@ -76,9 +76,9 @@ func _label(size: int, color: Color) -> Label:
 	return l
 
 
-func flash(text: String) -> void:
+func flash(text: String, seconds: float = 2.6) -> void:
 	_flash.text = text
-	_flash_time = 2.6
+	_flash_time = seconds
 
 
 func update_from(level: Node) -> void:
@@ -91,7 +91,25 @@ func update_from(level: Node) -> void:
 	var mate := ""
 	if level.mate_state == "helped":
 		mate = " · %s: has your back" % level.mate_name() if c.spotter else " · %s with you" % level.mate_name()
-	_stats.text = "Stamina %d%% · Slips %d/%d · Cairn %d/%d%s" % [pct, c.slips, level.max_slips, level.checkpoint, level.cairns.size() - 1, mate]
+	var gear := ""
+	var hz: Hazards = level.get("hazards")
+	if hz and hz.gear_total() > 0:
+		gear = " · Gear %d/%d" % [hz.gear_count, hz.gear_total()]
+	_stats.text = "Stamina %d%% · Slips %d/%d · Cairn %d/%d%s%s" % [pct, c.slips, level.max_slips, level.checkpoint, level.cairns.size() - 1, gear, mate]
+	if hz and hz.warned_here():
+		_wind.text = "Rocks coming down: step aside!"
+	elif hz and hz.slab_breaking():
+		_wind.text = "The slab is cracking: keep moving!"
+	elif c.on_ice and c.state == Climber.State.GROUND:
+		_wind.text = "Ice: small steps, it slides"
+	else:
+		_wind_line(c)
+	_hint.text = _hint_for(level)
+	# On touch the context button says what it does; keys need the reminder.
+	_prompt.text = ("E: %s" % level.prompt) if level.prompt != "" and not Settings.touch_enabled() else ""
+
+
+func _wind_line(c: Climber) -> void:
 	match c.gust:
 		WindSchedule.Phase.WARN:
 			_wind.text = "Wind rising: stop and brace"
@@ -99,9 +117,6 @@ func update_from(level: Node) -> void:
 			_wind.text = "Gust: brace!" if c.state != Climber.State.BRACE else "Gust: braced"
 		_:
 			_wind.text = "Exposed: walk between gusts" if c.exposed else ""
-	_hint.text = _hint_for(level)
-	# On touch the context button says what it does; keys need the reminder.
-	_prompt.text = ("E: %s" % level.prompt) if level.prompt != "" and not Settings.touch_enabled() else ""
 
 
 func _hint_for(level: Node) -> String:

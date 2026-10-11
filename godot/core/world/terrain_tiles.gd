@@ -15,6 +15,10 @@ const CLIFF := "res://assets/scenery/barranco-wall-deep.png"
 const CLIFF_SOURCE := 1
 const DEEP := "res://assets/scenery/barranco-wall.png"
 const DEEP_SOURCE := 2
+## Ice and cracked slabs (tools/art/godot_hazards.py). Row 0 ice, row 1
+## slabs: columns 0-1 whole, 2-3 breaking.
+const HAZARDS := "res://assets/terrain/hazards.png"
+const HAZARD_SOURCE := 3
 const T := Terrain.TILE
 const SOURCE := 0
 
@@ -59,7 +63,28 @@ static func build_tileset(cliff: String = CLIFF, deep: String = DEEP) -> TileSet
 				var data := painted.get_tile_data(coord, 0)
 				data.add_collision_polygon(0)
 				data.set_collision_polygon_points(0, 0, square)
+	var haz := TileSetAtlasSource.new()
+	haz.texture = load(HAZARDS)
+	haz.texture_region_size = Vector2i(T, T)
+	ts.add_source(haz, HAZARD_SOURCE)
+	for row in 2:
+		for col in 4:
+			haz.create_tile(Vector2i(col, row))
+			var data := haz.get_tile_data(Vector2i(col, row), 0)
+			data.add_collision_polygon(0)
+			data.set_collision_polygon_points(0, 0, square)
 	return ts
+
+
+## A cracked slab: whole, breaking, or gone (crumbled away).
+static func set_slab(ground: TileMapLayer, cell: Vector2i, stage: String) -> void:
+	match stage:
+		"whole":
+			ground.set_cell(cell, HAZARD_SOURCE, Vector2i(_variant(cell, 2), 1))
+		"breaking":
+			ground.set_cell(cell, HAZARD_SOURCE, Vector2i(2 + _variant(cell, 2), 1))
+		_:
+			ground.erase_cell(cell)
 
 
 static func _cliff(cell: Vector2i) -> Vector2i:
@@ -107,10 +132,17 @@ static func paint(terrain: Terrain, ground: TileMapLayer, back: TileMapLayer, th
 					at = Vector2i(8 + _variant(cell, 4), 2)
 				Terrain.Kind.SCRAMBLE:
 					at = Vector2i(12 + _variant(cell, 4), 2)
+				Terrain.Kind.ICE:
+					ground.set_cell(cell, HAZARD_SOURCE, Vector2i(_variant(cell, 4), 0))
+				Terrain.Kind.CRUMBLE:
+					set_slab(ground, cell, "whole")
 			if at.x >= 0:
 				ground.set_cell(cell, SOURCE, at)
 			var open := not terrain.is_solid(cell) or k == Terrain.Kind.SLOPE_R or k == Terrain.Kind.SLOPE_L
 			if open and terrain.is_inside(cell):
+				back.set_cell(cell, CLIFF_SOURCE, _cliff(cell))
+			elif (k == Terrain.Kind.CRUMBLE or k == Terrain.Kind.ICE) and (terrain.is_inside(cell) or _faces_inside(terrain, cell)):
+				# What shows when a slab has crumbled away.
 				back.set_cell(cell, CLIFF_SOURCE, _cliff(cell))
 			elif k == Terrain.Kind.ROCK and _faces_inside(terrain, cell):
 				# Edge tiles have rounded corners: inside the mountain, the

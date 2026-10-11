@@ -93,6 +93,16 @@ def lava_tower():
     m.fill(121, 0, 149, 23, ".")
     m.fill(149, 0, 149, 63, "#")
     m.fill(0, 0, 0, CAMP - 1, ".")
+    # Challenge: a scree bridge across a gap in bench 1. The slabs hold a
+    # walker; stop on them and they go.
+    m.fill(64, 42, 67, 48, ".")
+    m.fill(64, 42, 67, 42, "c")
+    # Challenge: stones come down the chimney. A niche halfway up to shelter.
+    m.fill(58, 20, 59, 22, ".")
+    m.put(56, 6, "r")
+    # Secret: a ledge over the scree beyond the tower, up a short face.
+    m.fill(128, 16, 130, 23, "C")
+    m.fill(131, 16, 134, 17, "#")
     # Exposure: bench 2 west of the chimney.
     for x in range(52, 55):
         m.put(x, 29, "E")
@@ -119,8 +129,14 @@ def lava_tower():
     m.put(64, 13, "S")     # sign 3: the top
     m.put(72, 13, "V")
     m.put(90, 13, "g")
-    m.put(130, 23, "o")
+    m.put(126, 23, "o")
     m.put(145, 23, "X")
+    # Water, and the lost gear: out on the windy lip, in the chimney's
+    # niche, and on the ledge beyond the tower.
+    m.put(70, 41, "w")
+    m.put(52, 29, "*")
+    m.put(59, 22, "*")
+    m.put(133, 15, "*")
     return m
 
 
@@ -163,6 +179,30 @@ def summit_night():
     m.fill(108, STELLA, 131, RIM - 1, "#")
     m.fill(108, STELLA, 110, RIM - 1, "C")
     m.fill(131, 0, 131, 91, "#")
+    # Challenge: ice on the switchbacks. On the fourth bench it runs up to a
+    # crevasse, crossed on a band of rock above it.
+    for x in range(30, 91):
+        m.put(x, floors[1], "i")
+    for x in range(84, 101):
+        m.put(x, floors[3], "i")
+    m.fill(80, floors[3], 81, floors[3] + 2, ".")
+    m.fill(78, floors[3] - 4, 83, floors[3] - 1, "C")
+    # Challenge: stones down the last rock step and the rim step.
+    m.put(x1 - 1, floors[5] - 5, "r")
+    m.put(x0 + 1, RIM - 6, "r")
+    # Challenge: cracked slabs on the rim, over a hole to the bench below.
+    m.fill(60, RIM, 61, RIM + 2, ".")
+    m.fill(60, RIM, 61, RIM, "c")
+    # Secrets: a pocket off each end of two benches, and a ledge above the rim.
+    m.fill(9, floors[3] - 4, 13, floors[3] - 1, ".")
+    m.fill(x1 + 1, floors[2] - 4, x1 + 4, floors[2] - 1, ".")
+    m.fill(30, RIM - 7, 32, RIM - 1, "C")
+    m.fill(33, RIM - 7, 36, RIM - 6, "#")
+    m.put(10, floors[3] - 1, "*")
+    m.put(x1 + 3, floors[2] - 1, "*")
+    m.put(35, RIM - 8, "*")
+    m.put(66, floors[3] - 1, "w")
+    m.put(x0 + 10, RIM - 1, "w")
     # Camp, people, cairns, signs.
     f0 = floors[0] - 1
     m.put(2, f0, "T")
@@ -196,6 +236,7 @@ def preview(m, path):
         "#": (70, 60, 52), "/": (90, 78, 66), "\\": (90, 78, 66), "C": (140, 120, 100), "L": (170, 140, 110),
         "s": (150, 130, 110), "E": (200, 120, 120), ".": (150, 180, 205), "K": (240, 220, 80), "R": (90, 160, 90),
         "P": (60, 200, 60), "X": (220, 60, 60), "M": (230, 110, 50), "S": (200, 160, 90),
+        "i": (200, 235, 255), "c": (120, 60, 160), "r": (255, 0, 0), "w": (0, 90, 255), "*": (255, 255, 0),
     }
     img = Image.new("RGB", (m.w, m.h))
     px = img.load()

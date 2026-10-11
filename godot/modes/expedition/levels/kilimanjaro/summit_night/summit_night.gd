@@ -11,7 +11,14 @@ func _init() -> void:
 		"id": "summit-night",
 		"map": "res://modes/expedition/levels/kilimanjaro/summit_night/summit_night.txt",
 		"hud": "Summit night",
-		"difficulty": {"recovery": 0.55, "drain": 1.25, "wind": 30.0, "maxSlips": 2, "helpCost": 22.0},
+		"difficulty": {"recovery": 0.55, "drain": 1.25, "wind": 30.0, "maxSlips": 2, "helpCost": 22.0, "rockPeriod": 4.2},
+		"meters": 5700,
+		"dangers": ["ice on the switchbacks", "a crevasse", "stones on the rock steps", "cracked slabs on the rim"],
+		"gear": [
+			["a frozen compass", "The glass is frosted over. It still points the way down."],
+			["an ice axe", "Left in a pocket of the slope. The pick is sharp."],
+			["a photograph of Stella Point", "Taken at dawn. The sky in it is the one coming now."],
+		],
 		"theme": {
 			"night": true,
 			"far": "res://assets/scenery/summit-sea.png",

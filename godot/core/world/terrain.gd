@@ -7,15 +7,18 @@ extends RefCounted
 
 const TILE := 16
 
-enum Kind { AIR, ROCK, SLOPE_R, SLOPE_L, FACE, LOOSE, SCRAMBLE, EXPOSED, REST }
+enum Kind { AIR, ROCK, SLOPE_R, SLOPE_L, FACE, LOOSE, SCRAMBLE, EXPOSED, REST, ICE, CRUMBLE }
 
 const SOLID_CHARS := "#/\\"
 const KIND_OF := {
 	"#": Kind.ROCK, "/": Kind.SLOPE_R, "\\": Kind.SLOPE_L,
 	"C": Kind.FACE, "L": Kind.LOOSE, "s": Kind.SCRAMBLE,
 	"E": Kind.EXPOSED, "R": Kind.REST,
+	"i": Kind.ICE, "c": Kind.CRUMBLE,
 }
-const MARKERS := "PXMljmpSTFgoVK"
+## Markers stand on air. r: rockfall comes down this column (the marker is
+## where rocks start); w: a water cache; *: lost gear to find.
+const MARKERS := "PXMljmpSTFgoVKrw*"
 
 var width := 0
 var height := 0
@@ -64,7 +67,13 @@ func kind(cell: Vector2i) -> int:
 
 func is_solid(cell: Vector2i) -> bool:
 	var k := kind(cell)
-	return k == Kind.ROCK or k == Kind.SLOPE_R or k == Kind.SLOPE_L
+	return k == Kind.ROCK or k == Kind.SLOPE_R or k == Kind.SLOPE_L or k == Kind.ICE or k == Kind.CRUMBLE
+
+
+## Changes one cell (a slab crumbling away, or settling back).
+func set_kind(cell: Vector2i, k: int) -> void:
+	if cell.x >= 0 and cell.x < width and cell.y >= 0 and cell.y < height:
+		kinds[cell.y * width + cell.x] = k
 
 
 func is_climbable(cell: Vector2i) -> bool:

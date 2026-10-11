@@ -153,6 +153,24 @@ for x in range(57, 75):
 for x in range(106, 116):
     put(x, SH - 1, "E", absolute=True)
 
+# Challenges. Stones come down the loose gully (dodge between columns, or
+# wait in the niche). Two cracked slabs on the exposed ledge: brace on them
+# in a gust and they go.
+put(82, 20, "r", absolute=True)
+put(66, 28, "c")
+put(67, 28, "c")
+# Secrets: an alcove above ledge 2, up a short face; the back of the gully
+# niche; a ledge on the plateau, up a pinnacle.
+fill(77, 38, 82, 40, ".")
+fill(77, 41, 79, 45, "C")
+put(81, 40, "*")
+put(86, SH + 7, "*", absolute=True)
+fill(164, TOP - 10, 166, TOP - 4, "C", absolute=True)
+fill(167, TOP - 10, 170, TOP - 9, "#", absolute=True)
+put(169, TOP - 11, "*", absolute=True)
+put(51, 44, "w")       # water at the rest ledge
+put(94, SH - 1, "w", absolute=True)
+
 # People, places, things.
 put(4, 77, "p")
 put(7, 77, "T")
@@ -201,6 +219,7 @@ def main():
             "#": (70, 60, 52), "/": (90, 78, 66), "\\": (90, 78, 66), "C": (140, 120, 100), "L": (170, 140, 110),
             "s": (150, 130, 110), "E": (200, 120, 120), ".": (150, 180, 205), "K": (240, 220, 80), "R": (90, 160, 90),
             "P": (60, 200, 60), "X": (220, 60, 60), "M": (230, 110, 50), "S": (200, 160, 90),
+            "c": (120, 60, 160), "r": (255, 0, 0), "w": (0, 90, 255), "*": (255, 255, 0),
         }
         img = Image.new("RGB", (W, H))
         px = img.load()

@@ -10,7 +10,14 @@ func _init() -> void:
 		"id": "lava-tower",
 		"map": "res://modes/expedition/levels/kilimanjaro/lava_tower/lava_tower.txt",
 		"hud": "Lava Tower",
-		"difficulty": {"recovery": 1.0, "drain": 0.85, "wind": -15.0, "maxSlips": 4, "helpCost": 15.0},
+		"difficulty": {"recovery": 1.0, "drain": 0.85, "wind": -15.0, "maxSlips": 4, "helpCost": 15.0, "rockPeriod": 6.0},
+		"meters": 4600,
+		"dangers": ["a scree bridge that gives way if you stop", "stones down the chimney"],
+		"gear": [
+			["a brass compass", "Dropped at the lip, where the wind takes things."],
+			["a wooden ice axe", "Wedged in the chimney's niche, out of the stonefall."],
+			["a faded photograph", "The tower from this ledge, years ago. It has not changed."],
+		],
 		"theme": {
 			"far": "res://assets/scenery/barranco-kibo.png",
 			"farScale": 0.75,

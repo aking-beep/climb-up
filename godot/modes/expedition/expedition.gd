@@ -25,6 +25,9 @@ var climb: Dictionary = {}
 ## What the last action did, for the camp screen to show once:
 ## {kind: card | climb | beat, label, before (state), outcome}.
 var last: Dictionary = {}
+## Lost gear found, per climb: {challengeId: [index, ...]}. Kept across
+## attempts and new expeditions, like a collection.
+var found: Dictionary = {}
 ## Off in tests, so landing an outcome does not replace the test runner.
 var navigate := true
 
@@ -169,8 +172,20 @@ func remember(progress: Dictionary) -> void:
 	save()
 
 
+func gear_found(id: String) -> Array:
+	return found.get(id, [])
+
+
+func find_gear(id: String, index: int) -> void:
+	var list: Array = found.get(id, [])
+	if not list.has(index):
+		list.append(index)
+	found[id] = list
+	save()
+
+
 func save() -> bool:
-	return SaveGame.write({"session": session, "climb": climb, "settings": Settings.to_dict()})
+	return SaveGame.write({"session": session, "climb": climb, "found": found, "settings": Settings.to_dict()})
 
 
 ## True when a saved expedition was restored. A save that does not have the
@@ -190,6 +205,8 @@ func load_saved() -> bool:
 	if p != null and (typeof(p) != TYPE_DICTIONARY or not LEVELS.has(p.get("challengeId"))):
 		p = null
 	session = {"state": st, "prior": null, "pending": p, "resolvedAttempts": s.get("resolvedAttempts", [])}
+	var f: Variant = _whole(data.get("found", {}))
+	found = f if typeof(f) == TYPE_DICTIONARY else {}
 	var c: Variant = data.get("climb", {})
 	climb = c if typeof(c) == TYPE_DICTIONARY and p != null and c.get("attemptId") == p["attemptId"] else {}
 	last = {}

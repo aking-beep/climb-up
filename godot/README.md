@@ -59,6 +59,32 @@ leaves their camp, easiest first:
 Each starts with a brief; backing off there (or turning back later) is a
 retreat that costs the day, not the expedition. The outcome lands once.
 
+**What the mountain throws at you.** No jumping: these are climbing
+problems, in the spirit of Mega Man stages or Metroid rooms.
+
+- **Thin air.** Walking costs breath, a little at the tower, more on the
+  summit, and more again for a party that has not acclimatized at camp.
+  Uphill costs more than flat; standing still and sitting recover.
+- **Stonefall.** Stones come down set chutes. Grit trickles over the column
+  a stone is about to fall in; move across to another column, or wait
+  under rock. A hit is a slip (a helped teammate can still catch it).
+- **Cracked slabs.** Pale, cracked stones that hold you while you keep
+  walking. Stop on one, or brace on one in a gust, and it drops you. They
+  settle back after a while.
+- **Ice** (summit night). Little grip: you slide, and the edge guard cannot
+  hold you on ice. On the fourth switchback the ice runs up to a crevasse,
+  crossed on a band of rock.
+- **Water caches** give most of the stamina bar back, once per attempt.
+- **Lost gear.** Three things per climb, hidden off the obvious line (an
+  alcove up a side face, the back of a niche, a ledge up a pinnacle). Found
+  gear stays found across attempts; the HUD and the camp screen count it.
+
+| Climb | Hazards | Lost gear |
+| --- | --- | --- |
+| Lava Tower | a scree bridge of cracked slabs, stonefall down the chimney (a niche halfway up to shelter), the windy lip | on the windy lip, in the chimney niche, on a ledge beyond the tower |
+| Barranco Wall | stonefall down the loose gully, cracked slabs on the exposed ledge where you brace | an alcove above ledge 2, the back of the gully niche, a ledge on the plateau |
+| Summit night | ice on two switchbacks, the crevasse, stonefall on two rock steps, cracked slabs on the windy rim, thin air | a pocket off two switchbacks, a ledge above the rim |
+
 ## The Barranco Wall
 
 Barranco Camp (talk to Lena and Jun, read the signs) → the approach under
@@ -88,6 +114,7 @@ Levels are ASCII maps stamped by `tools/levels/barranco_map.py` and
 `tools/godot/export_content.ts`, which also records scripted playthroughs
 of the TypeScript engine for the parity test. Art: `tools/art/godot_barranco.py`
 (tiles, props), `tools/art/godot_backwalls.py` (rock strata),
+`tools/art/godot_hazards.py` (ice, slabs, stones, water, gear),
 `tools/art/godot_kili.py` (diorama plates, map sprites, scenery from the
 Expo game); sounds from `tools/audio/placeholders.py` (placeholders).
 
@@ -99,13 +126,17 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-33 tests: the engine replaying seven expeditions recorded from the
+39 tests: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume
 from a cairn, a saved game plays on identically, the screens build); and all
 three climbs played start to finish by a scripted climber through the real
-input actions, plus their order of difficulty.
+input actions with every hazard live (the bot reads the same warnings a
+player sees), each hazard on its own (slabs hold a walker and drop someone
+who stops, a stone is announced before it falls, ice slides, water and gear,
+walking costs more breath on the summit), plus the order of difficulty and
+that every find stands on reachable ground.
 
 Tools (need a display; under Linux CI use `xvfb-run`):
 

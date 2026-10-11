@@ -10,7 +10,14 @@ func _init() -> void:
 		"id": "barranco-wall",
 		"map": "res://modes/expedition/levels/kilimanjaro/barranco/barranco.txt",
 		"hud": "Barranco Wall",
-		"difficulty": {"recovery": 0.85, "drain": 1.0, "wind": 5.0, "maxSlips": 3, "helpCost": 15.0},
+		"difficulty": {"recovery": 0.85, "drain": 1.0, "wind": 5.0, "maxSlips": 3, "helpCost": 15.0, "rockPeriod": 5.0},
+		"meters": 4200,
+		"dangers": ["stones down the loose gully", "cracked slabs on the exposed ledge"],
+		"gear": [
+			["an old brass compass", "The needle still swings north. Someone took a bearing here once."],
+			["a wooden ice axe", "Hickory and rust. It has been on this wall longer than the cairns."],
+			["a faded photograph", "A party on the plateau, squinting into the sun. Nobody you know."],
+		],
 		"theme": {
 			"far": "res://assets/scenery/barranco-kibo.png",
 			"mid": "res://assets/scenery/barranco-valley.png",

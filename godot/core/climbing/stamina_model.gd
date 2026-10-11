@@ -15,7 +15,9 @@ const RATES := {
 	"scramble": 3.0,   # moving on easy boulders
 	"traverse": 6.5,   # moving sideways on a face
 	"brace": 1.0,      # braced against a gust
-	"walk": -3.0,
+	"walk": 0.5,       # walking costs breath, more as the air thins
+	"walk_up": 1.6,    # walking uphill
+	"ice": 0.9,        # short careful steps on ice
 	"still": -10.0,
 	"rest": -18.0,     # sitting down on ordinary ground
 	"rest_stone": -26.0,
@@ -29,6 +31,10 @@ var value: float
 var recovery: float = 1.0
 ## Multiplies drain (thin air, cold).
 var drain: float = 1.0
+## Multiplies what walking costs: how thin the air is for this party, from
+## the climb's altitude and how acclimatized they are (thin_air_for).
+var thin_air: float = 1.0
+const WALKING := ["walk", "walk_up", "ice"]
 
 
 static func max_for_energy(energy: float) -> float:
@@ -42,9 +48,20 @@ func _init(energy: float = 80.0, recovery_factor: float = 1.0, drain_factor: flo
 	drain = clampf(drain_factor, 0.5, 2.0)
 
 
+## How hard walking is at `meters` for a party with `acclimatization` (the
+## expedition stat): 1 at 4,000 m for an acclimatized party, rising with
+## height, and up to twice that again for a party that has not adapted.
+static func thin_air_for(meters: float, acclimatization: float) -> float:
+	var height := clampf(1.0 + (meters - 4000.0) / 2000.0, 0.6, 2.0)
+	var gap := maxf(0.0, ExpeditionEngine.acclimatization_need(meters) - acclimatization)
+	return snappedf(height * (1.0 + minf(gap, 40.0) / 40.0), 0.01)
+
+
 ## Advances `dt` seconds of `activity`. Returns the new value.
 func tick(dt: float, activity: String, loose: bool = false) -> float:
 	var rate: float = RATES.get(activity, 0.0)
+	if activity in WALKING:
+		rate *= thin_air
 	if rate > 0.0:
 		value -= rate * drain * (LOOSE_FACTOR if loose else 1.0) * dt
 	else:

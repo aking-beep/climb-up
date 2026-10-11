@@ -21,6 +21,7 @@ var wind_strikes := 0
 var loose_seconds := 0.0
 var rest_seconds := 0.0
 var checkpoint := 0
+var gear_found := 0
 
 
 func to_expo() -> Dictionary:
@@ -43,6 +44,7 @@ func to_dict() -> Dictionary:
 	d["looseSeconds"] = snappedf(loose_seconds, 0.1)
 	d["restSeconds"] = snappedf(rest_seconds, 0.1)
 	d["checkpoint"] = checkpoint
+	d["gearFound"] = gear_found
 	return d
 
 
