@@ -3,8 +3,10 @@ extends RefCounted
 ## How the trek reaches into a played climb: the body you climb in is the
 ## one the camp choices left you.
 ##
-## - Health: the expedition's health is where the climb's health bar starts,
-##   lower again when you are unwell.
+## Everything lands on the one bar, stamina: how big it is and how fast it
+## refills. (On the climb, what hits you takes stamina too.)
+##
+## - Health: a party in poor health starts with a smaller bar.
 ## - Sleep: a bad night (a night without rest) shrinks the stamina bar and
 ##   slows getting your breath back; a good one speeds it.
 ## - Energy: worn out, there is less in your legs.
@@ -26,7 +28,7 @@ static func of(session: Dictionary, dosed: bool = false) -> Dictionary:
 	var kind: String = you.get("kind", "")
 	var stage: int = you.get("stage", 0)
 	var c := {
-		"health": clampf(float(s.get("health", 100)), 25.0, 100.0),
+		"health": clampf(float(s.get("health", 100)), 0.0, 100.0),
 		"stamina": 1.0, "recovery": 1.0, "grip": 1.0, "thinAir": 1.0,
 		"dizzy": 0, "cramps": 0, "sick": kind, "stage": stage,
 		"medicine": int(t.get("medicine", 0)), "dosed": dosed, "lines": [],
@@ -47,7 +49,6 @@ static func of(session: Dictionary, dosed: bool = false) -> Dictionary:
 		c["recovery"] *= 0.8
 		lines.append("Thin rations: you are hungry, and slow to recover.")
 	if stage > 0:
-		c["health"] = maxf(25.0, c["health"] - 8.0 * stage)
 		c["stamina"] *= 1.0 - 0.1 * stage
 		match kind:
 			"ams":
@@ -64,10 +65,11 @@ static func of(session: Dictionary, dosed: bool = false) -> Dictionary:
 		c["dizzy"] = 0
 		c["cramps"] = 0
 		c["grip"] = 1.0
-		c["health"] = minf(100.0, c["health"] + 10.0)
 		lines.append("You took medicine: the symptoms stay off for this climb.")
-	if c["health"] < 60.0:
-		lines.append("You start this climb hurt: health %d." % int(c["health"]))
+	if c["health"] < 80.0:
+		# Poor health is a smaller bar: down to 70% of it at none.
+		c["stamina"] *= 0.7 + 0.3 * c["health"] / 80.0
+		lines.append("Party health %d: a smaller stamina bar." % int(c["health"]))
 	return c
 
 

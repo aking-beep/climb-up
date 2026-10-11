@@ -87,12 +87,14 @@ exactly (the parity test still holds); a trek layer on top
   one that does is a good night. On thin stores (supplies under 30) the
   food can go bad and turn someone's stomach.
 - **It reaches into the climbs** (`modes/expedition/engine/condition.gd`).
-  The body you climb in is the one the camp choices left you, and the brief
+  The body you climb in is the one the camp choices left you, all of it in
+  the one stamina bar (how big it is, how fast it refills), and the brief
   lists why:
 
   | At camp | On the climb |
   | --- | --- |
-  | The party's health | where your health bar starts (lower again when unwell) |
+  | The party's health (under 80) | a smaller bar, down to 70% at none |
+  | Being unwell at all | a smaller bar (10% per stage) |
   | A bad night | a smaller stamina bar, slower to get your breath back |
   | A good night | breath back a little faster |
   | Worn out (energy under 35) | a smaller bar |
@@ -100,12 +102,13 @@ exactly (the parity test still holds); a trek layer on top
   | Altitude sickness | thinner air for you, and dizzy spells (half speed, your feet wander) |
   | A bad stomach | cramps that double you over (no walking or hopping for a second) |
   | The cold | numb fingers: holding on to rock costs more |
-  | A dose of medicine before the climb | none of those symptoms, and +10 health |
+  | A dose of medicine before the climb | none of those symptoms |
   | A teammate sent down | not on the climb |
   | A steep route | more wind, faster stonefall |
 
-  It also goes back the other way: health lost to thorns, ants and ravens
-  on the climb costs the party health at camp (a fifth of it, up to 12).
+  It also goes back the other way: stamina lost to thorns, ants and ravens
+  on the climb costs the party energy at camp (a fifth of it, up to 12),
+  and energy is what sets the size of the next climb's bar.
 
 Measured by the tests (8 seeds per row, climbs landed as completed):
 
@@ -140,18 +143,19 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
 - **Ice** (summit night). Little grip: you slide, and the edge guard cannot
   hold you on ice. On the fourth switchback the ice runs up to a crevasse,
   crossed on a band of rock.
-- **Health.** A red bar under stamina. Thorns, bites and beaks take it;
-  at none left you collapse, which is a slip (back to the cairn, with some
-  health back). After a hit you get a second's grace.
+- **One bar: stamina.** Everything that hits you takes stamina, the same
+  bar walking and climbing spend. A hit you have no stamina left for is a
+  collapse, which is a slip (back to the cairn). After a hit you get a
+  second's grace.
 - **Thistles and nettles.** The spiny Kilimanjaro thistle on the tower, a
   stinging nettle in the Barranco valley. Walk into one and it stings
-  (-10); hop over it.
+  (-10 stamina); hop over it.
 - **Siafu.** A column of safari ants marching back and forth on a short
-  stretch of ground. They bite (-8) and the bites cost breath; hop over.
+  stretch of ground. They bite (-12 stamina); hop over.
 - **White-necked ravens** circle over stretches of the path on every climb
   (the summit night has four). Stand about under one and it calls, then
   dives at the spot where you were: keep moving and it misses. A hit costs
-  12 health and it flies off with one of your everlastings.
+  12 stamina and it flies off with one of your everlastings.
 - **Water caches** give most of the stamina bar back, once per attempt.
 - **Lost gear.** Three things per climb, hidden off the obvious line (an
   alcove up a side face, the back of a niche, a ledge up a pinnacle). Found
@@ -240,7 +244,7 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-59 tests: the engine replaying seven expeditions recorded from the
+60 tests: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume
@@ -251,9 +255,9 @@ player sees), each hazard on its own (slabs hold a walker and drop someone
 who stops, a stone is announced before it falls, ice slides, water and gear,
 walking costs more breath on the summit), plus the order of difficulty and
 that every find stands on reachable ground. `test_body` covers the
-creatures (a hop clears a thistle, ants bite and cost breath, a raven hits
-someone standing still and misses someone who moved, no health left is a
-slip) and the camp reaching into the climb (a bad night, hunger and
+creatures (a hop clears a thistle, a sting or a bite is stamina gone, a
+raven hits someone standing still and misses someone who moved, a hit with
+no stamina left is a slip, poor party health is a smaller bar) and the camp reaching into the climb (a bad night, hunger and
 altitude sickness shrink the bar, slow recovery and bring dizzy spells; a
 dose keeps them off; a bad stomach brings cramps, the cold costs grip; what
 hurt you on the climb costs the party; sleep and medicine at camp).

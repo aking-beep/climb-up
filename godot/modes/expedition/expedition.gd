@@ -189,13 +189,14 @@ func finish_climb(outcome: Dictionary) -> String:
 			s["energy"] = mini(100, int(s["energy"]) + 2)
 			s["lastNote"] = (String(s["lastNote"]) + " A clean climb: the party's spirits lift.").strip_edges()
 			session["state"] = s
-		# What bit, stung and struck you on the climb comes back to camp.
+		# What bit, stung and struck you on the climb comes back to camp, as
+		# energy: the bar the next climb starts with.
 		var hurt := int(outcome.get("hurt", 0))
 		if hurt >= 10 and active():
 			var s: Dictionary = state().duplicate(true)
 			var cost := mini(12, hurt / 5)
-			s["health"] = maxi(0, int(s["health"]) - cost)
-			s["lastNote"] = (String(s["lastNote"]) + " Stings and bites from the climb: health %d." % -cost).strip_edges()
+			s["energy"] = maxi(0, int(s["energy"]) - cost)
+			s["lastNote"] = (String(s["lastNote"]) + " Stings and bites from the climb: energy %d." % -cost).strip_edges()
 			session["state"] = s
 		last = {"kind": "climb", "label": p["choiceLabel"], "before": before, "outcome": outcome}
 	climb = {}

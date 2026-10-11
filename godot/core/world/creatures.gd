@@ -7,20 +7,19 @@ extends Node2D
 ## stinging nettle in the Barranco valley. Walk into one and it stings; hop
 ## over it.
 ## Siafu (a): a column of safari ants marching back and forth along the
-## ground. They bite, and the bites cost breath too. Hop over them.
+## ground. They bite. Hop over them.
 ## Ravens (v): a white-necked raven circles over its stretch of path. Stand
 ## about under it and it calls, then dives at the spot where you were: keep
 ## moving and it misses. A hit hurts and it flies off with an everlasting.
 ##
-## A hit costs health (Climber.hurt), never a slip by itself; at no health
-## left you collapse, and that is a slip.
+## A hit costs stamina (Climber.hurt), never a slip by itself; a hit you
+## have no stamina left for is a collapse, and that is a slip.
 
 ## Something the player had to deal with: for the level's pacing log.
 signal engaged(kind: String)
 
 const PLANT_HURT := 10.0
-const ANT_HURT := 8.0
-const ANT_BREATH := 4.0
+const ANT_HURT := 12.0
 const RAVEN_HURT := 12.0
 const ANT_SPEED := 14.0
 const ANT_RANGE := 2.0 * 16.0
@@ -119,7 +118,6 @@ func step() -> void:
 		var r := Rect2(a["x"] - ANT_SIZE.x / 2.0, a["y"] - ANT_SIZE.y, ANT_SIZE.x, ANT_SIZE.y)
 		if body.intersects(r) and climber.hurt(ANT_HURT, "ants"):
 			bites += 1
-			climber.stamina.value = maxf(0.0, climber.stamina.value - ANT_BREATH)
 			_puff(Vector2(a["x"], a["y"] - 3.0), Color(0.6, 0.25, 0.15))
 			level.hud.flash("Siafu! The ants bite. Hop over the column.")
 	for rv in ravens:

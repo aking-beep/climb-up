@@ -31,7 +31,8 @@ var hud: Hud
 var mate: Companion
 var hazards: Hazards
 var creatures: Creatures
-## The body the trek left you (Condition.of): health, sleep, food, sickness.
+## The body the trek left you (Condition.of): health, sleep, food, sickness,
+## all of it in the size and refill of the one stamina bar.
 var condition: Dictionary = {}
 var dosed := false
 var _next_dizzy := -1.0
@@ -130,7 +131,6 @@ func _ready() -> void:
 	climber.name = "Climber"
 	climber.helper_cost = float(d["helpCost"])
 	climber.setup(terrain, wind, stamina)
-	climber.health = condition["health"]
 	add_child(climber)
 	climber.global_position = cairns[0]
 	climber.slipped.connect(_on_slipped)
@@ -292,8 +292,6 @@ func _resume_from_save() -> void:
 	checkpoint = clampi(int(saved["checkpoint"]), 0, cairns.size() - 1)
 	climber.slips = clampi(int(saved.get("slips", 0)), 0, max_slips - 1)
 	climber.clock = float(saved.get("seconds", 0.0))
-	if saved.has("health"):
-		climber.health = clampf(float(saved["health"]), climber.max_health * 0.4, climber.max_health)
 	if mate:
 		mate_state = String(saved.get("mate", "waiting"))
 	regrouped = saved.get("regrouped") == true
@@ -322,7 +320,6 @@ func brief() -> void:
 	if d["recovery"] < 0.8:
 		facts += " · the cold slows recovery"
 	facts += " · at %s m even walking costs breath" % ExpeditionEngine.format_meters(float(spec.get("meters", 4000)))
-	facts += " · health %d" % int(climber.health)
 	for line in condition["lines"]:
 		facts += "\n" + line
 	if trek_factor["steep"] > 1.0:
@@ -440,7 +437,6 @@ func _remember() -> void:
 		"regrouped": regrouped,
 		"spotter": climber.spotter,
 		"seconds": climber.clock,
-		"health": climber.health,
 	})
 
 
@@ -556,7 +552,6 @@ func _on_choice(id: String) -> void:
 				dosed = true
 				condition = Condition.of(Expedition.session, true)
 				stamina.grip = condition["grip"]
-				climber.health = minf(climber.max_health, climber.health + 10.0)
 				Expedition.remember({"dosed": true})
 				Expedition.save()
 				hud.flash("You take a dose. The symptoms stay off for this climb.", 3.0)
@@ -815,7 +810,7 @@ func finish(kind: String) -> void:
 	if o.gear_found > 0:
 		lines.append("Lost gear found: %d" % o.gear_found)
 	if o.hurt > 0:
-		lines.append("Hurt on the climb: %d health (thistles %d, ants %d, ravens %d)%s" % [o.hurt, creatures.stings, creatures.bites, creatures.raven_hits,
+		lines.append("Stamina lost to hits: %d (thistles %d, ants %d, ravens %d)%s" % [o.hurt, creatures.stings, creatures.bites, creatures.raven_hits,
 			"; the party feels it at camp" if o.hurt >= 10 else ""])
 	lines.append("%d min on the mountain" % maxi(1, o.seconds / 60))
 	hud.flash(head)

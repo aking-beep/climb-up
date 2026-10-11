@@ -4,7 +4,6 @@ extends CanvasLayer
 ## in colour is also shown in words.
 
 var _bar: ProgressBar
-var _health: ProgressBar
 var _stats: Label
 var _hint: Label
 var _flash: Label
@@ -44,18 +43,6 @@ func _ready() -> void:
 	_bar.show_percentage = false
 	_bar.max_value = 100
 	v.add_child(_bar)
-	# Health under stamina: thorns, bites and beaks take it.
-	_health = ProgressBar.new()
-	_health.custom_minimum_size = Vector2(140, 3)
-	_health.show_percentage = false
-	_health.max_value = 100
-	var hf := StyleBoxFlat.new()
-	hf.bg_color = Color("#d0604e")
-	_health.add_theme_stylebox_override("fill", hf)
-	var hb := StyleBoxFlat.new()
-	hb.bg_color = Color(0, 0, 0, 0.45)
-	_health.add_theme_stylebox_override("background", hb)
-	v.add_child(_health)
 	_stats = _label(9, Color(0.95, 0.94, 0.91))
 	v.add_child(_stats)
 	_wind = _label(9, Color(1.0, 0.85, 0.55))
@@ -144,9 +131,7 @@ func update_from(level: Node) -> void:
 		if hz and hz.flowers_total > 0:
 			flowers = "  ·  everlastings %d/%d" % [hz.flowers, hz.flowers_total]
 		_route_label.text = ("Everlastings %d" % hz.flowers) if hz and hz.flowers_total > 0 else ""
-	_health.max_value = c.max_health
-	_health.value = c.health
-	_stats.text = "Health %d · Stamina %d%% · Slips %d/%d · Cairn %d/%d%s%s" % [int(ceil(c.health)), pct, c.slips, level.max_slips, level.checkpoint, level.cairns.size() - 1, gear, mate]
+	_stats.text = "Stamina %d%% · Slips %d/%d · Cairn %d/%d%s%s" % [pct, c.slips, level.max_slips, level.checkpoint, level.cairns.size() - 1, gear, mate]
 	if level.get("mate_winded"):
 		_wind.text = "%s is out of breath: go back and REST beside them" % level.mate_name()
 	elif hz and hz.warned_here():

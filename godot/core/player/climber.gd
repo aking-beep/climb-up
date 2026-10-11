@@ -76,10 +76,7 @@ var on_ice := false
 const ICE_ACCEL := 150.0
 const ICE_DECEL := 70.0
 
-## Health: thorns, bites and beaks take it; at none left you collapse (a
-## slip). It starts where the expedition's health is.
-var health := 100.0
-var max_health := 100.0
+## Stamina lost to thorns, bites and beaks on this climb.
 var hurt_total := 0.0
 ## A moment after a hit when nothing else can hurt you.
 const HURT_GUARD := 1.0
@@ -161,8 +158,6 @@ func respawn(feet: Vector2) -> void:
 	state = State.GROUND
 	fall_from = feet.y
 	stamina.refill(0.75 if spotter_caught_last else 0.5)
-	# Collapsing is not the end: you come round with something left.
-	health = maxf(health, max_health * 0.4)
 	dizzy = 0.0
 	cramp = 0.0
 	spotter_caught_last = false
@@ -622,17 +617,19 @@ func _weather(delta: float, input: Vector2) -> void:
 	stamina.value = maxf(0.0, stamina.value - GUST_FIGHT * delta)
 
 
-## Something hurt you. Returns false when it could not (just hit, falling,
-## done). At no health left you collapse, and that is a slip.
+## Something hurt you: it takes stamina, the one bar. Returns false when it
+## could not (just hit, falling, done). A hit you have no stamina left for
+## is a collapse, and that is a slip.
 func hurt(amount: float, reason: String) -> bool:
 	if _hurt_cool > 0.0 or state in [State.SLIP, State.DONE, State.LOCKED]:
 		return false
 	_hurt_cool = HURT_GUARD
-	health = maxf(0.0, health - amount)
+	var spent := stamina.value <= amount
+	stamina.value = maxf(0.0, stamina.value - amount)
 	hurt_total += amount
 	Audio.play("slip", -12.0)
 	hurt_taken.emit(amount, reason)
-	if health <= 0.0:
+	if spent:
 		slip("hurt")
 	return true
 
