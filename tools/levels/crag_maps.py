@@ -138,6 +138,11 @@ class Route:
 
 
 ROUTES = {
+    # The lesson: one of everything, gently. Rock, a bolt, tiny holds, a big
+    # hold, a leap. 2 bolts.
+    "first-climb": ([
+        ("up", 5), ("up", 3), ("crimps", 2), ("up", 2), ("jug", 2), ("blank", 2), ("up", 4),
+    ], 14, 2),
     # Grade 4: good rock, a short bit of crimps, one big hold. 4 bolts.
     "warm-up": ([
         ("up", 6), ("crimps", 2), ("up", 4), ("jug", 2), ("up", 6), ("crimps", 2), ("up", 5),

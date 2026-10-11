@@ -154,13 +154,20 @@ func is_climbing() -> bool:
 	return state == State.CLIMB or state == State.MANTLE
 
 
+## Stops the climber for a panel. On the rock they stay on the rock: they
+## hang where they are and are still holding on when it closes.
 func lock(on: bool) -> void:
 	if on:
+		if state != State.DONE and state != State.LOCKED:
+			_before_lock = state
 		if state != State.DONE:
 			state = State.LOCKED
 		velocity.x = 0.0
 	elif state == State.LOCKED:
-		state = State.GROUND
+		state = State.CLIMB if _before_lock == State.CLIMB and terrain.touches_climbable(body_rect()) else State.GROUND
+
+
+var _before_lock: int = State.GROUND
 
 
 ## Back at a cairn after a slip. A caught slip leaves more in the arms.
@@ -214,9 +221,12 @@ func _physics_process(delta: float) -> void:
 		State.HELP:
 			_help(delta)
 		State.LOCKED, State.DONE:
-			velocity.x = move_toward(velocity.x, 0.0, DECEL * delta)
-			velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL)
-			move_and_slide()
+			if state == State.LOCKED and _before_lock == State.CLIMB:
+				velocity = Vector2.ZERO
+			else:
+				velocity.x = move_toward(velocity.x, 0.0, DECEL * delta)
+				velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL)
+				move_and_slide()
 	_animate(input)
 
 

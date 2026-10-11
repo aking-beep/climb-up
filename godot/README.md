@@ -234,7 +234,10 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
 
 ## The crag
 
-`modes/crag/`: Lion Rock, six routes, easiest first; each opens when the
+`modes/crag/`: Lion Rock. First a lesson, **First Climb**: a short route
+where the game stops the first time each new thing comes up (the rock, a
+bolt, the rest on the rope, tiny holds, a big hold, a jump) and explains
+it, until you tap "Got it". Then six routes, easiest first; each opens when the
 one before it is finished. The words on screen are for non-climbers (tiny
 holds, big holds, a jump for a far hold), with the climbing name after.
 
@@ -245,6 +248,7 @@ where you rest is a decision.
 
 | Grade | Route | Height | Bolts | Crimp stretches | Big holds | Also |
 | --- | --- | --- | --- | --- | --- | --- |
+| Lesson | First Climb | 20 rows | 2 | 1 | 1 | everything once, explained |
 | 4 | Warm-up Wall | 27 rows | 4 | 2 | 1 | |
 | 5b | Sundown Traverse | 37 | 5 | 3 | 2 | a long traverse |
 | 6a | The Pinch | 40 | 6 | 4 | 2 | the longest crimps at the top |
@@ -252,8 +256,9 @@ where you rest is a decision.
 | 6c | Lion's Roof | 48 | 8 | 6 | 3 | a traverse under a roof, a dyno |
 | 7a | Thunderhead | 56 | 9 | 7 | 3 | two dynos, a roof |
 
-- **Tap to clip.** At each bolt the game asks "Clip in?": tap CLIP three
-  times (pull up the rope, open the gate, clip). Climb on without it and
+- **Tap to clip.** At each bolt the game asks "Clip in?": tap CLIP. Once
+  on the lesson and the easy route, more the harder the route (2 on 5b and
+  6a, 3 on 6b and 6c, 4 on 7a). Climb on without it and
   the bolt stays unclipped: a fall then drops you to the last one you did
   clip, and the game tells you so. The rope runs up through every clipped
   bolt to you.
@@ -265,11 +270,14 @@ where you rest is a decision.
   rest of the bar waits. The bolts get further apart the higher you go, so
   between the high ones you rest on the big holds (jugs) too: chunky
   holds with chalk on the lip, bigger and brighter than the tiny ones.
-- **Tap to hold.** On tiny holds (crimps) a grip meter over your head runs
-  down, faster if you stop; tap GRIP to squeeze it back up. Empty, and
-  your fingers peel off.
+- **Tap to hold.** Tiny holds (crimps) burn stamina. A grip meter over
+  your head runs down (faster the harder the route, and faster if you
+  stop); tap GRIP to squeeze it back up. The tighter the grip, the less
+  the tiny holds cost: at full grip less than half, slack well over the
+  normal rate. On the hardest routes the grip fades fast: keep tapping.
 - **Stick the jump.** After a dyno you have a second to tap GRIP three
   times, or the hold slips out of your hands.
+- Pausing, or a lesson, while on the rock keeps you on the rock.
 - On a phone the crag has one big tap button (it reads CLIMB, CLIP or
   GRIP) beside JUMP, and no BRACE or REST.
 - **Lead climbing.** You start on the ground with a belayer. A fall stops on the rope a little below the last bolt you clipped,
@@ -333,7 +341,7 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-70 tests: the engine replaying seven expeditions recorded from the
+72 tests: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume

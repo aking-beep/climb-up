@@ -53,6 +53,11 @@ func lead(seconds: float = 300.0) -> bool:
 	for i in int(seconds * 60.0):
 		if level._ended:
 			break
+		if level.panel.open and level.lesson != "":
+			# A lesson: read it, then on.
+			level.panel.choose("lesson")
+			await tree.physics_frame
+			continue
 		var held := {"_": false}
 		if c.state == Climber.State.SLIP:
 			target = NAN
@@ -132,8 +137,8 @@ func test_the_title_opens_two_separate_games() -> void:
 			routes += 1
 			if b.disabled:
 				locked += 1
-	eq(routes, 6, "six routes")
-	eq(locked, 5, "only the first is open at the start")
+	eq(routes, 7, "the lesson and six routes")
+	eq(locked, 6, "only the lesson is open at the start")
 	menu.queue_free()
 	await physics_frames(1)
 
@@ -147,6 +152,8 @@ func test_every_route_is_led_to_the_anchor() -> void:
 		var sent := await lead()
 		check(sent, "%s (%s) sent; stopped at %s, %s" % [r["name"], r["grade"], where(), level.stats_line(int(c.stamina.fraction() * 100))])
 		eq(level.checkpoint, level.clips.size(), "%s: every bolt clipped" % r["name"])
+		if r.get("tutorial", false):
+			eq(level.lessons_seen.size(), CragLevel.LESSONS.size(), "the lesson explains everything: %s" % [level.lessons_seen])
 		if r["id"] in ["leap-of-faith", "lions-roof", "thunderhead"]:
 			check(c.dynos >= (2 if r["id"] == "thunderhead" else 1), "%s needs its dynos (%d)" % [r["name"], c.dynos])
 		print("      %s %s: %s, %d falls, %d s, %d dynos, %d rope rests, %d%% stamina left" % [r["grade"], r["name"], level.outcome.get("style", "-"), c.slips, int(c.clock), c.dynos, level.rope_rests, int(c.stamina.fraction() * 100)])
@@ -299,14 +306,17 @@ func test_tiny_holds_need_taps_and_a_bolt_asks_to_be_clipped() -> void:
 	c.stamina.value = 100.0
 	await physics_frames(2)
 	check(level.on_crimps and level.action_word == "GRIP", "on tiny holds the button is GRIP")
-	# Tapping keeps you on.
+	# Tapping keeps the grip tight: the tiny holds cost little.
 	for i in 90:
 		GameInput.scripted = {"interact": i % 6 < 3}
 		await tree.physics_frame
-	eq(c.state, Climber.State.CLIMB, "tapping GRIP keeps you on the tiny holds")
-	# Not tapping: the fingers peel off.
-	await drive([], func() -> bool: return c.state != Climber.State.CLIMB, 3.0, "hanging without tapping")
-	check(c.state != Climber.State.CLIMB, "without taps the grip runs out and you peel off")
+	var tapped := 100.0 - c.stamina.value
+	eq(c.state, Climber.State.CLIMB, "tapping GRIP: still on")
+	# Not tapping: the grip goes slack and the same time costs far more.
+	c.stamina.value = 100.0
+	await _still_frames(90)
+	var slack := 100.0 - c.stamina.value
+	check(slack > tapped * 1.8, "without taps the tiny holds burn stamina (%.1f vs %.1f with taps)" % [slack, tapped])
 	await _done()
 	# A bolt asks; climbing on without tapping leaves it unclipped.
 	await _load("warm-up")
@@ -366,12 +376,65 @@ func test_a_clip_offers_a_rest_on_the_rope() -> void:
 	await _done()
 
 
+func _still_frames(n: int) -> void:
+	for i in n:
+		GameInput.scripted = {"_": false}
+		await tree.physics_frame
+
+
+func test_clipping_takes_more_taps_on_harder_routes() -> void:
+	Crag.navigate = false
+	var taps := []
+	for r in Crag.ROUTES:
+		taps.append(int(r.get("clipTaps", 3)))
+	eq(taps[0], 1, "one tap on the lesson")
+	eq(taps[1], 1, "one tap on the easy route")
+	for i in range(1, taps.size()):
+		check(taps[i] >= taps[i - 1], "never fewer taps on a harder route: %s" % [taps])
+	check(taps[-1] >= 4, "several on the hardest")
+	# One tap clips on the warm-up.
+	await _load("warm-up")
+	var guard := 0
+	while level.clip_target < 0 and guard < 60 * 20:
+		guard += 1
+		GameInput.scripted = {"climb_up": true} if c.state == Climber.State.CLIMB or c.can_grab() else {"move_right": true}
+		await tree.physics_frame
+	GameInput.scripted = {"interact": true}
+	await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	await tree.physics_frame
+	eq(level.checkpoint, 1, "one tap clips on the warm-up")
+	await _done()
+
+
+func test_the_lesson_stops_the_game_to_explain() -> void:
+	Crag.navigate = false
+	Crag.reset()
+	check(Crag.unlocked("first-climb") and not Crag.unlocked("warm-up"), "the lesson comes first")
+	await _load("first-climb")
+	await drive(["move_right"], func() -> bool: return level.panel.open, 10.0, "to the rock")
+	eq(level.lesson, "rock", "at the rock the game stops to explain it")
+	eq(c.state, Climber.State.LOCKED, "and the climber waits while you read")
+	var clock := c.clock
+	await physics_frames(60)
+	near(c.clock, clock, 0.001, "time stands still")
+	level.panel.choose("lesson")
+	await tree.physics_frame
+	check(not level.panel.open, "Got it: on you go")
+	await _done()
+	Crag.reset()
+
+
 func test_styles_unlocks_and_saves() -> void:
 	_fresh_progress()
 	eq(Crag.style_for(0, 1), "onsight", "first go, no falls")
 	eq(Crag.style_for(0, 3), "redpoint", "no falls after earlier goes")
 	eq(Crag.style_for(2, 1), "falls", "falls")
-	check(not Crag.unlocked("sundown"), "the second route starts locked")
+	check(not Crag.unlocked("warm-up"), "the first route opens after the lesson")
+	Crag.climb("first-climb")
+	Crag.finish("first-climb", true, 0, 60)
+	check(Crag.unlocked("warm-up"), "done the lesson: the warm-up opens")
+	check(not Crag.unlocked("sundown"), "the next route starts locked")
 	Crag.climb("warm-up")
 	var r := Crag.finish("warm-up", false, 1, 30)
 	eq(r["style"], "", "lowering off is not a send")
