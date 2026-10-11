@@ -41,17 +41,17 @@ static func of(session: Dictionary, dosed: bool = false) -> Dictionary:
 			c["stamina"] *= 0.88
 			c["factors"].append(["a bad night", 0.88])
 			c["recovery"] *= 0.8
-			lines.append("You slept badly: a smaller stamina bar, and slower to get your breath back.")
+			lines.append("You slept badly: less stamina, and it comes back slower.")
 		"well":
 			c["recovery"] *= 1.1
-			lines.append("You slept well: you get your breath back a little faster.")
+			lines.append("You slept well: stamina comes back a little faster.")
 	if int(s.get("energy", 100)) < 35:
 		c["stamina"] *= 0.9
 		c["factors"].append(["worn out", 0.9])
-		lines.append("Worn out (energy %d): less in your legs." % int(s["energy"]))
+		lines.append("Tired (energy %d): less stamina." % int(s["energy"]))
 	if int(s.get("supplies", 100)) < 30:
 		c["recovery"] *= 0.8
-		lines.append("Thin rations: you are hungry, and slow to recover.")
+		lines.append("Not much food left: you are hungry, so stamina comes back slower.")
 	if stage > 0:
 		c["stamina"] *= 1.0 - 0.1 * stage
 		c["factors"].append([{"ams": "altitude sickness", "stomach": "a bad stomach", "cold": "the cold"}.get(kind, "unwell"), 1.0 - 0.1 * stage])
@@ -59,23 +59,26 @@ static func of(session: Dictionary, dosed: bool = false) -> Dictionary:
 			"ams":
 				c["thinAir"] = 1.0 + 0.25 * stage
 				c["dizzy"] = stage
-				lines.append("Altitude sickness: the air is thinner for you, and dizzy spells slow you and make your feet wander.")
+				lines.append("Altitude sickness: breathing is harder, and now and then you feel dizzy and walk unsteadily.")
 			"stomach":
 				c["cramps"] = stage
-				lines.append("A bad stomach: now and then a cramp doubles you over. You can't walk or hop until it passes.")
+				lines.append("Sick stomach: now and then a cramp stops you for a moment.")
 			"cold":
 				c["grip"] = 1.0 + 0.3 * stage
-				lines.append("Numb fingers: holding on to rock costs more.")
-	if dosed and stage > 0:
+				lines.append("Cold, numb fingers: holding on to rock tires you faster.")
+	# A painkiller at this camp eases altitude sickness's symptoms for the
+	# next climb too.
+	var eased: bool = kind == "ams" and you.get("eased") == s.get("checkpoint")
+	if (dosed or eased) and stage > 0:
 		c["dizzy"] = 0
 		c["cramps"] = 0
 		c["grip"] = 1.0
-		lines.append("You took medicine: the symptoms stay off for this climb.")
+		lines.append("You took a painkiller: the symptoms stay off for this climb." if kind == "ams" else "You took medicine: the symptoms stay off for this climb.")
 	if c["health"] < 80.0:
 		# Poor health is a smaller bar: down to 70% of it at none.
 		c["stamina"] *= 0.7 + 0.3 * c["health"] / 80.0
-		c["factors"].append(["party health %d" % int(c["health"]), 0.7 + 0.3 * c["health"] / 80.0])
-		lines.append("Party health %d: a smaller stamina bar." % int(c["health"]))
+		c["factors"].append(["the team's low health (%d)" % int(c["health"]), 0.7 + 0.3 * c["health"] / 80.0])
+		lines.append("The team's health is low (%d): less stamina." % int(c["health"]))
 	return c
 
 
@@ -84,11 +87,11 @@ static func of(session: Dictionary, dosed: bool = false) -> Dictionary:
 static func explain(c: Dictionary, energy: float, final: float) -> String:
 	var base := int(StaminaModel.max_for_energy(energy))
 	if c["factors"].is_empty():
-		return "Stamina bar %d, from the party's energy (%d)." % [int(final), int(energy)]
+		return "Your stamina today: %d (from the team's energy, %d)." % [int(final), int(energy)]
 	var parts: Array = []
 	for f in c["factors"]:
-		parts.append("%s %d%%" % [f[0], int(round((f[1] - 1.0) * 100.0))])
-	return "Stamina bar %d: energy %d gives %d, then %s." % [int(final), int(energy), base, ", ".join(parts)]
+		parts.append("%s takes %d%%" % [f[0], int(round((1.0 - f[1]) * 100.0))])
+	return "Your stamina today: %d. The team's energy (%d) would give %d, but %s." % [int(final), int(energy), base, ", ".join(parts)]
 
 
 ## A dose is worth taking: unwell, symptoms to keep off, and some left.

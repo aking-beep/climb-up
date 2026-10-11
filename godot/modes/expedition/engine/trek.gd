@@ -20,19 +20,19 @@ extends RefCounted
 
 const ROUTES := {
 	"lemosho": {
-		"name": "The long way", "line": "Lemosho, 10-day permit",
-		"text": "Ten days. The slow walk in through forest and over the Shira plateau. The body has time to catch the air.",
+		"name": "The long way", "line": "10 days · safest",
+		"text": "Slow and steady. Lots of time for everyone's body to get used to the thin air, so less altitude sickness. The most food and medicine.",
 		"permit": 10, "supplies": 94, "medicine": 3, "upEnergy": 0, "upAcclim": 0, "upHealth": 0, "risk": 0, "climb": 1.0,
 	},
 	"machame": {
-		"name": "The steep way", "line": "Machame-style, 9-day permit",
-		"text": "Nine days. A steep first day straight up to Shira 1, then shorter, steeper days with less food carried. Every day up costs more, and sickness comes sooner. There is room for some rest days, not all of them.",
+		"name": "The faster way", "line": "9 days · harder",
+		"text": "Starts higher and climbs faster, with less food. Each day up is more tiring and people get sick sooner. You can rest some days, but not every day.",
 		"start": "ebc", "startHours": 24,
 		"permit": 9, "supplies": 86, "medicine": 2, "upEnergy": -5, "upAcclim": -3, "upHealth": 0, "risk": 10, "climb": 1.15,
 	},
 	"umbwe": {
-		"name": "The direct way", "line": "Umbwe-style, 8-day permit",
-		"text": "Eight days, straight up a forest ridge to Shira 2 in a day and a half. The least food, the fastest height, the hardest climbs. Pick your one or two rest days well.",
+		"name": "The fastest way", "line": "8 days · hardest",
+		"text": "Straight up, very fast. The least food and medicine, the hardest climbs, and the most altitude sickness. Pick your one or two rest days carefully.",
 		"start": "camp1", "startHours": 36,
 		"permit": 8, "supplies": 84, "medicine": 1, "upEnergy": -7, "upAcclim": -5, "upHealth": -2, "risk": 16, "climb": 1.3,
 	},
@@ -98,9 +98,9 @@ static func route_card() -> Dictionary:
 	var choices: Array = []
 	for id in ["lemosho", "machame", "umbwe"]:
 		var r: Dictionary = ROUTES[id]
-		choices.append({"label": "%s (%s)" % [r["name"], r["line"]], "detail": r["text"], "route": id})
-	return {"id": "trek-route", "title": "Which way up?",
-		"text": "The permit office wants a route and a number of days. Fewer days is less to carry and less to pay, and less time for four bodies to get used to the air. The days you name are the days you have.",
+		choices.append({"label": "%s · %s" % [r["name"], r["line"]], "detail": r["text"], "route": id})
+	return {"id": "trek-route", "title": "Pick your route up the mountain",
+		"text": "Three ways up. More days is safer: your bodies get used to the thin air. Fewer days is faster but harder, and people get sick more. If you run out of days before the top, the park rangers send you home.",
 		"choices": choices, "trek": true}
 
 
@@ -216,23 +216,23 @@ static func _sicken(session: Dictionary, s: Dictionary, before: Dictionary, clim
 				var luck := 10.0 if alt >= 3800 else 0.0
 				var risk := clampi(int(maxf(gap, 0.0) * 2.0 + pace + worn + luck) + PRONE[id] + int(r["risk"]) - (8 if s["energy"] > 65 else 0), 0, 85)
 				if _roll(s, 11, i) < risk:
-					t["sick"][id] = {"kind": "ams", "stage": 1}
+					t["sick"][id] = {"kind": "ams", "stage": 1, "cause": "fast" if pace > 0.0 or gap > 0 else ("tired" if worn > 0.0 else "luck")}
 					notes.append("%s has %s." % [NAMES[id], describe("ams", 1)] if id != "you" else "You have %s." % describe("ams", 1))
 					continue
 			# A stomach bug, when the water was not put on at this camp.
 			if s["marks"].get("water-" + String(before["checkpoint"])) != true and _roll(s, 23, i) < 9:
-				t["sick"][id] = {"kind": "stomach", "stage": 1}
+				t["sick"][id] = {"kind": "stomach", "stage": 1, "cause": "water"}
 				notes.append("%s has %s." % [NAMES[id], describe("stomach", 1)])
 				continue
 			# Food gone bad: thin stores are old stores.
 			if int(s["supplies"]) < 20 and _roll(s, 27, i) < 6:
-				t["sick"][id] = {"kind": "stomach", "stage": 1}
+				t["sick"][id] = {"kind": "stomach", "stage": 1, "cause": "food"}
 				notes.append("The food has gone bad. %s has %s." % [NAMES[id], describe("stomach", 1)] if id != "you" else "The food has gone bad. You have %s." % describe("stomach", 1))
 				continue
 			# The cold, high and at night, with thin stores or tired bodies.
 			var hour := Party.expedition_hour(float(s["elapsedHours"]))
 			if alt >= 4500 and Party.day_phase(hour) == "night" and (s["supplies"] < 35 or s["energy"] < 40) and _roll(s, 31, i) < 18:
-				t["sick"][id] = {"kind": "cold", "stage": 1}
+				t["sick"][id] = {"kind": "cold", "stage": 1, "cause": "cold"}
 				notes.append("%s has %s." % [NAMES[id], describe("cold", 1)])
 			continue
 		# Someone already unwell gets better or worse.
@@ -411,8 +411,9 @@ static func resolve_emergency(session: Dictionary, act: String, def: Dictionary)
 
 # --- Foresight -----------------------------------------------------------------
 
-const STAT_WORDS := {"energy": "energy", "supplies": "supplies", "health": "health", "teamCondition": "team",
-	"acclimatization": "acclimatization", "weatherRisk": "weather risk", "objectiveRisk": "rockfall risk"}
+## The camp screen's own names for the stats, so the two always match.
+const STAT_WORDS := {"energy": "Energy", "supplies": "Supplies", "health": "Health", "teamCondition": "Team",
+	"acclimatization": "Used to height", "weatherRisk": "Weather risk", "objectiveRisk": "Falling rock"}
 
 
 ## What a choice will cost before you pick it: the hours, the stats it moves
@@ -453,25 +454,30 @@ static func foresee(session: Dictionary, choice: Dictionary, def: Dictionary) ->
 		if meters >= 3800:
 			score += 10.0
 		if gap > 0:
-			why.append("the body is not ready for %s m" % ExpeditionEngine.format_meters(meters))
+			why.append("going higher (%s m) than your bodies are used to" % ExpeditionEngine.format_meters(meters))
 		if float(r["risk"]) > 0:
-			why.append("a steep route")
+			why.append("your route is a fast one")
 		if float(s["weatherRisk"]) >= 40:
 			score += 10.0
-			why.append("the weather")
+			why.append("bad weather coming")
 	if energy_after < 40:
 		score += (40.0 - energy_after) * 0.8
-		why.append("tired legs")
+		why.append("everyone is tired")
+	if up:
+		for m in Party.members(s):
+			if m["pose"] == "kneel" and not t["gone"].has(m["id"]):
+				score += 15.0
+				why.append("%s is exhausted" % m["name"] if m["id"] != "you" else "you are exhausted")
 	if not t["sick"].is_empty() and up:
 		score += 10.0 * t["sick"].size()
-		why.append("someone is already unwell")
+		why.append("someone is already sick")
 	if hours >= hours_left(session) and not (move == "down" or move == "retreat"):
-		why.append("past the end of the permit")
+		why.append("you'd run out of days")
 		score += 30.0
 	var band := "low" if score < 25.0 else ("medium" if score < 50.0 else "high")
 	if move == "down" or move == "retreat":
 		band = "low"
-		why = ["going down: the sick get better"]
+		why = ["going down helps sick people get better"]
 	return {"hours": hours, "costs": costs, "risk": band, "why": why}
 
 
@@ -503,20 +509,91 @@ static func treat(session: Dictionary, id: String) -> Dictionary:
 ## dose fewer for the climbs.
 static func can_medicate(session: Dictionary, id: String) -> bool:
 	var t := ensure(session)
-	return int(t.get("medicine", 0)) > 0 and t["sick"].has(id)
+	if not t["sick"].has(id):
+		return false
+	var sick: Dictionary = t["sick"][id]
+	match String(sick["kind"]):
+		"cold":
+			return int(session["state"]["supplies"]) >= 3
+		"ams":
+			# One painkiller per camp is enough; more does not help.
+			return int(t.get("medicine", 0)) > 0 and sick.get("eased") != session["state"]["checkpoint"]
+	return int(t.get("medicine", 0)) > 0
 
 
+## What the kit offers for this person's illness, in plain words.
+static func medicine_label(session: Dictionary, id: String) -> String:
+	match String(sickness(session, id).get("kind", "")):
+		"ams":
+			return "Painkiller (like Tylenol)"
+		"stomach":
+			return "Stomach pills"
+		"cold":
+			return "Hot drink, dry gloves"
+	return "Medicine"
+
+
+## Treats someone with what fits their illness. A painkiller eases altitude
+## sickness's headache (and keeps its dizziness off the next climb) but does
+## not cure it: only rest or going down does. Stomach pills settle a
+## stomach. The cold needs warmth, not pills. Game fiction, not advice.
 static func medicate(session: Dictionary, id: String) -> Dictionary:
 	var t := ensure(session)
-	t["medicine"] = int(t["medicine"]) - 1
 	var sick: Dictionary = t["sick"][id]
+	var who: String = "you" if id == "you" else NAMES[id]
+	var mark := "trek-med-%s-%s" % [id, session["state"]["checkpoint"]]
+	match String(sick["kind"]):
+		"ams":
+			t["medicine"] = int(t["medicine"]) - 1
+			sick["eased"] = session["state"]["checkpoint"]
+			var whose: String = "your" if id == "you" else NAMES[id] + "'s"
+			var left := int(t["medicine"])
+			return {"note": "A painkiller (like Tylenol) for %s headache. It eases the pain, but it does not fix altitude sickness: only rest or going lower does. %d dose%s left." % [whose, left, "" if left == 1 else "s"],
+				"move": "hold", "hours": 1, "teamCondition": 1, "energy": 2,
+				"scores": {"judgment": {"label": "You eased %s's headache" % who, "delta": 1, "mark": mark}}}
+		"cold":
+			sick["stage"] -= 1
+			if sick["stage"] <= 0:
+				t["sick"].erase(id)
+			return {"note": "A hot drink and dry gloves for %s. Warmth helps." % who,
+				"move": "hold", "hours": 1, "supplies": -3, "teamCondition": 1,
+				"scores": {"teamwork": {"label": "You warmed %s up" % who, "delta": 2, "mark": mark}}}
+	t["medicine"] = int(t["medicine"]) - 1
 	sick["stage"] -= 1
 	if sick["stage"] <= 0:
 		t["sick"].erase(id)
-	var who: String = "you" if id == "you" else NAMES[id]
-	return {"note": "A dose from the kit for %s. %d left." % [who, int(t["medicine"])],
+	return {"note": "Stomach pills from the kit for %s. %d dose%s left." % [who, int(t["medicine"]), "" if int(t["medicine"]) == 1 else "s"],
 		"move": "hold", "hours": 1, "teamCondition": 1,
-		"scores": {"judgment": {"label": "You used the medicine on %s" % who, "delta": 2, "mark": "trek-med-%s-%s" % [id, session["state"]["checkpoint"]]}}}
+		"scores": {"judgment": {"label": "You used the medicine on %s" % who, "delta": 2, "mark": mark}}}
+
+
+## Someone's illness in plain words: what it is, why they have it, and what
+## helps. Empty when they are well.
+static func explain_sickness(session: Dictionary, id: String) -> Dictionary:
+	var sick := sickness(session, id)
+	if sick.is_empty():
+		return {}
+	var name: String = "You" if id == "you" else NAMES[id]
+	var their: String = "your" if id == "you" else "their"
+	var stage: int = sick["stage"]
+	var how: String = ["mild", "getting worse", "serious"][clampi(stage - 1, 0, 2)]
+	match String(sick["kind"]):
+		"ams":
+			var why: String = {
+				"fast": "The team went up faster than %s body could get used to the thin air." % their,
+				"tired": "Worn out bodies handle thin air badly.",
+			}.get(String(sick.get("cause", "")), "Up high, anyone can get it, even when you do it right.")
+			return {"what": "Altitude sickness (%s): %s." % [how, describe("ams", stage)], "why": why,
+				"helps": "Rest a day, or go lower. A painkiller (like Tylenol) eases the headache but doesn't fix it." + (" At its worst it is an emergency: go down." if stage >= 2 else "")}
+		"stomach":
+			var why: String = "The drinking water wasn't boiled at the last camp." if sick.get("cause") == "water" else "The food went bad: the supplies are running low and old."
+			return {"what": "A sick stomach (%s): %s." % [how, describe("stomach", stage)], "why": why,
+				"helps": "Stomach pills from the kit, and rest. Boil the water at every camp to stop it happening."}
+		"cold":
+			return {"what": "Too cold (%s): %s." % [how, describe("cold", stage)],
+				"why": "A freezing night up high, with little food or energy to stay warm.",
+				"helps": "A hot drink and dry gloves, food, and rest."}
+	return {"what": "%s %s unwell." % [name, "are" if id == "you" else "is"], "why": "", "helps": ""}
 
 
 ## A dose taken before a climb, to keep the symptoms off while you climb.

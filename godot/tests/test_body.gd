@@ -157,9 +157,9 @@ func test_the_camp_reaches_into_the_climb() -> void:
 	check("slept badly" in brief and "hungry" in brief and "dizzy" in brief, "the brief says why: " + brief)
 	var med := false
 	for b in level.panel._buttons.get_children():
-		if "medicine" in (b as Button).text.to_lower() and not (b as Button).is_queued_for_deletion():
+		if "painkiller" in (b as Button).text.to_lower() and "tylenol" in (b as Button).text.to_lower() and not (b as Button).is_queued_for_deletion():
 			med = true
-	check(med, "medicine is offered")
+	check(med, "a painkiller (like Tylenol) is offered for altitude sickness")
 	await _start()
 	var dizzy := false
 	for i in int((Condition.spell_period(2, false) + 1.0) * 60.0):
@@ -191,7 +191,7 @@ func test_poor_party_health_is_a_smaller_bar() -> void:
 	await _done()
 	await _load("lava-tower", func() -> void: Expedition.state()["health"] = 30)
 	check(c.stamina.max_value < fresh * 0.9, "health 30 at camp: a smaller bar (%.0f vs %.0f)" % [c.stamina.max_value, fresh])
-	check("Party health 30" in level.panel._body.text, "and the brief says so")
+	check("health is low (30)" in level.panel._body.text, "and the brief says so")
 	await _done()
 
 
@@ -244,11 +244,24 @@ func test_sleep_and_medicine_at_camp() -> void:
 	Expedition.session["pending"] = null
 	var t := Expedition.trek()
 	eq(t["medicine"], 3, "the long way carries three doses")
-	t["sick"]["marco"] = {"kind": "ams", "stage": 2}
-	check(Trek.can_medicate(Expedition.session, "marco"), "a dose for Marco")
+	t["sick"]["marco"] = {"kind": "ams", "stage": 2, "cause": "fast"}
+	t["sick"]["jun"] = {"kind": "stomach", "stage": 1, "cause": "water"}
+	# What each one has, why, and what helps, in plain words.
+	var why := Trek.explain_sickness(Expedition.session, "marco")
+	check("faster than" in why["why"] and "Tylenol" in why["helps"], "Marco's altitude sickness explained: %s" % [why])
+	check("boiled" in Trek.explain_sickness(Expedition.session, "jun")["why"], "Jun's stomach explained")
+	# The kit offers what fits: a painkiller for altitude sickness...
+	eq(Trek.medicine_label(Expedition.session, "marco"), "Painkiller (like Tylenol)", "a painkiller for the headache")
 	Expedition.medicate("marco")
-	eq(Expedition.trek()["sick"]["marco"]["stage"], 1, "it helps")
-	eq(Expedition.trek()["medicine"], 2, "one fewer")
+	eq(Expedition.trek()["sick"]["marco"]["stage"], 2, "it eases the headache but does not cure altitude sickness")
+	check("does not fix altitude sickness" in String(Expedition.state()["lastNote"]), "and the camp says so")
+	check(not Trek.can_medicate(Expedition.session, "marco"), "one painkiller per camp")
+	eq(Expedition.trek()["medicine"], 2, "one dose fewer")
+	# ...and stomach pills settle a stomach.
+	eq(Trek.medicine_label(Expedition.session, "jun"), "Stomach pills", "stomach pills for Jun")
+	Expedition.medicate("jun")
+	check(not Expedition.trek()["sick"].has("jun"), "Jun is better")
+	eq(Expedition.trek()["medicine"], 1, "another dose")
 	# A night: energy back is a good sleep; none back is a bad one.
 	var before: Dictionary = Expedition.state().duplicate(true)
 	var s: Dictionary = Expedition.state()

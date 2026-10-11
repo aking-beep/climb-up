@@ -47,10 +47,15 @@ func _ready() -> void:
 	add_child(_stick)
 	var r := Vector2(vp.x - 16, vp.y - 14)
 	_button("jump", "JUMP", r + Vector2(-50, -52), 50.0)
-	_act = _button("interact", "CLIMB", r + Vector2(-46, -104), 42.0)
+	if level and level.get("touch_layout") == "crag":
+		# The crag is all tapping: one big button for CLIP and GRIP, by the
+		# thumb, and nothing to brace or sit for.
+		_act = _button("interact", "CLIMB", r + Vector2(-122, -60), 58.0)
+	else:
+		_act = _button("interact", "CLIMB", r + Vector2(-46, -104), 42.0)
+		_button("brace", "BRACE", r + Vector2(-100, -42), 40.0)
+		_button("rest", "REST", r + Vector2(-96, -92), 34.0)
 	_act_label = _act.get_child(0)
-	_button("brace", "BRACE", r + Vector2(-100, -42), 40.0)
-	_button("rest", "REST", r + Vector2(-96, -92), 34.0)
 	_button("pause", "II", Vector2(vp.x - 34, 6), 26.0)
 	# Rotating or resizing rebuilds the overlay against the new edges.
 	get_viewport().size_changed.connect(func() -> void: TouchControls.attach.call_deferred(level), CONNECT_ONE_SHOT)

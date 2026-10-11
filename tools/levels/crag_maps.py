@@ -93,11 +93,11 @@ def sundown():
 
 
 def the_pinch():
-    """Grade 6a. A jug to rest on, then six rows of crimps: don't stop."""
+    """Grade 6a. A jug to rest on, then seven rows of crimps: don't stop."""
     r = Route(30)
     r.line(15, LEDGE, r.foot)
     r.line(15, 15, 16, "J")
-    r.line(15, 9, 14, "k")
+    r.line(15, 8, 14, "k")
     r.exit(15)
     for y in (r.foot - 4, 17, 11, 7):
         r.bolt(18, y)
@@ -111,7 +111,7 @@ def leap_of_faith():
     r.line(15, 14, 15, "J")
     # 12-13: blank. The upper line starts at 11.
     r.line(15, LEDGE, 11)
-    r.line(15, 9, 10, "k")
+    r.line(15, 8, 10, "k")
     r.exit(15)
     for y in (r.foot - 4, 16, 8):
         r.bolt(18, y)
@@ -127,6 +127,8 @@ def lions_roof():
     r.fill(12, 23, 20, 21, "C")
     r.fill(12, 13, 20, 21, "J")
     r.fill(16, 19, 20, 21, "k")
+    # The roof: rock right over your head along the traverse.
+    r.fill(14, 20, 18, 18, "#")
     r.line(21, 18, 19, "J")
     # 16-17: blank. Dyno.
     r.line(21, LEDGE, 15)
@@ -134,9 +136,37 @@ def lions_roof():
     r.exit(21)
     r.bolt(15, r.foot - 4)
     r.bolt(15, 24)
-    r.bolt(19, 18)
+    r.bolt(24, 20)
     r.bolt(24, 17)
     r.bolt(24, 10)
+    return r
+
+
+def thunderhead():
+    """Grade 7a. Crimps, a jug, a dyno, crimps, a jug under the roof, the
+    roof on crimps, a jug, a second dyno, crimps to the top."""
+    r = Route(40)
+    r.line(13, 27, r.foot)
+    r.line(13, 30, 33, "k")
+    r.line(13, 25, 26, "J")
+    # 23-24: blank. Dyno one.
+    r.line(13, 19, 22)
+    r.line(13, 21, 22, "k")
+    r.line(13, 19, 20, "J")
+    r.fill(13, 24, 17, 18, "C")
+    r.fill(17, 20, 17, 18, "k")
+    r.fill(16, 21, 15, 15, "#")
+    r.line(22, 15, 16, "J")
+    r.line(22, 13, 14)
+    # 11-12: blank. Dyno two.
+    r.line(22, LEDGE, 10)
+    r.line(22, 6, 9, "k")
+    r.exit(22)
+    r.bolt(16, 33)
+    r.bolt(16, 28)
+    r.bolt(16, 21)
+    r.bolt(25, 16)
+    r.bolt(25, 8)
     return r
 
 
@@ -146,6 +176,7 @@ ROUTES = {
     "the-pinch": the_pinch,
     "leap-of-faith": leap_of_faith,
     "lions-roof": lions_roof,
+    "thunderhead": thunderhead,
 }
 
 

@@ -54,6 +54,9 @@ func lead(seconds: float = 120.0) -> bool:
 		if level._ended:
 			break
 		var held := {"_": false}
+		if c.state == Climber.State.SLIP:
+			target = NAN
+			resting = false
 		if c.state == Climber.State.GROUND and not c.can_grab():
 			held["move_right"] = true
 		elif c.state == Climber.State.GROUND:
@@ -86,6 +89,9 @@ func lead(seconds: float = 120.0) -> bool:
 		if held.has("jump") and _hopped:
 			held.erase("jump")
 		_hopped = held.has("jump")
+		# Tap tap tap: clip each bolt, hold on to tiny holds, stick dynos.
+		if level.action_word in ["CLIP", "GRIP"] and i % 4 < 2:
+			held["interact"] = true
 		GameInput.scripted = held
 		if OS.get_environment("CRAG_DEBUG") != "" and i % 30 == 0:
 			print("CRAGDBG ", where(), " held=", held.keys(), " target=", target, " resting=", resting)
@@ -120,8 +126,8 @@ func test_the_title_opens_two_separate_games() -> void:
 			routes += 1
 			if b.disabled:
 				locked += 1
-	eq(routes, 5, "five routes")
-	eq(locked, 4, "only the first is open at the start")
+	eq(routes, 6, "six routes")
+	eq(locked, 5, "only the first is open at the start")
 	menu.queue_free()
 	await physics_frames(1)
 
@@ -135,8 +141,8 @@ func test_every_route_is_led_to_the_anchor() -> void:
 		var sent := await lead()
 		check(sent, "%s (%s) sent; stopped at %s, %s" % [r["name"], r["grade"], where(), level.stats_line(int(c.stamina.fraction() * 100))])
 		eq(level.checkpoint, level.clips.size(), "%s: every bolt clipped" % r["name"])
-		if r["id"] in ["leap-of-faith", "lions-roof"]:
-			check(c.dynos >= 1, "%s needs a dyno" % r["name"])
+		if r["id"] in ["leap-of-faith", "lions-roof", "thunderhead"]:
+			check(c.dynos >= (2 if r["id"] == "thunderhead" else 1), "%s needs its dynos (%d)" % [r["name"], c.dynos])
 		print("      %s %s: %s, %d falls, %d s, %d dynos, %d%% stamina left" % [r["grade"], r["name"], level.outcome.get("style", "-"), c.slips, int(c.clock), c.dynos, int(c.stamina.fraction() * 100)])
 		await _done()
 	_fresh_progress()
@@ -179,7 +185,11 @@ func test_a_fall_on_lead_stops_at_the_last_bolt() -> void:
 	var guard := 0
 	while level.checkpoint < 1 and guard < 60 * 20:
 		guard += 1
-		GameInput.scripted = {"climb_up": true} if c.state == Climber.State.CLIMB else ({"climb_up": true} if c.can_grab() else {"move_right": true})
+		var held: Dictionary = {"climb_up": true} if c.state == Climber.State.CLIMB else ({"climb_up": true} if c.can_grab() else {"move_right": true})
+		if level.action_word == "CLIP":
+			# Stop and clip: tap three times.
+			held = {"interact": guard % 4 < 2}
+		GameInput.scripted = held
 		await tree.physics_frame
 	eq(level.checkpoint, 1, "the first bolt clipped")
 	for i in 30:
@@ -208,8 +218,14 @@ func test_a_dyno_crosses_blank_rock() -> void:
 				jug_top = Vector2i(x + 1, y)
 	c.hang_at(Terrain.feet(jug_top + Vector2i(0, 1)))
 	await physics_frames(2)
+	# The bolt beside the jug asks first: clip it.
+	for i in 12:
+		GameInput.scripted = {"interact": i % 4 < 2}
+		await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	await tree.physics_frame
 	check(level.dyno_above(), "blank rock above, holds in reach")
-	check("dyno" in level.hint_now().to_lower(), "and the HUD says so: " + level.hint_now())
+	check("jump" in level.hint_now().to_lower(), "and the HUD says so: " + level.hint_now())
 	var before := c.global_position.y
 	var breath := c.stamina.value
 	GameInput.scripted = {"jump": true}
@@ -217,8 +233,73 @@ func test_a_dyno_crosses_blank_rock() -> void:
 	GameInput.scripted = {"_": false}
 	await drive([], func() -> bool: return c.state == Climber.State.CLIMB, 2.0, "the catch")
 	eq(c.state, Climber.State.CLIMB, "caught the holds above")
+	await tree.physics_frame
+	check(level.catching > 0.0 and level.action_word == "GRIP", "and has to stick it (catching %.2f, button %s, state %d)" % [level.catching, level.action_word, c.state])
+	for i in 12:
+		GameInput.scripted = {"interact": i % 4 < 2}
+		await tree.physics_frame
+	eq(level.catching, 0.0, "three fast taps stick it")
+	await physics_frames(70)
+	eq(c.state, Climber.State.CLIMB, "still on the rock")
 	check(c.global_position.y < before - 2.0 * T, "two tiles higher, across the blank (%.0f px)" % (before - c.global_position.y))
 	check(c.stamina.value <= breath - Climber.DYNO_COST + 0.5, "a hard move's breath")
+	await _done()
+
+
+func test_a_dyno_not_stuck_slips_off() -> void:
+	Crag.navigate = false
+	await _load("leap-of-faith")
+	var t: Terrain = level.terrain
+	var jug_top := Vector2i(-1, -1)
+	for y in t.height:
+		for x in t.width:
+			if t.kind(Vector2i(x, y)) == Terrain.Kind.JUG and jug_top.x < 0:
+				jug_top = Vector2i(x + 1, y)
+	c.hang_at(Terrain.feet(jug_top + Vector2i(0, 1)))
+	await physics_frames(2)
+	GameInput.scripted = {"jump": true}
+	await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	await drive([], func() -> bool: return c.state == Climber.State.CLIMB, 2.0, "the catch")
+	await drive([], func() -> bool: return c.state != Climber.State.CLIMB, 2.0, "no taps")
+	check(c.state != Climber.State.CLIMB, "no taps: the hold slips out of your hands")
+	await _done()
+
+
+func test_tiny_holds_need_taps_and_a_bolt_asks_to_be_clipped() -> void:
+	Crag.navigate = false
+	await _load("the-pinch")
+	var t: Terrain = level.terrain
+	var crimp := Vector2i(-1, -1)
+	for y in range(t.height - 1, 0, -1):
+		for x in t.width:
+			if t.kind(Vector2i(x, y)) == Terrain.Kind.CRIMP and t.kind(Vector2i(x, y - 1)) == Terrain.Kind.CRIMP and crimp.x < 0:
+				crimp = Vector2i(x + 1, y)
+	c.hang_at(Terrain.feet(crimp))
+	c.stamina.value = 100.0
+	await physics_frames(2)
+	check(level.on_crimps and level.action_word == "GRIP", "on tiny holds the button is GRIP")
+	# Tapping keeps you on.
+	for i in 90:
+		GameInput.scripted = {"interact": i % 6 < 3}
+		await tree.physics_frame
+	eq(c.state, Climber.State.CLIMB, "tapping GRIP keeps you on the tiny holds")
+	# Not tapping: the fingers peel off.
+	await drive([], func() -> bool: return c.state != Climber.State.CLIMB, 3.0, "hanging without tapping")
+	check(c.state != Climber.State.CLIMB, "without taps the grip runs out and you peel off")
+	await _done()
+	# A bolt asks; climbing on without tapping leaves it unclipped.
+	await _load("warm-up")
+	var guard := 0
+	while level.clip_target < 0 and guard < 60 * 20:
+		guard += 1
+		GameInput.scripted = {"climb_up": true} if c.state == Climber.State.CLIMB or c.can_grab() else {"move_right": true}
+		await tree.physics_frame
+	check(level.clip_target >= 0 and level.action_word == "CLIP", "a bolt in reach asks: CLIP")
+	for i in 60:
+		GameInput.scripted = {"climb_up": true}
+		await tree.physics_frame
+	eq(level.checkpoint, 0, "climbing on without tapping: not clipped")
 	await _done()
 
 

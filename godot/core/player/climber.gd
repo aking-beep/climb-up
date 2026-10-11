@@ -518,6 +518,15 @@ func _dyno(input: Vector2) -> void:
 	dynoed.emit()
 
 
+## Hands off the rock (the crag: grip gone, or a dyno not stuck).
+func peel_off() -> void:
+	if is_climbing():
+		_dyno_from = INF
+		state = State.AIR
+		fall_from = global_position.y
+		velocity = Vector2.ZERO
+
+
 ## Hanging on the rope at a bolt after a fall (the crag): back on the rock
 ## if there is rock to hold there.
 func hang_at(feet: Vector2) -> void:

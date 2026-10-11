@@ -315,11 +315,11 @@ func brief() -> void:
 	climber.lock(true)
 	var copy: Dictionary = spec["copy"]
 	var d: Dictionary = spec["difficulty"]
-	var facts := "%s\n%d slips end the attempt · the wind is %s" % [
+	var facts := "%s\nFall %d times and you turn back · Wind: %s" % [
 		Condition.explain(condition, float(Expedition.state()["energy"]), stamina.max_value), max_slips, wind.describe()]
 	if d["recovery"] < 0.8:
-		facts += " · the cold slows recovery"
-	facts += " · at %s m even walking costs breath" % ExpeditionEngine.format_meters(float(spec.get("meters", 4000)))
+		facts += " · the cold makes stamina come back slower"
+	facts += " · up here (%s m) even walking tires you" % ExpeditionEngine.format_meters(float(spec.get("meters", 4000)))
 	for line in condition["lines"]:
 		facts += "\n" + line
 	if trek_factor["steep"] > 1.0:
@@ -337,7 +337,8 @@ func brief() -> void:
 		facts += " Lost gear found here: %d of %d." % [hazards.gear_count, hazards.gear_total()]
 	var choices: Array = [["start", "Start the climb"]]
 	if not dosed and Condition.medicine_helps(Expedition.session):
-		choices.append(["medicine", "Take medicine first (%d dose%s left)" % [condition["medicine"], "" if condition["medicine"] == 1 else "s"]])
+		var what: String = {"ams": "Take a painkiller first (like Tylenol)", "stomach": "Take stomach pills first", "cold": "Hand warmers first"}.get(String(condition["sick"]), "Take medicine first")
+		choices.append(["medicine", "%s · %d left in the kit" % [what, condition["medicine"]]])
 	choices.append(["backoff", copy["backOff"]])
 	panel.show_panel(copy["kicker"], copy["title"], "%s\n%s" % [copy["brief"], facts], choices)
 

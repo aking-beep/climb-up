@@ -22,8 +22,8 @@ const RATES := {
 	"rest": -18.0,     # sitting down on ordinary ground
 	"rest_stone": -26.0,
 	"helping": 0.0,
-	"crimp": 14.0,      # moving on small holds (the crag)
-	"crimp_hang": 10.0, # holding still on them: don't
+	"crimp": 16.0,      # moving on small holds (the crag)
+	"crimp_hang": 12.0, # holding still on them: don't
 	"jug": -8.0,        # hanging off a big hold: a shake-out
 }
 const LOOSE_FACTOR := 1.6

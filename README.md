@@ -26,11 +26,11 @@ for how to run it, what is in it and how it is tested.
   stamina is the one bar, and sleep, food, sickness and the party's health
   set its size; thistles, siafu, ravens, stonefall, cracked slabs, ice, wind
   and rolling stones take from it.
-- **Crag:** a separate game on the same climbing: five graded sport routes
-  at one cliff, led from the ground. Clip the bolts, keep moving on
-  crimps, rest on jugs, dyno across blank rock; a fall stops at your last
-  bolt. Onsight, redpoint or sent with falls; each send opens the next
-  route.
+- **Crag:** a separate game on the same climbing: six graded routes up one
+  cliff, easy to hardest, led from the ground. Tap to clip your rope into
+  each bolt, tap to hang on to tiny holds, jump for holds out of reach and
+  tap to stick them; a fall stops at your last clipped bolt. Finish one to
+  open the next.
 
 **The Expo app (the repository root) is the original prototype:** the same
 expedition engine in TypeScript, with the Barranco Wall as its one played

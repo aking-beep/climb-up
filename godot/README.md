@@ -98,10 +98,17 @@ exactly (the parity test still holds); a trek layer on top
 - **Different endings:** summit with all four, summit but not all of you,
   turned back together, a hard walk out, out of days, carried down, or the
   mountain kept the day.
-- **Medicine.** The kit holds 3 doses on the long way, 2 on the steep
-  way, 1 on the direct way. At camp a dose ("Medicine") eases someone's
-  sickness a stage without Jun; before a climb a dose keeps your symptoms
-  off for that climb.
+- **Medicine that fits the illness.** The kit holds 3 doses on the long
+  way, 2 on the faster way, 1 on the fastest. At camp the button names what
+  it gives: a painkiller (like Tylenol) for altitude sickness eases the
+  headache and keeps the dizziness off the next climb, but does not cure
+  it (only rest or going lower does, and the game says so); stomach pills
+  settle a stomach; the cold needs a hot drink and dry gloves (food, not
+  a dose). Before a climb, the brief offers the same.
+- **Why, in plain words.** Each sick person's row says what they have, why
+  (the team went up faster than their body could adjust; the water wasn't
+  boiled; the food went bad; a freezing night), and what helps. Someone
+  who is exhausted says so, and why they shouldn't go higher today.
 - **Sleep and food.** A long stop that gives no energy back is a bad night;
   one that does is a good night. On very thin stores (supplies under 20)
   the food can go bad and turn someone's stomach.
@@ -227,8 +234,9 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
 
 ## The crag
 
-`modes/crag/`: Lion Rock, five routes, easiest first; each opens when the
-one before it is sent.
+`modes/crag/`: Lion Rock, six routes, easiest first; each opens when the
+one before it is finished. The words on screen are for non-climbers (tiny
+holds, big holds, a jump for a far hold), with the climbing name after.
 
 | Grade | Route | Crux |
 | --- | --- | --- |
@@ -236,13 +244,25 @@ one before it is sent.
 | 5b | Sundown Traverse | a long traverse: a jug, then crimps |
 | 6a | The Pinch | six rows of crimps above a jug |
 | 6b | Leap of Faith | a dyno across blank rock |
-| 6c | Lion's Roof | crimps, a crimpy traverse, a dyno, crimps |
+| 6c | Lion's Roof | crimps, a traverse on crimps under a roof, a dyno, crimps |
+| 7a | Thunderhead | two dynos, a roof, long crimps; rest on every jug |
 
-- **Lead climbing.** You start on the ground with a belayer; climb past a
-  bolt and you clip it (the rope runs up through every clipped bolt to
-  you). A fall stops on the rope a little below the last bolt you clipped,
+- **Tap to clip.** At each bolt the game asks "Clip in?": tap CLIP three
+  times (pull up the rope, open the gate, clip). Climb on without it and
+  the bolt stays unclipped: a fall then drops you to the last one you did
+  clip, and the game tells you so. The rope runs up through every clipped
+  bolt to you.
+- **Tap to hold.** On tiny holds (crimps) a grip meter over your head runs
+  down, faster if you stop; tap GRIP to squeeze it back up. Empty, and
+  your fingers peel off.
+- **Stick the jump.** After a dyno you have a second to tap GRIP three
+  times, or the hold slips out of your hands.
+- On a phone the crag has one big tap button (it reads CLIMB, CLIP or
+  GRIP) beside JUMP, and no BRACE or REST.
+- **Lead climbing.** You start on the ground with a belayer. A fall stops on the rope a little below the last bolt you clipped,
   and you are back on the rock there. Fall before the first bolt and you
-  hit the ground. Five falls and you lower off.
+  hit the ground. Five falls on the easy routes, three on the hardest, and
+  you have to come down.
 - **The holds.** Ordinary rock; crimps (chalked edges) that empty the arms
   fast, worst if you stop on them; jugs (big holds) where hanging gives
   the arms back. Stamina is the one bar, as on Kilimanjaro.
@@ -299,7 +319,7 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-67 tests: the engine replaying seven expeditions recorded from the
+69 tests: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume

@@ -5,21 +5,21 @@ extends Screen
 
 func _ready() -> void:
 	super._ready()
-	kicker("The crag · sport routes")
+	kicker("The crag · rock climbing")
 	title("Lion Rock", 16)
-	text("Lead each route from the ground. Clip the bolts as you pass them; a fall drops you onto the last one you clipped. Reach the anchor to send it.", 8, MUTED)
+	text("Climb each wall from the ground to the top. Your rope is clipped into metal bolts as you go: tap CLIP at each one. If you fall, the rope catches you at the last bolt you clipped. Finish a climb to open the next.", 8, MUTED)
 	var first: Button = null
 	for r in Crag.ROUTES:
 		var rec := Crag.record(r["id"])
 		var open: bool = Crag.unlocked(r["id"])
-		var status := "locked: send the route before it"
+		var status := "locked: finish the one before"
 		if open:
 			status = "not tried yet"
 			if int(rec["sends"]) > 0:
-				status = "sent · best: %s" % Crag.STYLES[rec["best"]][0]
+				status = "done · best: %s" % Crag.STYLES[rec["best"]][0]
 			elif int(rec["attempts"]) > 0:
-				status = "%d go%s, not sent yet" % [int(rec["attempts"]), "" if int(rec["attempts"]) == 1 else "es"]
-		var b := button("%s  %s  · %s" % [r["grade"], r["name"], status], Crag.climb.bind(r["id"]), open and int(rec["sends"]) == 0)
+				status = "%d tr%s, not finished" % [int(rec["attempts"]), "y" if int(rec["attempts"]) == 1 else "ies"]
+		var b := button("%s  %s (%s) · %s" % [r["grade"], r["name"], r["level"], status], Crag.climb.bind(r["id"]), open and int(rec["sends"]) == 0)
 		b.disabled = not open
 		if open and first == null and int(rec["sends"]) == 0:
 			first = b

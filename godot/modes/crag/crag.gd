@@ -13,29 +13,33 @@ const LEVEL := "res://modes/crag/crag_level.tscn"
 const SAVE := "user://climb_up_crag.json"
 const MAX_FALLS := 5
 
-## Easiest first. Each one unlocks the next when sent.
+## Easiest first. Each one unlocks the next when sent. `level` is the grade
+## in words; `falls` how many falls before you have to come down.
 const ROUTES := [
-	{"id": "warm-up", "name": "Warm-up Slab", "grade": "4",
-		"text": "Straight up good rock. A big jug halfway to shake your arms out. Clip the bolts as you pass them.",
-		"crux": "Learning to clip and to rest on a jug."},
-	{"id": "sundown", "name": "Sundown Traverse", "grade": "5b",
-		"text": "Up, then a long move right along a seam, with a few small holds in the middle, then up to the top.",
-		"crux": "The crimps on the traverse: move through them, don't hang there."},
-	{"id": "the-pinch", "name": "The Pinch", "grade": "6a",
-		"text": "A jug to rest on, then six rows of crimps to the top. Rest on the jug until your arms are full.",
-		"crux": "Six rows of crimps. Stopping on them empties the arms."},
-	{"id": "leap-of-faith", "name": "Leap of Faith", "grade": "6b",
-		"text": "Blank rock above a jug. The holds above are out of reach: jump for them (a dyno). JUMP on the rock, aim with the stick.",
-		"crux": "A dyno across blank rock, from the jug."},
-	{"id": "lions-roof", "name": "Lion's Roof", "grade": "6c",
-		"text": "Everything at once: crimps off the ground, a traverse on crimps, a jug, a dyno, and crimps to the anchor.",
-		"crux": "Pacing your arms through three cruxes."},
+	{"id": "warm-up", "name": "Warm-up Wall", "grade": "4", "level": "easy", "falls": 5,
+		"text": "Climb straight up good rock. Halfway up is a big hold (a jug): stop there to get your stamina back. When you reach a bolt, tap CLIP to clip your rope in.",
+		"crux": "Learning to clip in and to rest."},
+	{"id": "sundown", "name": "Sundown Traverse", "grade": "5b", "level": "moderate", "falls": 5,
+		"text": "Up, then a long move sideways to the right. Rest on the big hold, then cross the tiny holds (crimps): tap GRIP to hang on, and keep moving.",
+		"crux": "Tiny holds on the sideways part."},
+	{"id": "the-pinch", "name": "The Pinch", "grade": "6a", "level": "hard", "falls": 4,
+		"text": "A big hold to rest on, then seven rows of tiny holds to the top. Fill your stamina on the big hold first, then tap GRIP and climb fast.",
+		"crux": "Seven rows of tiny holds. Stopping on them drains you."},
+	{"id": "leap-of-faith", "name": "Leap of Faith", "grade": "6b", "level": "harder", "falls": 4,
+		"text": "Above the big hold the rock is blank: no holds within reach. Press JUMP on the rock to leap for the holds above (a dyno), then tap GRIP 3 times fast to stick it.",
+		"crux": "A leap across blank rock, then tiny holds."},
+	{"id": "lions-roof", "name": "Lion's Roof", "grade": "6c", "level": "very hard", "falls": 3,
+		"text": "Tiny holds off the ground, then sideways under a roof of rock on tiny holds, a big hold, a leap, and tiny holds to the top.",
+		"crux": "The roof: tiny holds with rock right over your head."},
+	{"id": "thunderhead", "name": "Thunderhead", "grade": "7a", "level": "hardest", "falls": 3,
+		"text": "The big one. Two leaps across blank rock, a roof, and long stretches of tiny holds. Rest on every big hold you find.",
+		"crux": "Two leaps and long tiny holds: plan your rests."},
 ]
 
 const STYLES := {
-	"onsight": ["Onsight", "First go, no falls. The best way to climb a route."],
-	"redpoint": ["Redpoint", "No falls, after working it out on earlier goes."],
-	"falls": ["Sent, with falls", "To the top, with rests on the rope. Try it clean next."],
+	"onsight": ["Onsight", "You climbed it on your first try without falling. The best way to do a route."],
+	"redpoint": ["Redpoint", "You climbed it without falling, after trying it before."],
+	"falls": ["Sent, with falls", "You made it to the top, but fell on the way. Try it again without falling."],
 }
 const STYLE_RANK := {"": 0, "falls": 1, "redpoint": 2, "onsight": 3}
 

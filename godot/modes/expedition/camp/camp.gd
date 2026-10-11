@@ -12,7 +12,7 @@ const MUTED := Color(0.42, 0.39, 0.35)
 const SPRUCE := Color("#1f3d34")
 const EMBER := Color("#a8432a")
 const STATS := [
-	["health", "Health", false], ["energy", "Energy", false], ["acclimatization", "Acclim.", false],
+	["health", "Health", false], ["energy", "Energy", false], ["acclimatization", "Used to height", false],
 	["teamCondition", "Team", false], ["supplies", "Supplies", false], ["weatherRisk", "Weather risk", true],
 ]
 const CLIMB_NAMES := {"lava-tower": "the Lava Tower", "barranco-wall": "the Barranco Wall", "summit-night": "the summit night"}
@@ -147,6 +147,8 @@ func _card(s: Dictionary) -> void:
 		return
 	var card := Expedition.card()
 	_permit(s, card)
+	if card.get("id") != "trek-route" and not String(card.get("id", "")).begins_with("trek-emergency"):
+		_text_label("You lead four people up Kilimanjaro. Each card is one decision: tap a choice. Getting everyone home safe matters more than reaching the top.", 8, MUTED)
 	paper.add_child(_label(card["title"], 13, EMBER if String(card["id"]).begins_with("trek-emergency") else INK, UiFont.display()))
 	_text_label(card["text"], 9, INK)
 	var playable := Expedition.playable()
@@ -190,10 +192,10 @@ func _cost(choice: Dictionary) -> String:
 		return ""
 	var bits: Array = []
 	if f["hours"] > 0:
-		bits.append("%d h" % int(f["hours"]))
+		bits.append("Takes %d h" % int(f["hours"]))
 	if not f["costs"].is_empty():
 		bits.append(", ".join(f["costs"]))
-	var risk := "risk %s" % f["risk"]
+	var risk := "Risk: %s" % String(f["risk"]).to_upper()
 	if not f["why"].is_empty():
 		risk += " (%s)" % ", ".join(f["why"])
 	bits.append(risk)
@@ -283,7 +285,7 @@ func _party(s: Dictionary) -> void:
 	# What the next climb will feel like: camp choices carry onto the rock.
 	var t := Expedition.trek()
 	var night: String = {"well": "Last night: slept well.", "badly": "Last night: slept badly."}.get(String(t.get("sleep", "")), "")
-	_text_label(("%s Medicine kit: %d dose%s." % [night, int(t.get("medicine", 0)), "" if int(t.get("medicine", 0)) == 1 else "s"]).strip_edges(), 8, MUTED)
+	_text_label(("%s Medicine kit: %d dose%s (painkillers and stomach pills)." % [night, int(t.get("medicine", 0)), "" if int(t.get("medicine", 0)) == 1 else "s"]).strip_edges(), 8, MUTED)
 	var body: Array = Condition.of(session)["lines"]
 	if not body.is_empty():
 		_text_label("On the next climb: " + " ".join(body), 8, Color("#8a6a1e"))
@@ -295,9 +297,14 @@ func _party(s: Dictionary) -> void:
 		if Trek.is_gone(session, m["id"]):
 			continue
 		var sick := Trek.sickness(session, m["id"])
+		var explain := Trek.explain_sickness(session, m["id"])
 		if not sick.is_empty():
-			m["line"] = "Unwell: %s." % Trek.describe(sick["kind"], sick["stage"])
+			m["line"] = explain["what"]
 			m["pose"] = "kneel" if sick["stage"] >= 2 else "lag"
+		elif m["pose"] == "kneel":
+			m["line"] = "Exhausted: too tired to walk on (energy %d). Sit with them, or rest a day before going higher." % int(m["energy"])
+		elif m["pose"] == "lag":
+			m["line"] = "Slowing down: getting tired (energy %d)." % int(m["energy"])
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 4)
 		var who := _label("%s · %s" % [m["name"], m["role"]], 8, INK, UiFont.display())
@@ -312,10 +319,12 @@ func _party(s: Dictionary) -> void:
 		if Trek.can_treat(session, m["id"]):
 			row.add_child(_small_button("Jun treats", Expedition.treat.bind(m["id"])))
 		if Trek.can_medicate(session, m["id"]):
-			row.add_child(_small_button("Medicine", Expedition.medicate.bind(m["id"])))
+			row.add_child(_small_button(Trek.medicine_label(session, m["id"]), Expedition.medicate.bind(m["id"])))
 		if not sick.is_empty() and m["id"] != "you":
 			row.add_child(_small_button("Send down", Expedition.send_down.bind(m["id"])))
 		paper.add_child(row)
+		if not explain.is_empty():
+			_text_label("Why: %s  What helps: %s" % [explain["why"], explain["helps"]], 7, MUTED)
 
 
 # --- The end -------------------------------------------------------------------

@@ -12,6 +12,16 @@ extends Node2D
 signal finished(result: Dictionary)
 
 const LEAD_FALL := 2.0 * Terrain.TILE
+## Clipping a bolt takes three taps (pull up rope, open the gate, clip).
+const CLIP_TAPS := 3
+## On tiny holds a grip meter runs down; each tap squeezes it back up. At
+## empty your fingers peel off.
+const GRIP_DRAIN := 0.55
+const GRIP_DRAIN_HANGING := 0.95
+const GRIP_TAP := 0.25
+## After a jump (dyno) you have this long to stick the hold: tap fast.
+const CATCH_TIME := 1.0
+const CATCH_TAPS := 3
 const CLIP_REACH := Vector2(4.2, 1.4) * Terrain.TILE
 
 var route: Dictionary = {}
@@ -33,6 +43,8 @@ var cairns: Array[Vector2] = []
 var mate_state := "none"
 var mate_breath := 0.0
 var mate_cooldown := false
+## The touch overlay's layout: one big tap button, no BRACE or REST.
+var touch_layout := "crag"
 var prompt := ""
 var action_word := ""
 var briefed := false
@@ -40,6 +52,17 @@ var result := ""
 var outcome: Dictionary = {}
 ## Pacing, as on the expedition: each moment the player acted.
 var pace_log: Array = []
+## The taps: the bolt in reach and taps on it so far, the grip meter on tiny
+## holds, and a dyno being stuck.
+var clip_target := -1
+var clip_taps := 0
+var grip := 1.0
+var on_crimps := false
+var catching := 0.0
+var catch_taps := 0
+var _dyno_air := false
+var _tap := false
+var meter: Node2D
 var _ended := false
 var _start: Vector2
 var _top_y := 0.0
@@ -113,7 +136,14 @@ func _ready() -> void:
 	climber.mantled.connect(func() -> void: engage("mantle"))
 	climber.dynoed.connect(func() -> void:
 		engage("dyno")
+		_dyno_air = true
 		camera.kick(0.2))
+	climber.grabbed.connect(_on_grabbed)
+	max_slips = int(route.get("falls", Crag.MAX_FALLS))
+	meter = TapMeter.new()
+	meter.level = self
+	meter.z_index = 8
+	add_child(meter)
 
 	camera = ExpeditionCamera.new()
 	camera.target = climber
@@ -210,14 +240,14 @@ func _hang_point(cell: Vector2i) -> Vector2:
 func brief() -> void:
 	climber.lock(true)
 	var r := Crag.record(route["id"])
-	var history := "Not tried yet: a clean first go is an onsight."
+	var history := "Not tried yet. Climb it first try with no falls for an onsight, the best result."
 	if int(r["sends"]) > 0:
 		history = "Sent %d time%s · best: %s." % [int(r["sends"]), "" if int(r["sends"]) == 1 else "s", Crag.STYLES[r["best"]][0]]
 	elif int(r["attempts"]) > 1:
-		history = "%d goes so far, not sent yet. A clean send now is a redpoint." % (int(r["attempts"]) - 1)
-	panel.show_panel("The crag · grade %s" % route["grade"], route["name"],
-		"%s\nCrux: %s\n%d bolts · %d falls and you lower off · %s" % [route["text"], route["crux"], clips.size(), max_slips, history],
-		[["start", "Tie in and climb"], ["menu", "Back to the routes"]])
+		history = "%d tries so far, not finished yet. Finish it with no falls for a redpoint." % (int(r["attempts"]) - 1)
+	panel.show_panel("The crag · grade %s (%s)" % [route["grade"], route["level"]], route["name"],
+		"%s\nHardest part: %s\n%d bolts to clip · fall %d times and you have to come down · %s" % [route["text"], route["crux"], clips.size(), max_slips, history],
+		[["start", "Tie in and climb"], ["menu", "Back to the climbs"]])
 
 
 # --- The climb --------------------------------------------------------------------
@@ -225,6 +255,10 @@ func brief() -> void:
 func _physics_process(_delta: float) -> void:
 	if _ended or climber == null:
 		return
+	_tap = GameInput.pressed_now("interact") and not panel.open
+	var dt := get_physics_process_delta_time()
+	_catch(dt)
+	_grip(dt)
 	_clip()
 	# On lead, a fall stops on the rope a little below the last bolt.
 	if climber.state == Climber.State.AIR and checkpoint > 0 and climber.global_position.y - climber.fall_from > LEAD_FALL:
@@ -235,27 +269,112 @@ func _physics_process(_delta: float) -> void:
 	_draw_rope()
 	prompt = ""
 	action_word = "CLIMB" if climber.can_grab() else ""
+	if catching > 0.0:
+		action_word = "GRIP"
+		prompt = "Stick it! (%d/%d)" % [catch_taps, CATCH_TAPS]
+	elif clip_target >= 0:
+		action_word = "CLIP"
+		prompt = "Clip in? (%d/%d)" % [clip_taps, CLIP_TAPS]
+	elif on_crimps:
+		action_word = "GRIP"
+		prompt = "Grip! (%d%%)" % int(grip * 100.0)
 	if GameInput.pressed_now("pause") and not panel.open:
 		pause_menu()
 	hud.update_from(self)
 
 
+## A bolt in reach asks to be clipped: three taps. Climb on without it and
+## it stays unclipped (a fall then drops you to the last one you did clip).
 func _clip() -> void:
-	if not climber.is_climbing():
+	var target := -1
+	if climber.state == Climber.State.CLIMB:
+		var chest := climber.global_position - Vector2(0, Climber.SIZE.y * 0.5)
+		for i in clips.size():
+			var c: Dictionary = clips[i]
+			var at := Vector2(c["cell"]) * Terrain.TILE + Vector2.ONE * Terrain.TILE / 2.0
+			if c["clipped"]:
+				continue
+			if absf(at.x - chest.x) < CLIP_REACH.x and absf(at.y - chest.y) < CLIP_REACH.y:
+				target = i
+			elif chest.y < at.y - 2.5 * Terrain.TILE and not c.get("passed", false):
+				c["passed"] = true
+				hud.flash("You climbed past bolt %d without clipping in. A fall now will be a long one." % (i + 1), 2.4)
+	if target != clip_target:
+		clip_target = target
+		clip_taps = 0
+	if clip_target < 0 or not _tap:
 		return
-	var chest := climber.global_position - Vector2(0, Climber.SIZE.y * 0.5)
-	for i in clips.size():
-		var c: Dictionary = clips[i]
-		if c["clipped"]:
-			continue
-		var at := Vector2(c["cell"]) * Terrain.TILE + Vector2.ONE * Terrain.TILE / 2.0
-		if absf(at.x - chest.x) < CLIP_REACH.x and absf(at.y - chest.y) < CLIP_REACH.y:
-			c["clipped"] = true
-			c["node"].texture.region = Rect2(8, 0, 8, 14)
-			checkpoint = maxi(checkpoint, i + 1)
-			engage("clip")
-			Audio.play("cairn", -8.0)
-			hud.flash("Clipped bolt %d of %d." % [i + 1, clips.size()], 1.4)
+	clip_taps += 1
+	Audio.play("grip", -12.0, 0.2)
+	if clip_taps < CLIP_TAPS:
+		return
+	var c: Dictionary = clips[clip_target]
+	c["clipped"] = true
+	c["node"].texture.region = Rect2(8, 0, 8, 14)
+	checkpoint = maxi(checkpoint, clip_target + 1)
+	engage("clip")
+	Audio.play("cairn", -8.0)
+	hud.flash("Clipped in: bolt %d of %d. If you fall now, the rope catches you here." % [clip_target + 1, clips.size()], 1.8)
+	clip_target = -1
+	clip_taps = 0
+
+
+## Tiny holds: a grip meter that runs down while you are on them (faster if
+## you stop); taps squeeze it back. At empty the fingers peel off.
+func _grip(dt: float) -> void:
+	var now := climber.state == Climber.State.CLIMB and terrain.hold_at(climber.body_rect()) == Terrain.Kind.CRIMP
+	if now and not on_crimps:
+		grip = 1.0
+	on_crimps = now
+	if not on_crimps:
+		grip = minf(1.0, grip + dt)
+		return
+	if catching > 0.0:
+		return
+	grip -= (GRIP_DRAIN_HANGING if climber.last_activity == "crimp_hang" else GRIP_DRAIN) * dt
+	if _tap:
+		grip = minf(1.0, grip + GRIP_TAP)
+	if grip <= 0.0:
+		grip = 1.0
+		on_crimps = false
+		climber.peel_off()
+		hud.flash("Your fingers peel off the tiny holds.", 2.0)
+
+
+func _on_grabbed() -> void:
+	engage("grab")
+	if _dyno_air:
+		_dyno_air = false
+		catching = CATCH_TIME
+		catch_taps = 0
+		hud.flash("Stick it! Tap %s 3 times, fast!" % _key("GRIP"), 1.2)
+
+
+## Just caught a hold after a dyno: tap fast to stick it, or slip off.
+func _catch(dt: float) -> void:
+	if climber.state != Climber.State.CLIMB:
+		if climber.state != Climber.State.AIR:
+			_dyno_air = false
+		catching = 0.0
+		return
+	if catching <= 0.0:
+		return
+	if _tap:
+		catch_taps += 1
+		Audio.play("grip", -10.0, 0.2)
+		if catch_taps >= CATCH_TAPS:
+			catching = 0.0
+			engage("catch")
+			hud.flash("Stuck it!", 1.0)
+			return
+	catching -= dt
+	if catching <= 0.0:
+		climber.peel_off()
+		hud.flash("Too slow: the hold slips out of your hands.", 2.0)
+
+
+func _key(button: String) -> String:
+	return button if Settings.touch_enabled() else "E"
 
 
 func _draw_rope() -> void:
@@ -293,21 +412,33 @@ func _on_slip_finished() -> void:
 # --- Words for the HUD ---------------------------------------------------------------
 
 func stats_line(pct: int) -> String:
-	return "Stamina %d%% · Falls %d/%d · Bolts %d/%d" % [pct, climber.slips, max_slips, checkpoint, clips.size()]
+	return "Stamina %d%% · Falls %d/%d · Clipped %d/%d" % [pct, climber.slips, max_slips, _clipped(), clips.size()]
+
+
+func _clipped() -> int:
+	var n := 0
+	for c in clips:
+		if c["clipped"]:
+			n += 1
+	return n
 
 
 ## The crag's own advice, ahead of the HUD's general hints.
 func hint_now() -> String:
 	if climber.state != Climber.State.CLIMB:
 		return ""
+	if catching > 0.0:
+		return "Stick it! Tap %s 3 times, fast (%d/%d)." % [_key("GRIP"), catch_taps, CATCH_TAPS]
+	if clip_target >= 0:
+		return "A bolt. Clip in? Tap %s 3 times (%d/%d)." % [_key("CLIP"), clip_taps, CLIP_TAPS]
+	if on_crimps:
+		return "Tiny holds: tap %s to hang on, and keep climbing. Grip %d%%." % [_key("GRIP"), int(grip * 100.0)]
 	var key := "JUMP" if Settings.touch_enabled() else "SPACE"
 	var hold := terrain.hold_at(climber.body_rect())
 	if dyno_above():
-		return "Blank rock. %s to dyno for the holds above." % key
-	if hold == Terrain.Kind.CRIMP:
-		return "Crimps: keep moving. Hanging here empties your arms."
+		return "No holds above. Press %s to jump for the next hold (a dyno)." % key
 	if hold == Terrain.Kind.JUG and stamina.fraction() < 0.95:
-		return "A jug: hang here and your arms come back."
+		return "A big hold (a jug): stay here to get your stamina back."
 	return ""
 
 
