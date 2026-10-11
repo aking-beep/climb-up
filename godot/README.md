@@ -41,7 +41,14 @@ screen, so pixel art stays sharp with no black bars.
 
 Touch controls appear automatically on phones; the pause menu toggles them,
 and has a "Show FPS" readout for playtests ([the checklist](../docs/playtest-checklist.md)).
-Grabs, slips and gusts buzz the phone (off with reduced motion). Walking
+Grabs, clips, slips and gusts buzz the phone; "Vibration" in either pause
+menu turns that off (on its own, apart from reduced motion; Android needs
+the VIBRATE permission, which the export preset asks for). When the app
+goes to the background, the phone locks, or the browser tab or window loses
+focus, a climb pauses under its pause menu (and the expedition saves where
+the climb is, so a killed app resumes there). The Android back button
+opens the pause menu on a climb and goes back a screen on the menus.
+Screens change with a short fade (instant with reduced motion). Walking
 never carries you off a drop: you stop at the edge, and walking onto a face
 from a ledge grabs it.
 
@@ -241,23 +248,38 @@ it, until you tap "Got it". Then six routes, easiest first; each opens when the
 one before it is finished. The words on screen are for non-climbers (tiny
 holds, big holds, a jump for a far hold), with the climbing name after.
 
-Each route is taller than the one before, with more stretches of tiny
-holds and fewer big holds, further apart. The bolts make the grade: close
-and even on the warm-up, further apart the harder the route (and the
-higher you go on it). On the hard routes a fall costs a lot of height, the
-rope rests (one per clip) are few, and some gaps cross a whole stretch of
-tiny holds before the next clip.
+Three things describe a route, apart from each other, as on a real cliff:
 
-| Grade | Route | Height | Bolts | Gaps between bolts (rows) | Crimp stretches | Big holds | Also |
+- **The grade** is how hard the moves are: each route is taller, with more
+  stretches of tiny holds, fewer big holds, and a grip that fades faster.
+- **The bolting** is how far apart the bolts are: well bolted (gaps up to
+  3.5 m), sporty (up to 6 m) or run-out. It is set per route, not by the
+  grade: the 5b is sporty, the 6a and the 6c roof are well bolted.
+- **The exposure** is how far a fall can go: twice your height above the
+  last bolt plus slack, and whether a fall low down can reach the ground
+  (a high first bolt, or a long way to the second).
+
+The brief and the route list show all three (`Crag.facts()` works the
+bolting and exposure out from the map). Rows are half a metre.
+
+| Grade | Route | Height | Bolts | Gaps (rows) | Bolting | Exposure | Also |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Lesson | First Climb | 20 rows | 3 | 7, 7 | 1 | 1 | everything once, explained |
-| 4 | Warm-up Wall | 27 | 6 | 4, 4, 5, 4, 4 | 2 | 1 | |
-| 5b | Sundown Traverse | 37 | 6 | 5, 5, 6, 7, 8 | 3 | 2 | a long traverse |
-| 6a | The Pinch | 40 | 6 | 4, 6, 7, 8, 9 | 4 | 2 | the longest crimps at the top |
-| 6b | Leap of Faith | 49 | 6 | 5, 6, 9, 10, 13 | 5 | 3 | a dyno |
-| 6c | Lion's Roof | 48 | 5 | 6, 8, 13, 15 | 6 | 3 | a traverse under a roof, a dyno |
-| 7a | Thunderhead | 56 | 5 | 7, 11, 14, 18 | 7 | 3 | two dynos, a roof |
+| Lesson | First Climb | 11 m | 3 | 7, 7 | well bolted | medium | everything once, explained |
+| 4 | Warm-up Wall | 14.5 m | 6 | 4, 4, 5, 4, 4 | well bolted | low | |
+| 5b | Sundown Traverse | 19.5 m | 4 | 6, 10, 12 | sporty | high, ground-fall risk | a long traverse, a high first bolt |
+| 6a | The Pinch | 21 m | 8 | 5, 5, 5, 4, 5, 5, 5 | well bolted | low | the longest crimps at the top |
+| 6b | Leap of Faith | 25.5 m | 6 | 4, 7, 8, 11, 12 | sporty | high | a dyno |
+| 6c | Lion's Roof | 25 m | 8 | 5, 5, 4, 7, 7, 7, 7 | well bolted | medium | a traverse under a roof, a dyno |
+| 7a | Thunderhead | 29 m | 5 | 7, 10, 14, 17 | run-out | high, ground-fall risk | two dynos, a roof |
 
+- **Read the route first.** The brief offers "Look at the route first":
+  the camera runs up the line from the ground with the tiny holds, big
+  holds, blank rock to jump, every bolt and the long run-outs marked.
+  A tap skips it. Looking is free (it does not spoil an onsight), and it
+  is in the pause menu too.
+- **Beta.** "Ask for beta" gives tips worked out from the route (which
+  bolts to clip from a big hold, which sit on tiny holds, where the
+  run-outs and jumps are). Taking it turns a clean first go into a flash.
 - **Pick your shoes.** Before every route (not the lesson) you choose:
   neutral shoes (comfy and flat: you climb at three quarters of the speed,
   and the rock costs 30% less stamina) or aggressive shoes (tight and bent:
@@ -283,23 +305,29 @@ tiny holds before the next clip.
   Once clipped, the big button reads REST whenever nothing else needs a
   tap: tap it to sit back on the rope and get stamina back from the bar
   (20 per bolt). Rest as often as you like; moving ends a rest and the
-  rest of the bar waits. The bolts get further apart the harder the route, so
-  between the far ones you rest on the big holds (jugs) too: chunky
-  holds with chalk on the lip, bigger and brighter than the tiny ones.
-- **Tap to hold.** Tiny holds (crimps) burn stamina. A grip meter over
-  your head runs down (faster the harder the route, and faster if you
-  stop); tap GRIP to squeeze it back up. The tighter the grip, the less
-  the tiny holds cost: at full grip less than half, slack well over the
-  normal rate. On the hardest routes the grip fades fast: keep tapping.
+  rest of the bar waits. Where the bolts are far apart you rest on the big
+  holds (jugs) too.
+- **Grip on tiny holds.** Tiny holds (crimps) burn stamina. A grip meter
+  over your head fades slowly while you keep moving and fast if you stop
+  (both faster the harder the route). Squeeze GRIP when it drops: each
+  squeeze is a puff of chalk and +45% grip, and squeezes closer together
+  than 0.2 s do nothing more, so mashing is no better than a squeeze in
+  time. A grip kept above about half costs little; a slack one burns well
+  over the normal rate. Measured with the test bot squeezing below half:
+  0 to 6 squeezes a route (6 on the 7a), where the old meter needed about
+  four taps a second on every stretch of tiny holds.
 - **Stick the jump.** After a dyno you have a second to tap GRIP three
   times, or the hold slips out of your hands.
 - Pausing, or a lesson, while on the rock keeps you on the rock.
 - On a phone the crag has one big tap button (it reads CLIMB, CLIP or
   GRIP) beside JUMP, and no BRACE or REST.
-- **Lead climbing.** You start on the ground with a belayer. A fall stops on the rope a little below the last bolt you clipped,
-  and you are back on the rock there. Fall before the first bolt and you
-  hit the ground. Five falls on the easy routes, three on the hardest, and
-  you have to come down.
+- **Lead climbing.** You start on the ground with a belayer. A fall is
+  twice as far as you were above the last bolt you clipped, plus slack: a
+  rope whoosh, then you hang on the rock below the bolt and the game says
+  how far you fell. Fall before the first bolt, or far enough above a low
+  one, and you hit the ground: a thump, 25 stamina, and back to the foot
+  of the cliff (bolts you clipped stay clipped). Five falls on the easy
+  routes, three on the hardest, and you have to come down.
 - **The holds.** Ordinary rock; crimps (chalked edges) that empty the arms
   fast, worst if you stop on them; jugs (big holds) where hanging gives
   the arms back. Stamina is the one bar, as on Kilimanjaro.
@@ -307,10 +335,15 @@ tiny holds before the next clip.
   (aim with the stick) and the hands catch the first hold they reach. It
   costs a hard move's stamina. Miss and you drop back to the holds you
   left.
-- **Style.** Reach the anchor and the route is sent: onsight (first go, no
-  falls), redpoint (no falls, after earlier goes), or sent with falls. The
-  best per route is kept (`user://climb_up_crag.json`), and the route list
-  shows it.
+- **Style.** Reach the anchor and the route is done: onsight (first go,
+  no falls, no beta), flash (first go, no falls, with beta), redpoint (no
+  falls, after earlier goes), or "top, with falls" (not a clean ascent).
+  A go counts when you tie in, not when you open the brief. Lowering off
+  keeps your high point (the most bolts clipped), shown in the route list.
+  The best per route is kept (`user://climb_up_crag.json`); a save with
+  wrong types loads as defaults rather than breaking.
+- **Moves.** Climbing goes hold to hold: each reach is a move with its own
+  sound (sharper on tiny holds); the results count them.
 - **Maps** come from `tools/levels/crag_maps.py`, written bottom to top as
   segments (rock, crimps, jug, blank, traverse); holds, quickdraws and
   the anchor from `tools/art/godot_crag.py`.
@@ -357,7 +390,7 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-74 tests: the engine replaying seven expeditions recorded from the
+87 tests: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume
@@ -367,12 +400,22 @@ input actions with every hazard live (the bot reads the same warnings a
 player sees), each hazard on its own (slabs hold a walker and drop someone
 who stops, a stone is announced before it falls, ice slides, water and gear,
 walking costs more breath on the summit), plus the order of difficulty and
-that every find stands on reachable ground. `test_crag` leads all five
+that every find stands on reachable ground. `test_crag` leads all seven
 crag routes to the anchor with a scripted climber (walk to the line,
-traverse where it goes, rest on jugs, keep moving on crimps, dyno, pull
-over) and checks the rules one at a time: crimps drain and jugs give back,
-a lead fall stops at the last bolt, a dyno crosses the blank, styles,
-unlocks and the crag's own save. `test_body` covers the
+traverse where it goes, rest on jugs, keep moving on crimps and squeeze
+only when the grip drops below half, dyno, pull over), prints the taps
+each route took by kind, and checks the rules one at a time: crimps drain
+and jugs give back, a lead fall is twice the height above the bolt and a
+low one reaches the ground, a dyno crosses the blank, grip wants squeezes
+not mashing, grade, bolting and exposure are apart, reading the route and
+beta (a flash), styles, high points, unlocks, a go counts at tie-in, and
+a bad save loads safely. `test_platform` covers the phone: going to the
+background mid-climb pauses (and saves the expedition), the back button,
+vibration as its own setting, a bad settings file. `test_pacing` covers
+the expedition fixes: a regroup does not bring down an hour of stones at
+once, no stone starts on the climber, the brief names the cost of a slip
+at camp and leaves out a teammate who has gone down, the last slip says
+the climb is over. `test_body` covers the
 creatures (a hop clears a thistle, a sting or a bite is stamina gone, a
 raven hits someone standing still and misses someone who moved, a hit with
 no stamina left is a slip, poor party health is a smaller bar) and the camp reaching into the climb (a bad night, hunger and

@@ -388,6 +388,7 @@ func preview() -> void:
 	_skip_preview = false
 	panel.hide_panel()
 	marks.visible = true
+	hud.flash("Reading the route from the ground. Tap to skip.", 3.0)
 	var anchor := Terrain.feet(terrain.markers["X"][0])
 	var bottom := Vector2(_base_x() + 1.5 * Terrain.TILE, _start.y - 70.0)
 	var top := Vector2(anchor.x, anchor.y + 70.0)
@@ -557,9 +558,11 @@ func _clip() -> void:
 	checkpoint = maxi(checkpoint, clip_target + 1)
 	engage("clip")
 	Haptics.tap(15)
-	# The rope snapping in: a click, the quickdraw jumps, a bell.
-	Audio.play("grip", -4.0, 0.1)
-	Audio.play("cairn", -6.0)
+	# The rope snapping in: the gate clicks, chalk off the fingers, the
+	# quickdraw jumps, a bell.
+	Audio.play("clip", -3.0, 0.06)
+	Audio.play("cairn", -8.0)
+	puff(Vector2(c["cell"]) * Terrain.TILE + Vector2(4, 9), Color(1, 1, 1, 0.8), 10)
 	var draw: Node2D = c["node"]
 	var tw := create_tween()
 	tw.tween_property(draw, "scale", Vector2(1.8, 1.8), 0.08)
@@ -664,7 +667,8 @@ func _grip(dt: float) -> void:
 	if _tap and _grip_cool <= 0.001:
 		grip = minf(1.0, grip + GRIP_TAP)
 		_grip_cool = GRIP_COOLDOWN
-		Audio.play("grip", -12.0, 0.1)
+		Audio.play("chalk", -14.0, 0.15)
+		puff(climber.global_position - Vector2(0, Climber.SIZE.y), Color(1, 1, 1, 0.6), 4)
 	grip = maxf(0.0, grip)
 	# A tight grip saves stamina; a slack one burns it.
 	# Eased so a grip kept above about half is nearly as good as a full one.
@@ -696,12 +700,41 @@ func _catch(dt: float) -> void:
 			catching = 0.0
 			engage("catch")
 			Haptics.tap(25)
+			Audio.play("chalk", -6.0)
+			puff(climber.global_position - Vector2(0, Climber.SIZE.y), Color(1, 1, 1, 0.85), 12)
 			hud.flash("Stuck it!", 1.0)
 			return
 	catching -= dt
 	if catching <= 0.0:
 		climber.peel_off()
 		hud.flash("Too slow: the hold slips out of your hands.", 2.0)
+
+
+## A small burst at `at`: chalk off the hands (white), or dust off the
+## ground. Fewer with lower graphics settings.
+func puff(at: Vector2, col: Color, amount: int) -> void:
+	var p := CPUParticles2D.new()
+	p.one_shot = true
+	p.explosiveness = 0.9
+	p.amount = maxi(2, int(amount * Settings.particle_scale()))
+	p.lifetime = 0.7
+	p.direction = Vector2.UP
+	p.spread = 70.0
+	p.initial_velocity_min = 8.0
+	p.initial_velocity_max = 22.0
+	p.gravity = Vector2(0, 14)
+	p.scale_amount_min = 1.0
+	p.scale_amount_max = 2.0
+	p.color = col
+	var fade := Gradient.new()
+	fade.set_color(0, col)
+	fade.set_color(1, Color(col, 0.0))
+	p.color_ramp = fade
+	p.position = at
+	p.z_index = 7
+	add_child(p)
+	p.emitting = true
+	p.finished.connect(p.queue_free)
 
 
 func _key(button: String) -> String:
@@ -720,6 +753,8 @@ func _draw_rope() -> void:
 func _on_slipped(_saved: bool, reason: String) -> void:
 	_fall_top = minf(climber.fall_from, climber.global_position.y)
 	camera.kick(0.6)
+	if checkpoint > 0:
+		Audio.play("whip", -6.0, 0.1)
 	Haptics.tap(50)
 	engage("fall")
 	if checkpoint > 0:
@@ -744,6 +779,9 @@ func _on_slip_finished() -> void:
 			climber.respawn(_start)
 			climber.stamina.value = maxf(1.0, climber.stamina.value - GROUND_HIT)
 			Haptics.tap(90)
+			Audio.play("thud", -2.0)
+			camera.kick(1.0)
+			puff(_start, Color("#a58b6c"), 18)
 			hud.flash("You hit the ground! A %s m fall, and the bolt was too low to stop it. Clip sooner low down." % Crag._m(snappedf(last_fall_m, 0.5)), 3.0)
 		else:
 			climber.hang_at(land)

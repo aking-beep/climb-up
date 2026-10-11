@@ -15,6 +15,10 @@ const SETS := {
 	"chime": ["chime"],
 	"cairn": ["cairn"],
 	"gust": ["gust"],
+	"clip": ["clip"],
+	"chalk": ["chalk"],
+	"whip": ["whip"],
+	"thud": ["thud"],
 }
 
 var _streams: Dictionary = {}

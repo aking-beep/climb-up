@@ -334,4 +334,4 @@ func has_save() -> bool:
 
 func go(path: String) -> void:
 	if navigate and is_inside_tree():
-		get_tree().call_deferred("change_scene_to_file", path)
+		Transition.go(get_tree(), path)

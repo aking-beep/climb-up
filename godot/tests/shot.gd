@@ -61,6 +61,9 @@ func _ready() -> void:
 		get_tree().quit(0)
 		return
 	await get_tree().create_timer(0.5).timeout
+	if "look" in OS.get_cmdline_user_args() and scene is CragLevel:
+		# Reading the route: partway up the preview.
+		scene.panel.choose("look")
 	if spots.is_empty():
 		await get_tree().create_timer(hold).timeout
 		get_viewport().get_texture().get_image().save_png(out + "_0.png")

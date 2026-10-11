@@ -63,11 +63,20 @@ func _draw() -> void:
 	var clips: Array = level.clips
 	for i in clips.size():
 		var c: Dictionary = clips[i]
-		var at := Vector2(c["cell"]) * Terrain.TILE + Vector2(10, 9)
-		_label(font, at, "Bolt %d" % (i + 1), Color("#cfe3f5"))
+		# Bolt labels go on the far side of the line from the stretch labels.
+		var cell: Vector2i = c["cell"]
+		var left := cell.x
+		var t: Terrain = level.terrain
+		while left > 0 and (t.is_climbable(Vector2i(left - 1, cell.y)) or left == cell.x):
+			left -= 1
+		var text := "Bolt %d" % (i + 1)
+		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+		var at := Vector2(left * Terrain.TILE - w - 4, (cell.y + 0.5) * Terrain.TILE + 3)
+		draw_line(Vector2(left * Terrain.TILE - 2, (cell.y + 0.5) * Terrain.TILE), Vector2(cell.x * Terrain.TILE, (cell.y + 0.5) * Terrain.TILE), Color("#cfe3f5", 0.5), 1.0)
+		_label(font, at, text, Color("#cfe3f5"))
 		if i > 0 and int(c["gap"]) >= CragLevel.RUNOUT:
-			var below: Vector2 = Vector2(clips[i - 1]["cell"]) * Terrain.TILE + Vector2(10, 0)
-			var mid := (at + below) / 2.0 + Vector2(0, 2)
+			var below: Vector2 = Vector2(clips[i - 1]["cell"]) * Terrain.TILE
+			var mid := Vector2(at.x - 10, (at.y + below.y) / 2.0)
 			_label(font, mid, "Run-out %s m" % Crag._m(int(c["gap"]) * Crag.ROW_M), Color("#ff8a6b"))
 
 

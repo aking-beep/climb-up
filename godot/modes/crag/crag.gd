@@ -29,22 +29,22 @@ const ROUTES := [
 		"text": "A short climb that shows you everything, one thing at a time. The game stops each time there is something new, and explains it. Take your time.",
 		"crux": "Nothing hard: this one is for learning."},
 	{"id": "warm-up", "name": "Warm-up Wall", "grade": "4", "level": "easy", "falls": 5, "gripDrain": 0.35,
-		"text": "Climb straight up good rock, with two short bits of tiny holds and one big hold (a jug) halfway: stop there to get your stamina back. 6 bolts, close together: tap CLIP at each one.",
+		"text": "Climb straight up good rock, with two short bits of tiny holds and one big hold (a jug) halfway: stop there to get your stamina back. Tap CLIP at each bolt.",
 		"crux": "Learning to clip in and to rest."},
 	{"id": "sundown", "name": "Sundown Traverse", "grade": "5b", "level": "moderate", "falls": 5, "gripDrain": 0.45,
-		"text": "Up, then a long move sideways to the right across tiny holds (crimps): tap GRIP to hang on, and keep moving. Two big holds, 6 bolts, further apart near the top.",
-		"crux": "The tiny holds on the sideways part."},
+		"text": "Up, then a long move sideways to the right across tiny holds (crimps): squeeze GRIP when the grip meter drops, and keep moving. Two big holds. Easy moves, but few bolts and a high first one.",
+		"crux": "The tiny holds on the sideways part, a long way above the last bolt."},
 	{"id": "the-pinch", "name": "The Pinch", "grade": "6a", "level": "hard", "falls": 4, "gripDrain": 0.6,
-		"text": "Four stretches of tiny holds, the longest at the top, and only two big holds to rest on. 6 bolts, spreading out: clip from good holds where you can.",
+		"text": "Four stretches of tiny holds, the longest at the top, and only two big holds to rest on. Hard moves, but bolts close together all the way: clip from good holds where you can.",
 		"crux": "The last stretch of tiny holds. Stopping on them drains you."},
 	{"id": "leap-of-faith", "name": "Leap of Faith", "grade": "6b", "level": "harder", "falls": 4, "gripDrain": 0.7,
-		"text": "Above a big hold the rock is blank: press JUMP on the rock to leap for the holds above (a dyno), then tap GRIP 3 times fast to stick it. Five stretches of tiny holds, 6 bolts, the top ones far apart.",
+		"text": "Above a big hold the rock is blank: press JUMP on the rock to leap for the holds above (a dyno), then tap GRIP 3 times fast to stick it. Five stretches of tiny holds; the top bolts are far apart.",
 		"crux": "A leap across blank rock, then tiny holds."},
 	{"id": "lions-roof", "name": "Lion's Roof", "grade": "6c", "level": "very hard", "falls": 3, "gripDrain": 0.85,
-		"text": "Tiny holds off the ground, then sideways under a roof of rock on tiny holds, a big hold, a leap, and long tiny holds to the top. Only 5 bolts, far apart: long climbs between clips.",
+		"text": "Tiny holds off the ground, then sideways under a roof of rock on tiny holds, a big hold, a leap, and long tiny holds to the top. The roof is well bolted.",
 		"crux": "The roof, then six rows of tiny holds."},
 	{"id": "thunderhead", "name": "Thunderhead", "grade": "7a", "level": "hardest", "falls": 3, "gripDrain": 1.0,
-		"text": "The big one. Two leaps across blank rock, a roof, seven stretches of tiny holds and only three big holds, far apart. Only 5 bolts, the top ones very far apart: a fall up there is a big one.",
+		"text": "The big one. Two leaps across blank rock, a roof, seven stretches of tiny holds and only three big holds, far apart. Few bolts, the top ones very far apart: a fall up there is a big one.",
 		"crux": "Two leaps and long tiny holds: plan your rests."},
 ]
 
@@ -275,4 +275,4 @@ func reset() -> void:
 
 func go(path: String) -> void:
 	if navigate and is_inside_tree():
-		get_tree().call_deferred("change_scene_to_file", path)
+		Transition.go(get_tree(), path)
