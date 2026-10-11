@@ -241,20 +241,22 @@ it, until you tap "Got it". Then six routes, easiest first; each opens when the
 one before it is finished. The words on screen are for non-climbers (tiny
 holds, big holds, a jump for a far hold), with the climbing name after.
 
-Each route is taller than the one before, with more bolts to clip and
-more stretches of tiny holds, and fewer big holds, further apart. The bolts
-are spaced out (and further apart the higher you go), so where you clip and
-where you rest is a decision.
+Each route is taller than the one before, with more stretches of tiny
+holds and fewer big holds, further apart. The bolts make the grade: close
+and even on the warm-up, further apart the harder the route (and the
+higher you go on it). On the hard routes a fall costs a lot of height, the
+rope rests (one per clip) are few, and some gaps cross a whole stretch of
+tiny holds before the next clip.
 
-| Grade | Route | Height | Bolts | Crimp stretches | Big holds | Also |
-| --- | --- | --- | --- | --- | --- | --- |
-| Lesson | First Climb | 20 rows | 2 | 1 | 1 | everything once, explained |
-| 4 | Warm-up Wall | 27 rows | 4 | 2 | 1 | |
-| 5b | Sundown Traverse | 37 | 5 | 3 | 2 | a long traverse |
-| 6a | The Pinch | 40 | 6 | 4 | 2 | the longest crimps at the top |
-| 6b | Leap of Faith | 49 | 7 | 5 | 3 | a dyno |
-| 6c | Lion's Roof | 48 | 8 | 6 | 3 | a traverse under a roof, a dyno |
-| 7a | Thunderhead | 56 | 9 | 7 | 3 | two dynos, a roof |
+| Grade | Route | Height | Bolts | Gaps between bolts (rows) | Crimp stretches | Big holds | Also |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Lesson | First Climb | 20 rows | 3 | 7, 7 | 1 | 1 | everything once, explained |
+| 4 | Warm-up Wall | 27 | 6 | 4, 4, 5, 4, 4 | 2 | 1 | |
+| 5b | Sundown Traverse | 37 | 6 | 5, 5, 6, 7, 8 | 3 | 2 | a long traverse |
+| 6a | The Pinch | 40 | 6 | 4, 6, 7, 8, 9 | 4 | 2 | the longest crimps at the top |
+| 6b | Leap of Faith | 49 | 6 | 5, 6, 9, 10, 13 | 5 | 3 | a dyno |
+| 6c | Lion's Roof | 48 | 5 | 6, 8, 13, 15 | 6 | 3 | a traverse under a roof, a dyno |
+| 7a | Thunderhead | 56 | 5 | 7, 11, 14, 18 | 7 | 3 | two dynos, a roof |
 
 - **Pick your shoes.** Before every route (not the lesson) you choose:
   neutral shoes (comfy and flat: you climb at three quarters of the speed,
@@ -264,17 +266,15 @@ where you rest is a decision.
   quicker. The game remembers your last pick and offers it first. In the
   tests both pairs send the 6a and the 7a; aggressive is about 30% quicker,
   neutral tops out with more stamina left.
-- **Tap to clip.** At each bolt the game asks "Clip in?": tap CLIP. How
-  many taps a bolt takes is shown before you get there, as dots under the
-  quickdraw (they fill blue as you tap and turn green once clipped). Each
-  route has a range that rises with the grade: 1 on the lesson and the
-  easy route, 1 to 2 on 5b, 1 to 3 on 6a, 2 to 3 on 6b, 2 to 4 on 6c and
-  7a. Where the bolt is decides which: the first bolt is always the
-  fewest, a bolt beside a big hold (jug) is the fewest, a bolt beside tiny
-  holds (crimps) the most, and the rest sit in the middle, a little more
-  near the top. So every route mixes easy clips with a few tough ones
-  ("Tough clip!" when you get a 3 or 4), and the hint says why. Climb on
-  without clipping and
+- **Tap to clip.** At each bolt the game asks "Clip in?": one tap of CLIP,
+  on every route. Where you clip from is the skill: one hand off a big hold
+  (jug) is free, off ordinary rock costs 2 stamina, off tiny holds (crimps)
+  costs a third of your grip and 4 stamina times (1 + the route's grip
+  drain), so about 6 on the 6a and 8 on the 7a. The hint says what the
+  clip will cost from where you are, and on tiny holds suggests climbing
+  to a big hold first. A clip snaps in with a click and a bell, and the
+  quickdraw jumps; after a long run-out (9 rows or more) it reads
+  "Clipped! Rest bar full." with a chime. Climb on without clipping and
   the bolt stays unclipped: a fall then drops you to the last one you did
   clip, and the game tells you so. The rope runs up through every clipped
   bolt to you.
@@ -283,8 +283,8 @@ where you rest is a decision.
   Once clipped, the big button reads REST whenever nothing else needs a
   tap: tap it to sit back on the rope and get stamina back from the bar
   (20 per bolt). Rest as often as you like; moving ends a rest and the
-  rest of the bar waits. The bolts get further apart the higher you go, so
-  between the high ones you rest on the big holds (jugs) too: chunky
+  rest of the bar waits. The bolts get further apart the harder the route, so
+  between the far ones you rest on the big holds (jugs) too: chunky
   holds with chalk on the lip, bigger and brighter than the tiny ones.
 - **Tap to hold.** Tiny holds (crimps) burn stamina. A grip meter over
   your head runs down (faster the harder the route, and faster if you
@@ -357,7 +357,7 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-73 tests: the engine replaying seven expeditions recorded from the
+74 tests: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume

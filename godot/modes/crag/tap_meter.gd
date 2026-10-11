@@ -1,7 +1,7 @@
 class_name TapMeter
 extends Node2D
 ## Over the climber's head at the crag: the grip meter on tiny holds, and
-## pips for the taps a clip or a stuck dyno needs.
+## pips for the taps a stuck dyno needs.
 
 var level: Node
 
@@ -18,8 +18,6 @@ func _draw() -> void:
 		return
 	if level.catching > 0.0:
 		_pips(level.catch_taps, level.CATCH_TAPS, Color("#f2c14e"))
-	elif level.clip_target >= 0:
-		_pips(level.clip_taps, level.clip_needed, Color("#7fb8e8"))
 	elif level.on_crimps:
 		var w := 20.0
 		draw_rect(Rect2(-w / 2.0 - 1, -1, w + 2, 5), Color(0, 0, 0, 0.6))

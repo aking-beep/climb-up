@@ -4,9 +4,11 @@ godot/modes/crag/routes/<id>.txt for the Godot Crag mode.
 
 The difficulty climbs with the grade: each route is taller than the one
 before, has more bolts to clip and more stretches of tiny holds (crimps),
-and fewer big holds (jugs), spread further apart. Bolts are spaced out, and
-further apart the higher you go, so where to clip and where to rest is a
-decision.
+and fewer big holds (jugs), spread further apart. The bolts are what make
+a grade: close and even on the easy routes, further apart the harder the
+route (and the higher you go on it), so on the hard ones a fall costs a lot
+of height, the rope rests are few, and some gaps cross a whole stretch of
+tiny holds before the next clip.
 
 Legend (as the expedition maps, plus the crag's own):
   #  rock (the ground, the ledge along the top of the cliff, roofs)
@@ -49,7 +51,7 @@ def rows_of(segments):
 
 
 class Route:
-    def __init__(self, segments, x0, bolts):
+    def __init__(self, segments, x0, bolts, spread):
         climb = rows_of(segments)
         self.h = climb + LEDGE + 4
         self.g = [["." for _ in range(W)] for _ in range(self.h)]
@@ -103,17 +105,17 @@ class Route:
             for xx in range(x, x + WIDTH):
                 self.g[yy][xx] = "C"
         self.g[LEDGE - 1][x + WIDTH + 2] = "X"
-        self._bolts(bolts)
+        self._bolts(bolts, spread)
 
     @property
     def foot(self):
         return self.h - 3
 
-    def _bolts(self, count):
-        """`count` bolts beside the line, the first a few rows up, the gaps
-        growing toward the top."""
+    def _bolts(self, count, spread):
+        """`count` bolts beside the line, the first a few rows up. Each gap
+        is `spread` times the first longer than the one before (0: even)."""
         span = (self.foot - 3) - (LEDGE + 4)
-        weights = [1.0 + 0.35 * i for i in range(count - 1)]
+        weights = [1.0 + spread * i for i in range(count - 1)]
         total = sum(weights)
         want = [self.foot - 3]
         for w in weights:
@@ -133,64 +135,69 @@ class Route:
             self.g[row][side] = "Q"
             placed.append(row)
 
+    def bolt_gaps(self):
+        rows = sorted((y for y, row in enumerate(self.g) if "Q" in row), reverse=True)
+        return [rows[i] - rows[i + 1] for i in range(len(rows) - 1)]
+
     def text(self):
         return "\n".join("".join(r) for r in self.g) + "\n"
 
 
 ROUTES = {
     # The lesson: one of everything, gently. Rock, a bolt, tiny holds, a big
-    # hold, a leap. 2 bolts.
+    # hold, a leap. 3 bolts, even.
     "first-climb": ([
         ("up", 5), ("up", 3), ("crimps", 2), ("up", 2), ("jug", 2), ("blank", 2), ("up", 4),
-    ], 14, 2),
-    # Grade 4: good rock, a short bit of crimps, one big hold. 4 bolts.
+    ], 14, 3, 0.0),
+    # Grade 4: good rock, a short bit of crimps, one big hold. 6 bolts, close and even.
     "warm-up": ([
         ("up", 6), ("crimps", 2), ("up", 4), ("jug", 2), ("up", 6), ("crimps", 2), ("up", 5),
-    ], 14, 4),
+    ], 14, 6, 0.0),
     # 5b: up, crimps, a big hold, the long traverse right, crimps, a big
-    # hold near the top. 5 bolts.
+    # hold near the top. 6 bolts, a little further apart up high.
     "sundown": ([
         ("up", 5), ("crimps", 2), ("up", 4), ("jug", 2), ("up", 3), ("traverse", 9, 3, False),
         ("up", 4), ("crimps", 3), ("up", 5), ("jug", 2), ("up", 5),
-    ], 12, 5),
-    # 6a: four stretches of crimps, the longest last; two big holds. 6 bolts.
+    ], 12, 6, 0.15),
+    # 6a: four stretches of crimps, the longest last; two big holds. 6 bolts, spreading out.
     "the-pinch": ([
         ("up", 4), ("crimps", 3), ("up", 4), ("jug", 2), ("up", 3), ("crimps", 4), ("up", 4),
         ("crimps", 3), ("up", 3), ("jug", 2), ("crimps", 5), ("up", 3),
-    ], 15, 6),
+    ], 15, 6, 0.3),
     # 6b: a leap from a big hold across blank rock, five stretches of crimps.
-    # 7 bolts.
+    # 6 bolts, the top ones far apart.
     "leap-of-faith": ([
         ("up", 4), ("crimps", 3), ("up", 3), ("jug", 2), ("crimps", 4), ("up", 3), ("jug", 2),
         ("blank", 2), ("crimps", 3), ("up", 4), ("crimps", 4), ("up", 3), ("jug", 2), ("up", 2),
         ("crimps", 5), ("up", 3),
-    ], 15, 7),
+    ], 15, 6, 0.45),
     # 6c: crimps, a traverse on crimps under a roof, a big hold, a leap,
-    # long crimps to the top. 8 bolts.
+    # long crimps to the top. 5 bolts, far apart.
     "lions-roof": ([
         ("up", 3), ("crimps", 4), ("up", 3), ("jug", 2), ("crimps", 4), ("up", 2),
         ("traverse", 8, 3, True), ("jug", 2), ("blank", 2), ("crimps", 4), ("up", 3),
         ("crimps", 4), ("up", 2), ("jug", 2), ("crimps", 6), ("up", 3),
-    ], 13, 8),
+    ], 13, 5, 0.6),
     # 7a: the big one. Two leaps, a roof on crimps, seven stretches of
-    # crimps, three big holds a long way apart. 9 bolts.
+    # crimps, three big holds a long way apart. 5 bolts, the
+    # last gaps very long.
     "thunderhead": ([
         ("up", 3), ("crimps", 5), ("up", 2), ("jug", 2), ("crimps", 4), ("up", 2), ("blank", 2),
         ("crimps", 5), ("up", 2), ("jug", 2), ("traverse", 7, 3, True), ("up", 2), ("crimps", 2), ("up", 2),
         ("jug", 2), ("blank", 2), ("crimps", 5), ("up", 2), ("crimps", 5), ("up", 3),
-    ], 13, 9),
+    ], 13, 5, 0.5),
 }
 
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    for name, (segments, x0, bolts) in ROUTES.items():
-        r = Route(segments, x0, bolts)
+    for name, (segments, x0, bolts, spread) in ROUTES.items():
+        r = Route(segments, x0, bolts, spread)
         path = OUT / f"{name}.txt"
         path.write_text(r.text())
         crimps = sum(1 for s in segments if s[0] == "crimps") + sum(1 for s in segments if s[0] == "traverse" and s[2] > 0)
         jugs = sum(1 for s in segments if s[0] == "jug")
-        print(f"wrote {path.name}: {W}x{r.h}, {bolts} bolts, {crimps} crimp stretches, {jugs} jugs")
+        print(f"wrote {path.name}: {W}x{r.h}, {bolts} bolts (gaps {r.bolt_gaps()}), {crimps} crimp stretches, {jugs} jugs")
 
 
 if __name__ == "__main__":

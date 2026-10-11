@@ -12,8 +12,10 @@ extends Node2D
 signal finished(result: Dictionary)
 
 const LEAD_FALL := 2.0 * Terrain.TILE
-## Clipping a bolt takes `clip_needed` taps, set per bolt (clip_taps_for)
-## within the route's range and shown as dots under the quickdraw.
+## Clipping a bolt is one tap, on every route. The bolts make the grade:
+## further apart the harder the route. Where you clip from matters: one hand
+## off a big hold is free, off ordinary rock costs a little stamina, off
+## tiny holds costs grip and stamina (more the harder the route).
 ## On tiny holds a grip meter runs down (faster the harder the route, the
 ## route's gripDrain, and faster again if you stop); each tap squeezes it
 ## back up. The tighter your grip, the less the tiny holds burn: at full
@@ -30,6 +32,12 @@ const CATCH_TAPS := 3
 ## rest of the bar waits for the next one. Big holds (jugs) give more.
 const ROPE_REST := 20.0
 const ROPE_RATE := 15.0
+## What clipping costs, by the hold you clip from (stamina; grip off crimps).
+const CLIP_FACE := 2.0
+const CLIP_CRIMP := 4.0
+const CLIP_CRIMP_GRIP := 0.35
+## A gap this many rows from the bolt below is a long run-out.
+const RUNOUT := 9
 const CLIP_REACH := Vector2(4.2, 1.4) * Terrain.TILE
 
 var route: Dictionary = {}
@@ -65,7 +73,8 @@ var pace_log: Array = []
 ## The taps: the bolt in reach and taps on it so far, the grip meter on tiny
 ## holds, and a dyno being stuck.
 var clip_target := -1
-var clip_taps := 0
+## What the last clip cost (clip_cost), for tests and the HUD.
+var last_clip_cost: Dictionary = {}
 var grip := 1.0
 var on_crimps := false
 var catching := 0.0
@@ -73,7 +82,6 @@ var catch_taps := 0
 var _dyno_air := false
 var _tap := false
 var meter: Node2D
-var clip_needed := 3
 var grip_drain := 0.55
 ## The lesson route: what has been explained so far (the game stops for
 ## each new thing).
@@ -161,7 +169,6 @@ func _ready() -> void:
 		camera.kick(0.2))
 	climber.grabbed.connect(_on_grabbed)
 	max_slips = int(route.get("falls", Crag.MAX_FALLS))
-	clip_needed = 1
 	grip_drain = float(route.get("gripDrain", 0.55))
 	meter = TapMeter.new()
 	meter.level = self
@@ -273,46 +280,26 @@ func _place_clips() -> void:
 		clips.append(c)
 		cairns.append(Terrain.feet(cell))
 	for i in clips.size():
-		var c: Dictionary = clips[i]
-		c["taps"] = clip_taps_for(i)
-		# Dots under the quickdraw: how many taps this bolt takes, seen from
-		# below so it is never a surprise.
-		var dots := BoltDots.new()
-		dots.clip = c
-		dots.position = Vector2(c["cell"]) * Terrain.TILE + Vector2(4, 17)
-		dots.z_index = 2
-		add_child(dots)
+		# Rows up from the bolt below (from the ground for the first).
+		clips[i]["gap"] = (clips[i - 1]["cell"].y if i > 0 else terrain.height) - clips[i]["cell"].y
 
 
-## How many taps bolt `i` takes, within the route's range [easy, hard]. Fair
-## and the same every time: the first bolt is always the easiest; a bolt
-## beside a big hold is easy (you clip from a good hold); one beside tiny
-## holds is the hardest; the rest sit in the middle, a touch harder the
-## higher they are.
-func clip_taps_for(i: int) -> int:
-	var r: Array = route.get("clipTaps", [1, 1]) if typeof(route.get("clipTaps")) == TYPE_ARRAY else [1, 1]
-	var lo: int = r[0]
-	var hi: int = r[1]
-	if i == 0 or lo == hi:
-		return lo
-	match hold_beside(clips[i]["cell"]):
+## The longest gap between two bolts, in rows.
+func longest_gap() -> int:
+	var most := 0
+	for i in range(1, clips.size()):
+		most = maxi(most, int(clips[i]["gap"]))
+	return most
+
+
+## What clipping costs from where you are now: {stamina, grip, words}.
+func clip_cost() -> Dictionary:
+	match terrain.hold_at(climber.body_rect()):
 		Terrain.Kind.JUG:
-			return lo
+			return {"stamina": 0.0, "grip": 0.0, "words": "from this big hold it's free"}
 		Terrain.Kind.CRIMP:
-			return hi
-	var mid := (lo + hi) / 2.0
-	var high := float(i) / maxf(1.0, clips.size() - 1.0) > 0.6
-	return clampi(int(ceil(mid)) if high else int(floor(mid)), lo, hi)
-
-
-## The kind of hold on the line level with a bolt (what you clip from).
-func hold_beside(cell: Vector2i) -> int:
-	for d in range(1, 6):
-		for side in [-1, 1]:
-			var k := terrain.kind(cell + Vector2i(d * side, 0))
-			if k == Terrain.Kind.FACE or k == Terrain.Kind.CRIMP or k == Terrain.Kind.JUG:
-				return k
-	return Terrain.Kind.FACE
+			return {"stamina": CLIP_CRIMP * (1.0 + grip_drain), "grip": CLIP_CRIMP_GRIP, "words": "on tiny holds it costs grip and stamina"}
+	return {"stamina": CLIP_FACE, "grip": 0.0, "words": "it costs a little stamina"}
 
 
 ## Where you hang on the rope after a fall at this bolt: on the nearest rock
@@ -337,7 +324,7 @@ func brief() -> void:
 	elif int(r["attempts"]) > 1:
 		history = "%d tries so far, not finished yet. Finish it with no falls for a redpoint." % (int(r["attempts"]) - 1)
 	var kicker := "The crag · lesson" if route.get("tutorial", false) else "The crag · grade %s (%s)" % [route["grade"], route["level"]]
-	var body := "%s\nHardest part: %s\n%d bolts to clip, %s · fall %d times and you have to come down · %s" % [route["text"], route["crux"], clips.size(), _taps_words(), max_slips, history]
+	var body := "%s\nHardest part: %s\n%d bolts, %s · fall %d times and you have to come down · %s" % [route["text"], route["crux"], clips.size(), _spacing_words(), max_slips, history]
 	var choices: Array = [["start", "Tie in and climb"]]
 	if not route.get("tutorial", false):
 		# Pick the shoes, the ones worn last time first.
@@ -404,7 +391,7 @@ func _physics_process(_delta: float) -> void:
 		prompt = "Stick it! (%d/%d)" % [catch_taps, CATCH_TAPS]
 	elif clip_target >= 0:
 		action_word = "CLIP"
-		prompt = "Clip in? (%d/%d)" % [clip_taps, clip_needed]
+		prompt = "Clip in?"
 	elif on_crimps:
 		action_word = "GRIP"
 		prompt = "Grip! (%d%%)" % int(grip * 100.0)
@@ -413,20 +400,20 @@ func _physics_process(_delta: float) -> void:
 	hud.update_from(self)
 
 
-## The brief's words for how the bolts clip on this route.
-func _taps_words() -> String:
-	var lo := 99
-	var hi := 0
-	for c in clips:
-		lo = mini(lo, int(c["taps"]))
-		hi = maxi(hi, int(c["taps"]))
-	if lo == hi:
-		return "each with %s" % ("one tap" if lo == 1 else "%d taps" % lo)
-	return "%d to %d taps each (the dots under a bolt show how many: fewer from big holds, more from tiny ones)" % [lo, hi]
+## The brief's words for how far apart the bolts are on this route.
+func _spacing_words() -> String:
+	var most := longest_gap()
+	if most <= 5:
+		return "close together"
+	if most < RUNOUT:
+		return "spreading out higher up"
+	if most < 14:
+		return "far apart higher up: long climbs between clips"
+	return "very far apart up high: big falls if you come off"
 
 
-## A bolt in reach asks to be clipped: three taps. Climb on without it and
-## it stays unclipped (a fall then drops you to the last one you did clip).
+## A bolt in reach asks to be clipped: one tap. Climb on without it and it
+## stays unclipped (a fall then drops you to the last one you did clip).
 func _clip() -> void:
 	var target := -1
 	if climber.state == Climber.State.CLIMB:
@@ -441,27 +428,37 @@ func _clip() -> void:
 			elif chest.y < at.y - 2.5 * Terrain.TILE and not c.get("passed", false):
 				c["passed"] = true
 				hud.flash("You climbed past bolt %d without clipping in. A fall now will be a long one." % (i + 1), 2.4)
-	if target != clip_target:
-		clip_target = target
-		clip_taps = 0
-		if target >= 0:
-			clip_needed = int(clips[target]["taps"])
+	clip_target = target
 	if clip_target < 0 or not _tap:
 		return
-	clip_taps += 1
-	Audio.play("grip", -12.0, 0.2)
-	if clip_taps < clip_needed:
-		return
 	var c: Dictionary = clips[clip_target]
+	# One hand off the rock to clip: what that costs depends on the hold.
+	var cost := clip_cost()
+	climber.stamina.value = maxf(0.0, climber.stamina.value - float(cost["stamina"]))
+	grip = maxf(0.0, grip - float(cost["grip"]))
+	last_clip_cost = cost
 	c["clipped"] = true
 	c["node"].texture.region = Rect2(8, 0, 8, 14)
 	checkpoint = maxi(checkpoint, clip_target + 1)
 	engage("clip")
-	Audio.play("cairn", -8.0)
-	var tough := "Tough clip! " if clip_needed >= 3 else ""
-	hud.flash("%sClipped in: bolt %d of %d. Tap %s to rest on the rope." % [tough, clip_target + 1, clips.size(), _key("REST")], 2.2)
+	# The rope snapping in: a click, the quickdraw jumps, a bell.
+	Audio.play("grip", -4.0, 0.1)
+	Audio.play("cairn", -6.0)
+	var draw: Node2D = c["node"]
+	var tw := create_tween()
+	tw.tween_property(draw, "scale", Vector2(1.8, 1.8), 0.08)
+	tw.tween_property(draw, "scale", Vector2.ONE, 0.2)
+	var head := "Clipped! Rest bar full." if int(c["gap"]) >= RUNOUT and clip_target > 0 else "Clipped in."
+	if int(c["gap"]) >= RUNOUT and clip_target > 0:
+		Audio.play("chime", -4.0)
+	var how := ""
+	match terrain.hold_at(climber.body_rect()):
+		Terrain.Kind.JUG:
+			how = " A clean clip from a big hold."
+		Terrain.Kind.CRIMP:
+			how = " Clipping off tiny holds cost you grip."
+	hud.flash("%s Bolt %d of %d.%s Tap %s to rest on the rope." % [head, clip_target + 1, clips.size(), how, _key("REST")], 2.4)
 	clip_target = -1
-	clip_taps = 0
 	# A fresh green rest bar with every clip.
 	rope_left = ROPE_REST
 	# The tap that clipped does not also take the rest.
@@ -495,7 +492,7 @@ func _rope(dt: float) -> void:
 ## and explains it. Returns true while a lesson is showing.
 const LESSONS := {
 	"rock": ["The rock", "The pale band is rock you can climb. Walk to it, then push the stick UP (or tap CLIMB) to grab on. Climbing uses stamina: the green bar at the top left. Up here, moving and hanging on both use it."],
-	"bolt": ["A bolt: clip in", "The metal ring beside you is a bolt. Tap CLIP to clip your rope into it. Once you are clipped, a fall stops at this bolt instead of the ground. On harder climbs it takes more taps."],
+	"bolt": ["A bolt: clip in", "The metal ring beside you is a bolt. Tap CLIP to clip your rope into it. Once you are clipped, a fall stops at this bolt instead of the ground. Clipping from a big hold is free; from tiny holds it costs grip. On harder climbs the bolts are further apart."],
 	"rest": ["Rest on the rope", "Clipped in! The green bar over your head is a rest. Tap REST to sit back on the rope and get stamina back. Moving, or tapping GO, ends the rest. Every new bolt gives you a fresh bar."],
 	"crimps": ["Tiny holds", "These are tiny holds (crimps). They burn stamina fast. Keep tapping GRIP to hold on tight: the tighter your grip, the less stamina they cost. Don't stop on them."],
 	"jug": ["A big hold", "This is a big hold (a jug). Hang here and your stamina comes back. Rest on big holds between the bolts."],
@@ -647,13 +644,9 @@ func hint_now() -> String:
 	if catching > 0.0:
 		return "Stick it! Tap %s 3 times, fast (%d/%d)." % [_key("GRIP"), catch_taps, CATCH_TAPS]
 	if clip_target >= 0:
-		var why := ""
-		match hold_beside(clips[clip_target]["cell"]):
-			Terrain.Kind.JUG:
-				why = " Easy: you're on a big hold."
-			Terrain.Kind.CRIMP:
-				why = " Hard: you're on tiny holds."
-		return "A bolt. Clip in? Tap %s %s (%d/%d).%s" % [_key("CLIP"), "once" if clip_needed == 1 else "%d times" % clip_needed, clip_taps, clip_needed, why]
+		var cost := clip_cost()
+		var tip := " A big hold nearby? Clip from there, it's free." if terrain.hold_at(climber.body_rect()) == Terrain.Kind.CRIMP else ""
+		return "A bolt. Clip in? Tap %s: %s.%s" % [_key("CLIP"), cost["words"], tip]
 	if on_crimps:
 		return "Tiny holds burn stamina: keep tapping %s to hold on tight (grip %d%%)." % [_key("GRIP"), int(grip * 100.0)]
 	var key := "JUMP" if Settings.touch_enabled() else "SPACE"

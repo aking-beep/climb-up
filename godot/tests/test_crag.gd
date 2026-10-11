@@ -95,7 +95,7 @@ func lead(seconds: float = 300.0) -> bool:
 		if held.has("jump") and _hopped:
 			held.erase("jump")
 		_hopped = held.has("jump")
-		# Tap tap tap: clip each bolt, hold on to tiny holds, stick dynos.
+		# Tap to clip each bolt; tap tap tap to hold on to tiny holds and stick dynos.
 		if level.action_word in ["CLIP", "GRIP"] and i % 4 < 2:
 			held["interact"] = true
 		# Just clipped and getting tired: rest on the rope, and keep still
@@ -201,7 +201,7 @@ func test_a_fall_on_lead_stops_at_the_last_bolt() -> void:
 		guard += 1
 		var held: Dictionary = {"climb_up": true} if c.state == Climber.State.CLIMB else ({"climb_up": true} if c.can_grab() else {"move_right": true})
 		if level.action_word == "CLIP":
-			# Stop and clip: tap three times.
+			# Stop and clip: one tap.
 			held = {"interact": guard % 4 < 2}
 		GameInput.scripted = held
 		await tree.physics_frame
@@ -347,7 +347,7 @@ func test_a_clip_offers_a_rest_on_the_rope() -> void:
 		await tree.physics_frame
 		if level.checkpoint > 0:
 			break
-	eq(level.checkpoint, 1, "tap tap tap: clipped")
+	eq(level.checkpoint, 1, "a tap: clipped")
 	GameInput.scripted = {"_": false}
 	await tree.physics_frame
 	check(level.can_rest() and level.action_word == "REST", "then the button offers a rest (%s)" % level.action_word)
@@ -383,47 +383,84 @@ func _still_frames(n: int) -> void:
 		await tree.physics_frame
 
 
-func test_bolts_take_a_fair_number_of_taps() -> void:
+func test_bolts_spread_out_with_the_grade_and_clip_in_one_tap() -> void:
 	Crag.navigate = false
-	var averages := []
+	var longest := []
+	var average := []
 	for r in Crag.ROUTES:
 		await _load(r["id"])
-		var rng: Array = r["clipTaps"]
-		var taps := []
-		for c in level.clips:
-			taps.append(int(c["taps"]))
-			check(int(c["taps"]) >= rng[0] and int(c["taps"]) <= rng[1], "%s: within the route's range %s" % [r["name"], rng])
-			match level.hold_beside(c["cell"]):
-				Terrain.Kind.JUG:
-					eq(int(c["taps"]), rng[0], "%s: easy beside a big hold" % r["name"])
-				Terrain.Kind.CRIMP:
-					if c != level.clips[0]:
-						eq(int(c["taps"]), rng[1], "%s: hardest beside tiny holds" % r["name"])
-		eq(taps[0], rng[0], "%s: the first bolt is the easiest" % r["name"])
-		if rng[0] != rng[1]:
-			check(taps.min() != taps.max(), "%s: the bolts vary (%s)" % [r["name"], taps])
+		var gaps := []
+		for k in range(1, level.clips.size()):
+			gaps.append(int(level.clips[k]["gap"]))
 		var avg := 0.0
-		for t in taps:
-			avg += t
-		averages.append(avg / taps.size())
-		print("      %s %s: taps per bolt %s" % [r["grade"], r["name"], taps])
+		for g in gaps:
+			avg += g
+		longest.append(level.longest_gap())
+		average.append(avg / gaps.size())
+		print("      %s %s: %d bolts, gaps %s" % [r["grade"], r["name"], level.clips.size(), gaps])
+		if r["id"] == "warm-up":
+			check(gaps.max() - gaps.min() <= 1 and gaps.max() <= 5, "the warm-up: bolts close and even %s" % [gaps])
 		await _done()
-	eq(averages[0], 1.0, "the lesson: one tap a bolt")
-	eq(averages[1], 1.0, "the easy route: one tap a bolt")
-	for i in range(1, averages.size()):
-		check(averages[i] >= averages[i - 1] - 0.01, "harder routes never average fewer taps: %s" % [averages])
-	# One tap clips on the warm-up.
+	# From the warm-up up: the gaps only grow with the grade.
+	for k in range(2, longest.size()):
+		check(longest[k] >= longest[k - 1], "the longest gap grows with the grade: %s" % [longest])
+		check(average[k] >= average[k - 1] - 0.01, "and the average gap: %s" % [average])
+	check(longest[-1] >= 15, "the 7a has a big run-out (%d rows)" % longest[-1])
+	# One tap clips, on the easiest route and the hardest.
+	for id in ["warm-up", "thunderhead"]:
+		await _load(id)
+		var guard := 0
+		while level.clip_target < 0 and guard < 60 * 20:
+			guard += 1
+			GameInput.scripted = {"climb_up": true} if c.state == Climber.State.CLIMB or c.can_grab() else {"move_right": true}
+			await tree.physics_frame
+		check(not "times" in level.hint_now(), "the hint asks for one tap: " + level.hint_now())
+		GameInput.scripted = {"interact": true}
+		await tree.physics_frame
+		GameInput.scripted = {"_": false}
+		await tree.physics_frame
+		eq(level.checkpoint, 1, "%s: one tap clips" % id)
+		await _done()
+
+
+func test_where_you_clip_from_matters() -> void:
+	Crag.navigate = false
+	await _load("the-pinch")
+	var t: Terrain = level.terrain
+	var spots := {}
+	for y in range(t.height - 1, 0, -1):
+		for x in t.width:
+			var k := t.kind(Vector2i(x, y))
+			var name: String = {Terrain.Kind.JUG: "jug", Terrain.Kind.CRIMP: "crimp", Terrain.Kind.FACE: "face"}.get(k, "")
+			if name != "" and not spots.has(name) and t.kind(Vector2i(x, y - 1)) == k and t.kind(Vector2i(x - 1, y)) == k and t.kind(Vector2i(x + 1, y)) == k:
+				spots[name] = Vector2i(x, y)
+	var costs := {}
+	for name in ["jug", "face", "crimp"]:
+		c.hang_at(Terrain.feet(spots[name]))
+		await physics_frames(1)
+		eq(t.hold_at(c.body_rect()), {"jug": Terrain.Kind.JUG, "crimp": Terrain.Kind.CRIMP, "face": Terrain.Kind.FACE}[name], "hanging on the %s" % name)
+		costs[name] = level.clip_cost()
+	print("      clip costs: %s" % [costs])
+	eq(float(costs["jug"]["stamina"]), 0.0, "clipping from a big hold is free")
+	check(float(costs["face"]["stamina"]) > 0.0, "from ordinary rock it costs a little")
+	check(float(costs["crimp"]["stamina"]) > float(costs["face"]["stamina"]) * 2.0 and float(costs["crimp"]["grip"]) > 0.0, "from tiny holds it costs grip and much more stamina")
+	await _done()
+	# A real clip off the warm-up's first bolt takes what the hint said.
 	await _load("warm-up")
 	var guard := 0
 	while level.clip_target < 0 and guard < 60 * 20:
 		guard += 1
 		GameInput.scripted = {"climb_up": true} if c.state == Climber.State.CLIMB or c.can_grab() else {"move_right": true}
 		await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	await tree.physics_frame
+	var want: float = level.clip_cost()["stamina"]
+	var before: float = c.stamina.value
 	GameInput.scripted = {"interact": true}
 	await tree.physics_frame
 	GameInput.scripted = {"_": false}
-	await tree.physics_frame
-	eq(level.checkpoint, 1, "one tap clips on the warm-up")
+	eq(level.checkpoint, 1, "clipped")
+	check(absf((before - c.stamina.value) - want) < 0.6, "the clip took its cost (%.1f, said %.1f)" % [before - c.stamina.value, want])
 	await _done()
 
 
