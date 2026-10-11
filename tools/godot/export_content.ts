@@ -14,6 +14,7 @@
  */
 import { writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { PARTY } from '@/components/world/scene';
 import { kilimanjaro, startKilimanjaro, currentKilimanjaroEvent } from '@/expeditions/kilimanjaro';
@@ -24,7 +25,7 @@ import { choose, createSession, play, resolve, challengeFor } from '@/game/hybri
 import type { ChallengeOutcome, HybridSession } from '@/game/hybrid/types';
 import type { EventCard, ExpeditionState } from '@/game/types';
 
-const ROOT = path.resolve(import.meta.dirname, '../..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 type Condition = { mark: string } | { stat: string; lt?: number; gt?: number };
 
@@ -199,6 +200,7 @@ function play_(policy: Policy) {
   for (let n = 0; n < 120 && session.state.status === 'active'; n += 1) {
     const beat = policy.beats?.(session.state, n);
     if (beat) {
+      if (beat.kind !== 'routine' && beat.kind !== 'tend') throw new Error('beats are routines or tending');
       const effect = beat.kind === 'routine'
         ? routineEffect(session.state, beat.id as never)
         : tendEffect(session.state, beat.id as never);
