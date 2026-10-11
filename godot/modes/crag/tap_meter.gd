@@ -16,7 +16,13 @@ func _process(_delta: float) -> void:
 func _draw() -> void:
 	if level == null:
 		return
-	if level.catching > 0.0:
+	if level.resting_rope or level.rest_offer > 0.0:
+		# How much of this rest is left, as a green bar.
+		var w := 20.0
+		var left: float = level.rope_left / level.ROPE_REST if level.resting_rope else 1.0
+		draw_rect(Rect2(-w / 2.0 - 1, -1, w + 2, 5), Color(0, 0, 0, 0.6))
+		draw_rect(Rect2(-w / 2.0, 0, w * left, 3), Color("#7fa36b") if level.resting_rope else Color(0.5, 0.65, 0.45, 0.6))
+	elif level.catching > 0.0:
 		_pips(level.catch_taps, level.CATCH_TAPS, Color("#f2c14e"))
 	elif level.clip_target >= 0:
 		_pips(level.clip_taps, level.CLIP_TAPS, Color("#7fb8e8"))

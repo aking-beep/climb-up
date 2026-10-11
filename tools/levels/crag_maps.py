@@ -70,7 +70,7 @@ def warm_up():
     r.line(14, LEDGE, r.foot)
     r.line(14, 12, 13, "J")
     r.exit(14)
-    for y in (r.foot - 4, 13, 8):
+    for y in (r.foot - 3, 14, 8):
         r.bolt(17, y)
     return r
 
@@ -85,10 +85,10 @@ def sundown():
     r.line(24, LEDGE, 16)
     r.line(24, 13, 14, "J")
     r.exit(24)
-    r.bolt(15, r.foot - 4)
+    r.bolt(15, r.foot - 3)
     r.bolt(15, 18)
     r.bolt(21, 13)
-    r.bolt(27, 9)
+    r.bolt(27, 7)
     return r
 
 
@@ -99,7 +99,7 @@ def the_pinch():
     r.line(15, 15, 16, "J")
     r.line(15, 8, 14, "k")
     r.exit(15)
-    for y in (r.foot - 4, 17, 11, 7):
+    for y in (r.foot - 3, 19, 13, 7):
         r.bolt(18, y)
     return r
 
@@ -134,11 +134,10 @@ def lions_roof():
     r.line(21, LEDGE, 15)
     r.line(21, 9, 11, "k")
     r.exit(21)
-    r.bolt(15, r.foot - 4)
+    r.bolt(15, r.foot - 3)
     r.bolt(15, 24)
     r.bolt(24, 20)
-    r.bolt(24, 17)
-    r.bolt(24, 10)
+    r.bolt(24, 9)
     return r
 
 
@@ -162,7 +161,7 @@ def thunderhead():
     r.line(22, LEDGE, 10)
     r.line(22, 6, 9, "k")
     r.exit(22)
-    r.bolt(16, 33)
+    r.bolt(16, 34)
     r.bolt(16, 28)
     r.bolt(16, 21)
     r.bolt(25, 16)

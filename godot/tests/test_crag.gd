@@ -92,6 +92,12 @@ func lead(seconds: float = 120.0) -> bool:
 		# Tap tap tap: clip each bolt, hold on to tiny holds, stick dynos.
 		if level.action_word in ["CLIP", "GRIP"] and i % 4 < 2:
 			held["interact"] = true
+		# Just clipped and getting tired: rest on the rope, and keep still
+		# while the stamina comes back.
+		if level.resting_rope:
+			held = {"_": false}
+		elif level.rest_offer > 0.0 and c.stamina.fraction() < 0.85:
+			held = {"interact": i % 4 < 2}
 		GameInput.scripted = held
 		if OS.get_environment("CRAG_DEBUG") != "" and i % 30 == 0:
 			print("CRAGDBG ", where(), " held=", held.keys(), " target=", target, " resting=", resting)
@@ -143,7 +149,7 @@ func test_every_route_is_led_to_the_anchor() -> void:
 		eq(level.checkpoint, level.clips.size(), "%s: every bolt clipped" % r["name"])
 		if r["id"] in ["leap-of-faith", "lions-roof", "thunderhead"]:
 			check(c.dynos >= (2 if r["id"] == "thunderhead" else 1), "%s needs its dynos (%d)" % [r["name"], c.dynos])
-		print("      %s %s: %s, %d falls, %d s, %d dynos, %d%% stamina left" % [r["grade"], r["name"], level.outcome.get("style", "-"), c.slips, int(c.clock), c.dynos, int(c.stamina.fraction() * 100)])
+		print("      %s %s: %s, %d falls, %d s, %d dynos, %d rope rests, %d%% stamina left" % [r["grade"], r["name"], level.outcome.get("style", "-"), c.slips, int(c.clock), c.dynos, level.rope_rests, int(c.stamina.fraction() * 100)])
 		await _done()
 	_fresh_progress()
 
@@ -218,12 +224,12 @@ func test_a_dyno_crosses_blank_rock() -> void:
 				jug_top = Vector2i(x + 1, y)
 	c.hang_at(Terrain.feet(jug_top + Vector2i(0, 1)))
 	await physics_frames(2)
-	# The bolt beside the jug asks first: clip it.
+	# The bolt beside the jug asks first: clip it, and let the rest go by.
 	for i in 12:
 		GameInput.scripted = {"interact": i % 4 < 2}
 		await tree.physics_frame
 	GameInput.scripted = {"_": false}
-	await tree.physics_frame
+	await physics_frames(int((CragLevel.REST_OFFER + 0.3) * 60.0))
 	check(level.dyno_above(), "blank rock above, holds in reach")
 	check("jump" in level.hint_now().to_lower(), "and the HUD says so: " + level.hint_now())
 	var before := c.global_position.y
@@ -270,10 +276,15 @@ func test_tiny_holds_need_taps_and_a_bolt_asks_to_be_clipped() -> void:
 	Crag.navigate = false
 	await _load("the-pinch")
 	var t: Terrain = level.terrain
+	# Tiny holds well away from any bolt, so GRIP is the only ask.
 	var crimp := Vector2i(-1, -1)
 	for y in range(t.height - 1, 0, -1):
+		var near_bolt := false
+		for q in t.markers["Q"]:
+			if absi(q.y - y) < 3:
+				near_bolt = true
 		for x in t.width:
-			if t.kind(Vector2i(x, y)) == Terrain.Kind.CRIMP and t.kind(Vector2i(x, y - 1)) == Terrain.Kind.CRIMP and crimp.x < 0:
+			if not near_bolt and t.kind(Vector2i(x, y)) == Terrain.Kind.CRIMP and t.kind(Vector2i(x, y - 1)) == Terrain.Kind.CRIMP and crimp.x < 0:
 				crimp = Vector2i(x + 1, y)
 	c.hang_at(Terrain.feet(crimp))
 	c.stamina.value = 100.0
@@ -300,6 +311,37 @@ func test_tiny_holds_need_taps_and_a_bolt_asks_to_be_clipped() -> void:
 		GameInput.scripted = {"climb_up": true}
 		await tree.physics_frame
 	eq(level.checkpoint, 0, "climbing on without tapping: not clipped")
+	await _done()
+
+
+func test_a_clip_offers_a_rest_on_the_rope() -> void:
+	Crag.navigate = false
+	await _load("warm-up")
+	var guard := 0
+	while level.clip_target < 0 and guard < 60 * 20:
+		guard += 1
+		GameInput.scripted = {"climb_up": true} if c.state == Climber.State.CLIMB or c.can_grab() else {"move_right": true}
+		await tree.physics_frame
+	for i in 12:
+		GameInput.scripted = {"interact": i % 4 < 2}
+		await tree.physics_frame
+		if level.checkpoint > 0:
+			break
+	eq(level.checkpoint, 1, "tap tap tap: clipped")
+	GameInput.scripted = {"_": false}
+	await tree.physics_frame
+	check(level.rest_offer > 0.0 and level.action_word == "REST", "then the button offers a rest (%s)" % level.action_word)
+	c.stamina.value = 40.0
+	GameInput.scripted = {"interact": true}
+	await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	await tree.physics_frame
+	check(level.resting_rope, "a tap takes it")
+	await physics_frames(60)
+	check(c.stamina.value > 50.0, "stamina comes back on the rope (%.0f)" % c.stamina.value)
+	await physics_frames(120)
+	check(not level.resting_rope, "a rest is only a little: it ends")
+	check(c.stamina.value <= 40.0 + Crag.MAX_FALLS * 0 + CragLevel.ROPE_REST + 2.0, "worth at most %d stamina (%.0f)" % [int(CragLevel.ROPE_REST), c.stamina.value])
 	await _done()
 
 

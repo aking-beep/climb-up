@@ -252,6 +252,11 @@ holds, big holds, a jump for a far hold), with the climbing name after.
   the bolt stays unclipped: a fall then drops you to the last one you did
   clip, and the game tells you so. The rope runs up through every clipped
   bolt to you.
+- **Rest on the rope.** Right after you clip, the big button turns into
+  REST for a few seconds: tap it to sit back on the rope and get a little
+  stamina back (up to 20, once per bolt; moving ends it). The bolts get
+  further apart the higher you go, so between the high ones you have to
+  rest on the big holds (jugs) instead.
 - **Tap to hold.** On tiny holds (crimps) a grip meter over your head runs
   down, faster if you stop; tap GRIP to squeeze it back up. Empty, and
   your fingers peel off.
@@ -319,7 +324,7 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-69 tests: the engine replaying seven expeditions recorded from the
+70 tests: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume

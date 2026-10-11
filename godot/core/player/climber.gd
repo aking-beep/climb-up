@@ -94,6 +94,8 @@ var cramp := 0.0
 ## The crag turns dynos on. In the air after one, the hands catch the first
 ## hold they reach.
 var can_dyno := false
+## Resting on the rope after a clip (the crag): holding still costs nothing.
+var on_rope := false
 var dynos := 0
 var _dyno_from := INF
 
@@ -495,9 +497,11 @@ func _climb(delta: float, input: Vector2) -> void:
 		last_activity = "traverse"
 	else:
 		last_activity = "climb" if moving else "hang"
-	stamina.tick(delta, last_activity, loose)
+	# Sitting back on the rope (the crag): the arms are off the rock.
+	if not on_rope:
+		stamina.tick(delta, last_activity, loose)
 	_breathing(delta)
-	if stamina.is_empty():
+	if stamina.is_empty() and not on_rope:
 		_let_go()
 		return
 	if not terrain.touches_climbable(body_rect()):

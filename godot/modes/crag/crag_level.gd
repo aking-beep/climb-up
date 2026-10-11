@@ -22,6 +22,12 @@ const GRIP_TAP := 0.25
 ## After a jump (dyno) you have this long to stick the hold: tap fast.
 const CATCH_TIME := 1.0
 const CATCH_TAPS := 3
+## Just clipped: for a few seconds you can sit back on the rope and rest.
+## Each bolt gives one rest, worth up to ROPE_REST stamina, coming back at
+## ROPE_RATE a second. Moving ends it. Big holds (jugs) give more.
+const REST_OFFER := 4.0
+const ROPE_REST := 20.0
+const ROPE_RATE := 15.0
 const CLIP_REACH := Vector2(4.2, 1.4) * Terrain.TILE
 
 var route: Dictionary = {}
@@ -63,6 +69,11 @@ var catch_taps := 0
 var _dyno_air := false
 var _tap := false
 var meter: Node2D
+## The rest on the rope after a clip: offered for a moment, then taken.
+var rest_offer := 0.0
+var resting_rope := false
+var rope_left := 0.0
+var rope_rests := 0
 var _ended := false
 var _start: Vector2
 var _top_y := 0.0
@@ -260,6 +271,8 @@ func _physics_process(_delta: float) -> void:
 	_catch(dt)
 	_grip(dt)
 	_clip()
+	_rope(dt)
+	climber.on_rope = resting_rope
 	# On lead, a fall stops on the rope a little below the last bolt.
 	if climber.state == Climber.State.AIR and checkpoint > 0 and climber.global_position.y - climber.fall_from > LEAD_FALL:
 		climber.slip("fall")
@@ -269,7 +282,13 @@ func _physics_process(_delta: float) -> void:
 	_draw_rope()
 	prompt = ""
 	action_word = "CLIMB" if climber.can_grab() else ""
-	if catching > 0.0:
+	if resting_rope:
+		action_word = "GO"
+		prompt = "Resting on the rope"
+	elif rest_offer > 0.0:
+		action_word = "REST"
+		prompt = "Rest on the rope?"
+	elif catching > 0.0:
 		action_word = "GRIP"
 		prompt = "Stick it! (%d/%d)" % [catch_taps, CATCH_TAPS]
 	elif clip_target >= 0:
@@ -314,9 +333,44 @@ func _clip() -> void:
 	checkpoint = maxi(checkpoint, clip_target + 1)
 	engage("clip")
 	Audio.play("cairn", -8.0)
-	hud.flash("Clipped in: bolt %d of %d. If you fall now, the rope catches you here." % [clip_target + 1, clips.size()], 1.8)
+	hud.flash("Clipped in! Bolt %d of %d. Tap %s to rest on the rope." % [clip_target + 1, clips.size(), _key("REST")], 2.2)
 	clip_target = -1
 	clip_taps = 0
+	rest_offer = REST_OFFER
+	# The tap that clipped does not also take the rest.
+	_tap = false
+
+
+## Sitting back on the rope after a clip: a little stamina back while you
+## hang there. Tap to take it while it is offered; tap again, or move, to
+## climb on.
+func _rope(dt: float) -> void:
+	if climber.state != Climber.State.CLIMB:
+		rest_offer = 0.0
+		resting_rope = false
+		return
+	var moving := GameInput.move() != Vector2.ZERO
+	if resting_rope:
+		var give := minf(ROPE_RATE * dt, rope_left)
+		climber.stamina.value = minf(climber.stamina.max_value, climber.stamina.value + give)
+		rope_left -= give
+		if _tap or moving or rope_left <= 0.0 or climber.stamina.value >= climber.stamina.max_value:
+			resting_rope = false
+			hud.flash("Back on the rock. Climb on to the next bolt.", 1.6)
+		return
+	if rest_offer <= 0.0:
+		return
+	rest_offer -= dt
+	if _tap:
+		rest_offer = 0.0
+		resting_rope = true
+		rope_left = ROPE_REST
+		rope_rests += 1
+		engage("rest")
+		hud.flash("You sit back on the rope and shake your arms out.", 1.6)
+	elif moving and rest_offer < REST_OFFER - 0.6:
+		# Climbed on without resting.
+		rest_offer = 0.0
 
 
 ## Tiny holds: a grip meter that runs down while you are on them (faster if
@@ -329,7 +383,7 @@ func _grip(dt: float) -> void:
 	if not on_crimps:
 		grip = minf(1.0, grip + dt)
 		return
-	if catching > 0.0:
+	if catching > 0.0 or resting_rope:
 		return
 	grip -= (GRIP_DRAIN_HANGING if climber.last_activity == "crimp_hang" else GRIP_DRAIN) * dt
 	if _tap:
@@ -427,6 +481,10 @@ func _clipped() -> int:
 func hint_now() -> String:
 	if climber.state != Climber.State.CLIMB:
 		return ""
+	if resting_rope:
+		return "Resting on the rope: stamina coming back. Tap %s or move to climb on." % _key("GO")
+	if rest_offer > 0.0:
+		return "Clipped in. Tap %s to rest on the rope and get some stamina back." % _key("REST")
 	if catching > 0.0:
 		return "Stick it! Tap %s 3 times, fast (%d/%d)." % [_key("GRIP"), catch_taps, CATCH_TAPS]
 	if clip_target >= 0:
