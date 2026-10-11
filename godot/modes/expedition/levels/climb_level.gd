@@ -612,13 +612,22 @@ func pause_menu() -> void:
 		[
 			["resume", "Resume"],
 			["retreat", spec["copy"]["backOff"]],
-			["quality", "Graphics: %s" % ["Full", "Reduced", "Low power"][Settings.quality]],
-			["motion", "Reduced motion: %s" % ("On" if Settings.reduced_motion else "Off")],
-			["touch", "Touch controls: %s" % ("On" if Settings.touch_enabled() else "Off")],
-			["haptics", "Vibration: %s" % ("On" if Settings.haptics else "Off")],
-			["fps", "Show FPS: %s" % ("On" if Settings.show_fps else "Off")],
+			["settings", "Settings"],
 			["quit", "Save and go to the menu"],
 		])
+
+
+## Settings, a page of their own so the pause menu stays short on a phone.
+func settings_menu() -> void:
+	climber.lock(true)
+	panel.show_panel("Settings", spec["hud"], "", [
+		["quality", "Graphics: %s" % ["Full", "Reduced", "Low power"][Settings.quality]],
+		["motion", "Reduced motion: %s" % ("On" if Settings.reduced_motion else "Off")],
+		["touch", "Touch controls: %s" % ("On" if Settings.touch_enabled() else "Off")],
+		["haptics", "Vibration: %s" % ("On" if Settings.haptics else "Off")],
+		["fps", "Show FPS: %s" % ("On" if Settings.show_fps else "Off")],
+		["paused", "Back"],
+	])
 
 
 func _on_choice(id: String) -> void:
@@ -668,20 +677,24 @@ func _on_choice(id: String) -> void:
 		"quality":
 			Settings.set_quality((Settings.quality + 1) % 3)
 			Scenery.apply_quality(self)
-			pause_menu()
+			settings_menu()
 		"motion":
 			Settings.set_reduced_motion(not Settings.reduced_motion)
-			pause_menu()
+			settings_menu()
 		"fps":
 			Settings.set_show_fps(not Settings.show_fps)
-			pause_menu()
+			settings_menu()
 		"haptics":
 			Settings.set_haptics(not Settings.haptics)
 			Haptics.tap(30)
-			pause_menu()
+			settings_menu()
 		"touch":
 			Settings.set_touch_controls(not Settings.touch_enabled())
 			TouchControls.attach(self)
+			settings_menu()
+		"settings":
+			settings_menu()
+		"paused":
 			pause_menu()
 		"quit":
 			_remember()

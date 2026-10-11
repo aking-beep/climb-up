@@ -50,6 +50,7 @@ func _ready() -> void:
 	v.add_child(_wind)
 	_hint = _label(9, Color(0.95, 0.94, 0.91))
 	_hint.position = Vector2(8, 66)
+	_backed(_hint)
 	root.add_child(_hint)
 	_flash = _label(11, Color(1, 0.97, 0.88))
 	_flash.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -95,6 +96,18 @@ func _ready() -> void:
 	_prompt.offset_top = -40
 	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(_prompt)
+
+
+## A dark backing behind text drawn over the sky and the rock.
+func _backed(l: Label) -> void:
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(0.05, 0.05, 0.07, 0.55)
+	st.set_corner_radius_all(2)
+	st.content_margin_left = 4
+	st.content_margin_right = 4
+	st.content_margin_top = 1
+	st.content_margin_bottom = 2
+	l.add_theme_stylebox_override("normal", st)
 
 
 func _label(size: int, color: Color) -> Label:
@@ -156,6 +169,7 @@ func update_from(level: Node) -> void:
 	else:
 		_wind_line(c)
 	_hint.text = _hint_for(level)
+	_hint.visible = _hint.text != ""
 	# On touch the context button says what it does; keys need the reminder.
 	_prompt.text = ("E: %s" % level.prompt) if level.prompt != "" and not Settings.touch_enabled() else ""
 

@@ -365,7 +365,6 @@ func brief() -> void:
 	var choices: Array = [["start", "Tie in and climb"]]
 	if not route.get("tutorial", false):
 		# Pick the shoes, the ones worn last time first.
-		body += "\nPick your shoes: neutral ones are comfy and flat, aggressive ones tight and bent."
 		choices = []
 		for id in ["neutral", "aggressive"]:
 			var words := "Neutral shoes: slower, saves stamina" if id == "neutral" else "Aggressive shoes: faster, costs stamina"
@@ -905,12 +904,21 @@ func pause_menu() -> void:
 		["resume", "Resume"],
 		["look", "Look at the route"],
 		["lower", "Lower off"],
+		["settings", "Settings"],
+		["menu", "Back to the routes"],
+	])
+
+
+## Settings, a page of their own so the pause menu stays short on a phone.
+func settings_menu() -> void:
+	climber.lock(true)
+	panel.show_panel("Settings", route["name"], "", [
 		["touch", "Touch controls: %s" % ("On" if Settings.touch_enabled() else "Off")],
 		["quality", "Graphics: %s" % ["Full", "Reduced", "Low power"][Settings.quality]],
 		["motion", "Reduced motion: %s" % ("On" if Settings.reduced_motion else "Off")],
 		["haptics", "Vibration: %s" % ("On" if Settings.haptics else "Off")],
 		["fps", "Show FPS: %s" % ("On" if Settings.show_fps else "Off")],
-		["menu", "Back to the routes"],
+		["paused", "Back"],
 	])
 
 
@@ -940,20 +948,24 @@ func _on_choice(id: String) -> void:
 		"touch":
 			Settings.set_touch_controls(not Settings.touch_enabled())
 			TouchControls.attach(self)
-			pause_menu()
+			settings_menu()
 		"fps":
 			Settings.set_show_fps(not Settings.show_fps)
-			pause_menu()
+			settings_menu()
 		"quality":
 			Settings.set_quality((Settings.quality + 1) % 3)
 			Scenery.apply_quality(self)
-			pause_menu()
+			settings_menu()
 		"motion":
 			Settings.set_reduced_motion(not Settings.reduced_motion)
-			pause_menu()
+			settings_menu()
 		"haptics":
 			Settings.set_haptics(not Settings.haptics)
 			Haptics.tap(30)
+			settings_menu()
+		"settings":
+			settings_menu()
+		"paused":
 			pause_menu()
 		"again":
 			Crag.climb(route["id"])

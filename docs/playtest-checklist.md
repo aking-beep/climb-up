@@ -1,7 +1,10 @@
 # Phone playtest: one page
 
-Goal: play the three Kilimanjaro climbs with touch only on a real phone (the
-Pixel), and write down what feels bad. One sitting, about 40 minutes.
+Goal: play the three Kilimanjaro climbs and the crag with touch only on a
+real phone (the Pixel; an iPhone in Safari for the web build if you can),
+and write down what feels bad. One sitting, about an hour. These are the
+checks no emulator can make: real frame rate and heat, real touch latency,
+vibration, the notch, and what happens when the phone interrupts the game.
 
 ## Before you start
 
@@ -27,6 +30,39 @@ each line.
 | Times you walked into something you didn't see coming | | | |
 | Could you read the HUD text without squinting? (y/n) | | | |
 | Did your thumbs cover anything important? (what) | | | |
+
+## The crag (Lion Rock)
+
+Do the lesson, then as many routes as you can. Note per route:
+
+| | Warm-up | Sundown | Pinch | Leap | Roof | Thunderhead |
+| --- | --- | --- | --- | --- | --- | --- |
+| FPS lowest | | | | | | |
+| Sent? Style (onsight / flash / redpoint / with falls) | | | | | | |
+| Falls (and did each feel fair?) | | | | | | |
+| GRIP squeezes felt: too many / right / too few | | | | | | |
+| Did a fall land where you expected? | | | | | | |
+
+- [ ] "Look at the route first": readable on the phone? Did it help?
+- [ ] Bolting / exposure lines in the brief: understood without help?
+- [ ] Clip: do you feel the buzz and hear the click? Is CLIP easy to hit
+      while your other thumb holds the stick?
+- [ ] Dyno catch (3 fast taps): doable every time, or luck?
+
+## Interruptions (only a real phone can test these)
+
+Do each mid-climb, once on the expedition and once at the crag:
+
+- [ ] Press the home button, wait 30 s, come back: paused, nothing lost?
+- [ ] Lock the screen, unlock: paused?
+- [ ] Pull down the notification shade: paused? (fine either way; note it)
+- [ ] Get a call or play an alarm: sound comes back after?
+- [ ] Android back gesture/button: pause menu on a climb, back a screen
+      in the menus, the title quits?
+- [ ] Swipe the app away mid-expedition climb, reopen: back at the last
+      cairn (or where you paused)?
+- [ ] Turn **Vibration** off in the pause menu: no more buzzes? On again:
+      buzzes on grabs, clips, falls?
 
 ## Controls
 

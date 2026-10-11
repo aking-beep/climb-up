@@ -8,6 +8,10 @@ const INK := Color(0.11, 0.098, 0.082)
 const MUTED := Color(0.42, 0.39, 0.35)
 
 var card: VBoxContainer
+## The card scrolls when it is taller than the screen (a short phone held
+## sideways): the list never runs off the top or bottom.
+var scroll: ScrollContainer
+const EDGE := 10.0
 
 
 func _ready() -> void:
@@ -50,9 +54,25 @@ func _ready() -> void:
 	style.content_margin_bottom = 12
 	panel.add_theme_stylebox_override("panel", style)
 	add_child(panel)
+	scroll = ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	panel.add_child(scroll)
 	card = VBoxContainer.new()
 	card.add_theme_constant_override("separation", 4)
-	panel.add_child(card)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(card)
+	get_viewport().size_changed.connect(fit)
+	fit.call_deferred()
+
+
+## Sizes the card's window to its content, up to the height of the screen.
+func fit() -> void:
+	if not is_inside_tree():
+		return
+	var want := card.get_combined_minimum_size()
+	var room := get_viewport_rect().size.y - 2.0 * EDGE - 22.0
+	scroll.custom_minimum_size = Vector2(want.x, minf(want.y, room))
 
 
 ## The Android back button on this screen.

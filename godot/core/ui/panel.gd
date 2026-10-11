@@ -17,7 +17,11 @@ var _title: Label
 var _body: Label
 var _buttons: VBoxContainer
 var _kicker: Label
+var _scroll: ScrollContainer
+var _v: VBoxContainer
 var open := false
+## Taller than this share of the screen and the panel scrolls.
+const MAX_SHARE := 0.94
 
 
 func _ready() -> void:
@@ -46,10 +50,17 @@ func _ready() -> void:
 	style.content_margin_bottom = 8
 	_box.add_theme_stylebox_override("panel", style)
 	root.add_child(_box)
+	# A long brief on a short phone scrolls instead of running off the top.
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.follow_focus = true
+	_box.add_child(_scroll)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 3)
-	_box.add_child(v)
-	_kicker = _label(7, MUTED, UiFont.body())
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.add_child(v)
+	_v = v
+	_kicker = _label(8, MUTED, UiFont.body())
 	v.add_child(_kicker)
 	_title = _label(12, INK, UiFont.display())
 	v.add_child(_title)
@@ -58,7 +69,7 @@ func _ready() -> void:
 	_body.custom_minimum_size = Vector2(240, 0)
 	v.add_child(_body)
 	_buttons = VBoxContainer.new()
-	_buttons.add_theme_constant_override("separation", 2)
+	_buttons.add_theme_constant_override("separation", 4)
 	v.add_child(_buttons)
 	visible = false
 
@@ -92,7 +103,8 @@ func show_panel(kicker: String, title: String, body: String, choices: Array) -> 
 			b.add_theme_font_override("font", UiFont.display())
 		b.disabled = choice.size() > 2 and choice[2] == true
 		UiStyle.paper_button(b)
-		b.custom_minimum_size = Vector2(0, 18)
+		# About 36 CSS px on a phone: big enough for a thumb.
+		b.custom_minimum_size = Vector2(0, 24)
 		var id: String = choice[0]
 		b.pressed.connect(func() -> void: _choose(id))
 		_buttons.add_child(b)
@@ -100,8 +112,21 @@ func show_panel(kicker: String, title: String, body: String, choices: Array) -> 
 			first = b
 	visible = true
 	open = true
+	_fit.call_deferred()
 	if first:
 		first.call_deferred("grab_focus")
+
+
+func _fit() -> void:
+	if not is_inside_tree():
+		return
+	var want := _v.get_combined_minimum_size().y
+	var room := get_viewport().get_visible_rect().size.y * MAX_SHARE - 16.0
+	_scroll.custom_minimum_size = Vector2(0, minf(want, room))
+	# Open at the top (the title first), after focus has had its say.
+	await get_tree().process_frame
+	if is_inside_tree():
+		_scroll.scroll_vertical = 0
 
 
 func _choose(id: String) -> void:
