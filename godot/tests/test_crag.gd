@@ -382,16 +382,35 @@ func _still_frames(n: int) -> void:
 		await tree.physics_frame
 
 
-func test_clipping_takes_more_taps_on_harder_routes() -> void:
+func test_bolts_take_a_fair_number_of_taps() -> void:
 	Crag.navigate = false
-	var taps := []
+	var averages := []
 	for r in Crag.ROUTES:
-		taps.append(int(r.get("clipTaps", 3)))
-	eq(taps[0], 1, "one tap on the lesson")
-	eq(taps[1], 1, "one tap on the easy route")
-	for i in range(1, taps.size()):
-		check(taps[i] >= taps[i - 1], "never fewer taps on a harder route: %s" % [taps])
-	check(taps[-1] >= 4, "several on the hardest")
+		await _load(r["id"])
+		var rng: Array = r["clipTaps"]
+		var taps := []
+		for c in level.clips:
+			taps.append(int(c["taps"]))
+			check(int(c["taps"]) >= rng[0] and int(c["taps"]) <= rng[1], "%s: within the route's range %s" % [r["name"], rng])
+			match level.hold_beside(c["cell"]):
+				Terrain.Kind.JUG:
+					eq(int(c["taps"]), rng[0], "%s: easy beside a big hold" % r["name"])
+				Terrain.Kind.CRIMP:
+					if c != level.clips[0]:
+						eq(int(c["taps"]), rng[1], "%s: hardest beside tiny holds" % r["name"])
+		eq(taps[0], rng[0], "%s: the first bolt is the easiest" % r["name"])
+		if rng[0] != rng[1]:
+			check(taps.min() != taps.max(), "%s: the bolts vary (%s)" % [r["name"], taps])
+		var avg := 0.0
+		for t in taps:
+			avg += t
+		averages.append(avg / taps.size())
+		print("      %s %s: taps per bolt %s" % [r["grade"], r["name"], taps])
+		await _done()
+	eq(averages[0], 1.0, "the lesson: one tap a bolt")
+	eq(averages[1], 1.0, "the easy route: one tap a bolt")
+	for i in range(1, averages.size()):
+		check(averages[i] >= averages[i - 1] - 0.01, "harder routes never average fewer taps: %s" % [averages])
 	# One tap clips on the warm-up.
 	await _load("warm-up")
 	var guard := 0

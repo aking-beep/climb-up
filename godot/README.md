@@ -256,9 +256,17 @@ where you rest is a decision.
 | 6c | Lion's Roof | 48 | 8 | 6 | 3 | a traverse under a roof, a dyno |
 | 7a | Thunderhead | 56 | 9 | 7 | 3 | two dynos, a roof |
 
-- **Tap to clip.** At each bolt the game asks "Clip in?": tap CLIP. Once
-  on the lesson and the easy route, more the harder the route (2 on 5b and
-  6a, 3 on 6b and 6c, 4 on 7a). Climb on without it and
+- **Tap to clip.** At each bolt the game asks "Clip in?": tap CLIP. How
+  many taps a bolt takes is shown before you get there, as dots under the
+  quickdraw (they fill blue as you tap and turn green once clipped). Each
+  route has a range that rises with the grade: 1 on the lesson and the
+  easy route, 1 to 2 on 5b, 1 to 3 on 6a, 2 to 3 on 6b, 2 to 4 on 6c and
+  7a. Where the bolt is decides which: the first bolt is always the
+  fewest, a bolt beside a big hold (jug) is the fewest, a bolt beside tiny
+  holds (crimps) the most, and the rest sit in the middle, a little more
+  near the top. So every route mixes easy clips with a few tough ones
+  ("Tough clip!" when you get a 3 or 4), and the hint says why. Climb on
+  without clipping and
   the bolt stays unclipped: a fall then drops you to the last one you did
   clip, and the game tells you so. The rope runs up through every clipped
   bolt to you.
