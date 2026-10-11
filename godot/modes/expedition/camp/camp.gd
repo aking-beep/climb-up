@@ -228,6 +228,10 @@ func _last(s: Dictionary) -> void:
 				bits.append("you left them for Lena")
 			if o.get("regrouped") == true:
 				bits.append("regrouped")
+			if int(o.get("stars", 0)) > 0:
+				bits.append("%d of 3 stars" % int(o["stars"]))
+			if int(o.get("flowersTotal", 0)) > 0:
+				bits.append("%d of %d everlastings" % [int(o["flowers"]), int(o["flowersTotal"])])
 			if int(o.get("gearFound", 0)) > 0:
 				bits.append("found %d lost gear" % int(o["gearFound"]))
 			v.add_child(_wrap(_label(" · ".join(bits), 8, MUTED, UiFont.body())))

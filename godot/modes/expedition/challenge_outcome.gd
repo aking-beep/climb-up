@@ -22,6 +22,9 @@ var loose_seconds := 0.0
 var rest_seconds := 0.0
 var checkpoint := 0
 var gear_found := 0
+var flowers := 0
+var flowers_total := 0
+var stars := 0
 
 
 func to_expo() -> Dictionary:
@@ -45,6 +48,9 @@ func to_dict() -> Dictionary:
 	d["restSeconds"] = snappedf(rest_seconds, 0.1)
 	d["checkpoint"] = checkpoint
 	d["gearFound"] = gear_found
+	d["flowers"] = flowers
+	d["flowersTotal"] = flowers_total
+	d["stars"] = stars
 	return d
 
 

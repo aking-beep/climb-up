@@ -18,8 +18,9 @@ const KIND_OF := {
 }
 ## Markers stand on air. r: rockfall comes down this column (the marker is
 ## where rocks start); w: a water cache; *: lost gear to find; b / d: a
-## stone rolls from here along the ground, leftward (b) or rightward (d).
-const MARKERS := "PXMljmpSTFgoVKrw*bd"
+## stone rolls from here along the ground, leftward (b) or rightward (d);
+## f: an everlasting (a flower to pick up).
+const MARKERS := "PXMljmpSTFgoVKrw*bdf"
 
 var width := 0
 var height := 0

@@ -32,6 +32,16 @@ var mate: Companion
 var hazards: Hazards
 var ground_layer: TileMapLayer
 var gear_this_attempt := 0
+## Pacing: every moment the player had to do something, [clock, kind]. The
+## tests read it to check that no stretch of a climb is just walking.
+var pace_log: Array = []
+## Seconds spent walking (a face being climbed is play in itself; resting
+## and reading are the player's choice).
+var travel := 0.0
+var _travel_clock := -1.0
+var _was_bracing := false
+var _outcome: ChallengeOutcome
+var stars := 0
 ## A helped teammate's breath: walking drains it (more in thin air, more if
 ## they are unwell), sitting near them gives it back. At zero they stop.
 var mate_breath := 100.0
@@ -112,7 +122,11 @@ func _ready() -> void:
 	climber.global_position = cairns[0]
 	climber.slipped.connect(_on_slipped)
 	climber.slip_finished.connect(_on_slip_finished)
-	climber.grabbed.connect(func() -> void: Haptics.tap(12))
+	climber.grabbed.connect(func() -> void:
+		Haptics.tap(12)
+		engage("grab"))
+	climber.jumped.connect(func() -> void: engage("hop"))
+	climber.mantled.connect(func() -> void: engage("mantle"))
 	climber.mantled.connect(func() -> void: camera.kick(0.0))
 
 	hazards = Hazards.new()
@@ -121,6 +135,7 @@ func _ready() -> void:
 	var mine: bool = Expedition.climb.get("challengeId") == spec["id"]
 	hazards.setup(self, terrain, ground, climber, float(d.get("rockPeriod", 5.0)) / trek_factor["steep"], spec.get("gear", []),
 		Expedition.climb.get("taken", []) if mine else [], Expedition.gear_found(spec["id"]))
+	hazards.engaged.connect(engage)
 	hazards.found_gear.connect(func(i: int) -> void:
 		gear_this_attempt += 1
 		Expedition.find_gear(spec["id"], i))
@@ -303,6 +318,13 @@ func _physics_process(_delta: float) -> void:
 		return
 	hazards.step()
 	_mate_breath()
+	if _travel_clock >= 0.0 and climber.last_activity in ["walk", "walk_up", "ice"]:
+		travel += clampf(climber.clock - _travel_clock, 0.0, 0.1)
+	_travel_clock = climber.clock
+	var bracing := climber.state == Climber.State.BRACE
+	if bracing and not _was_bracing:
+		engage("brace")
+	_was_bracing = bracing
 	if mate:
 		mate.record(climber.global_position, climber.sprite.animation, climber.sprite.flip_h)
 	_arrive()
@@ -338,6 +360,7 @@ func _arrive() -> void:
 		var c := cairns[i]
 		if absf(feet.x - c.x) < 1.4 * Terrain.TILE and absf(feet.y - c.y) < 0.6 * Terrain.TILE:
 			checkpoint = i
+			engage("cairn")
 			Audio.play("cairn", -8.0)
 			hud.flash("Cairn %d of %d" % [checkpoint, cairns.size() - 1])
 			_remember()
@@ -397,6 +420,7 @@ func _mate_breath() -> void:
 			mate_breath += 5.0 * dt
 		if mate_breath <= 0.0 and climber.state == Climber.State.GROUND:
 			mate_winded = true
+			engage("breather")
 			_mate_away = 0.0
 			_mate_spotter = climber.spotter
 			climber.spotter = false
@@ -509,6 +533,8 @@ func _on_choice(id: String) -> void:
 		"quit":
 			_remember()
 			Expedition.go(Expedition.MENU)
+		"camp":
+			land()
 		"talk":
 			climber.lock(false)
 
@@ -578,6 +604,7 @@ func _find_interaction() -> void:
 func _interact() -> void:
 	match _interact_target.get("kind", ""):
 		"person":
+			engage("talk")
 			var p: Dictionary = _interact_target["data"]
 			var title: String = p["title"]
 			var i: int = _talk_index.get(title, 0)
@@ -587,6 +614,7 @@ func _interact() -> void:
 			Audio.play("chime", -14.0)
 			panel.show_panel("", title, lines[i], [["talk", "OK"]])
 		"sign":
+			engage("sign")
 			var s: Dictionary = _interact_target["data"]
 			var all: Array = spec["signs"]
 			var text: Array = all[mini(s["index"], all.size() - 1)]
@@ -602,6 +630,25 @@ func _interact() -> void:
 
 
 # --- The end ----------------------------------------------------------------
+
+func engage(kind: String) -> void:
+	pace_log.append([climber.clock, kind, travel, climber.global_position / Terrain.TILE])
+
+
+## How far along the route: cairns reached, and the way to the next one (or
+## the exit), 0 at the start, 1 at the end.
+func route_progress() -> float:
+	var points: Array = cairns.duplicate()
+	for cell in terrain.markers.get("X", []):
+		points.append(Terrain.feet(cell))
+	if points.size() < 2:
+		return 0.0
+	var i := clampi(checkpoint, 0, points.size() - 2)
+	var a: Vector2 = points[i]
+	var b: Vector2 = points[i + 1]
+	var along := clampf(1.0 - climber.global_position.distance_to(b) / maxf(1.0, a.distance_to(b)), 0.0, 1.0)
+	return clampf((i + along) / float(points.size() - 1), 0.0, 1.0)
+
 
 func on_water(key: String) -> void:
 	var taken: Array = Expedition.climb.get("taken", [])
@@ -626,7 +673,23 @@ func outcome_now(kind: String) -> ChallengeOutcome:
 	o.rest_seconds = climber.rest_seconds
 	o.checkpoint = checkpoint
 	o.gear_found = gear_this_attempt
+	o.flowers = hazards.flowers
+	o.flowers_total = hazards.flowers_total
+	o.stars = star_count(kind, o)
 	return o
+
+
+## Up to three: reach the top; no slips that counted; three in four of the
+## everlastings picked.
+func star_count(kind: String, o: ChallengeOutcome) -> int:
+	if kind != "complete":
+		return 0
+	var n := 1
+	if o.slips == 0:
+		n += 1
+	if hazards.flowers_total == 0 or hazards.flowers * 4 >= hazards.flowers_total * 3:
+		n += 1
+	return n
 
 
 func finish(kind: String) -> void:
@@ -646,7 +709,33 @@ func finish(kind: String) -> void:
 	var o := outcome_now(kind)
 	finished.emit(o)
 	var copy: Dictionary = spec["copy"]
-	hud.flash({"complete": copy["doneComplete"], "retreat": copy["doneRetreat"], "fail": copy["doneFail"]}[kind])
-	await get_tree().create_timer(1.8 if is_inside_tree() else 0.0).timeout
-	if Expedition.climb.get("attemptId") == attempt_id:
-		Expedition.finish_climb(o.to_dict())
+	_outcome = o
+	stars = o.stars
+	var best := Expedition.record_best(spec["id"], o.stars, o.flowers)
+	var head: String = {"complete": copy["doneComplete"], "retreat": copy["doneRetreat"], "fail": copy["doneFail"]}[kind]
+	var lines: Array = []
+	if kind == "complete":
+		lines.append("%d of 3 stars%s" % [o.stars, "  ·  a new best" if best else ""])
+		lines.append("Star: topped out")
+		lines.append(("Star: " if o.slips == 0 else "Missed: ") + "no slips that counted (%d)" % o.slips)
+		lines.append(("Star: " if o.flowers * 4 >= o.flowers_total * 3 else "Missed: ") + "everlastings %d of %d (three in four)" % [o.flowers, o.flowers_total])
+		if o.stars == 3:
+			lines.append("Three stars: the party's spirits lift at camp.")
+	else:
+		lines.append("Everlastings %d of %d · cairn %d of %d" % [o.flowers, o.flowers_total, checkpoint, cairns.size() - 1])
+	if o.gear_found > 0:
+		lines.append("Lost gear found: %d" % o.gear_found)
+	lines.append("%d min on the mountain" % maxi(1, o.seconds / 60))
+	hud.flash(head)
+	await get_tree().create_timer(1.2 if is_inside_tree() else 0.0).timeout
+	panel.show_panel("Climb over", head, "\n".join(lines), [["camp", "Back to camp"]])
+	# Lands by itself if nobody taps.
+	await get_tree().create_timer(15.0 if is_inside_tree() else 0.0).timeout
+	land()
+
+
+## The outcome goes to the expedition, once.
+func land() -> void:
+	if _outcome != null and Expedition.climb.get("attemptId") == attempt_id:
+		panel.hide_panel()
+		Expedition.finish_climb(_outcome.to_dict())

@@ -314,6 +314,24 @@ func _supported(at: Vector2i) -> bool:
 	return false
 
 
+## The climbable column under the hands nearest the body's centre, or -1.
+func _hold_column() -> int:
+	var hands := global_position + Vector2(0, -SIZE.y * 0.75)
+	var here := Terrain.cell_of(hands)
+	for dx in [0, 1, -1]:
+		if terrain.is_climbable(here + Vector2i(dx, 0)):
+			# The middle column of the face, when the face is wide.
+			var c: int = here.x + dx
+			if terrain.is_climbable(Vector2i(c - 1, here.y)) and terrain.is_climbable(Vector2i(c + 1, here.y)):
+				return c
+			if terrain.is_climbable(Vector2i(c + 1, here.y)) and not terrain.is_climbable(Vector2i(c - 1, here.y)):
+				return c + 1
+			if terrain.is_climbable(Vector2i(c - 1, here.y)) and not terrain.is_climbable(Vector2i(c + 1, here.y)):
+				return c - 1
+			return c
+	return -1
+
+
 ## A boulder or step a hop clears: rock at the feet a step ahead, with room
 ## above it.
 func hurdle_ahead(dir: int) -> bool:
@@ -408,6 +426,13 @@ func _climb(delta: float, input: Vector2) -> void:
 	# Small lips: when a sideways move is blocked, step up over a ledge edge.
 	if absf(want.x) > 0.0 and absf(global_position.x - before.x) < absf(want.x * delta) * 0.5:
 		_step_assist(int(signf(want.x)))
+	# Snagged on a lip overhead at the edge of a face: ease toward the middle
+	# of the rock, as hands find the next hold.
+	if want.y < 0.0 and want.x == 0.0 and absf(global_position.y - before.y) < absf(want.y * delta) * 0.3:
+		var col := _hold_column()
+		if col >= 0:
+			var mid := col * T + T / 2.0
+			global_position.x = move_toward(global_position.x, mid, CLIMB_SIDE * delta)
 	var moving := global_position.distance_to(before) > 0.05
 	var loose := terrain.kinds_in(body_rect()).has(Terrain.Kind.LOOSE)
 	if loose:

@@ -121,6 +121,23 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
   alcove up a side face, the back of a niche, a ledge up a pinnacle). Found
   gear stays found across attempts; the HUD and the camp screen count it.
 
+**Always something to do, always something earned.**
+
+- **Everlastings** (the papery Kilimanjaro flower) line the walkable ground:
+  each is a breath back, they glint so the eye finds the next one, and the
+  count shows at the top of the screen.
+- **A route bar** at the top shows how far along the climb you are.
+- **Stars at the top:** one for topping out, one for no slips that counted,
+  one for three in four of the everlastings. The results card shows them
+  and your best is kept; a three-star climb lifts the party at camp
+  (+3 team, +2 energy).
+- **Pacing is tested.** Every climb logs each moment the player has to act
+  (a hop, a grab, a pull-over, a brace, a dodged stone, a cracked slab, a
+  rolling stone, a find, a cairn). The full-ascent tests fail if a climb
+  has more than 6 s of walking with nothing to do, or more than 12 s of
+  walking without a real challenge (flowers and cairns do not count as
+  challenges). Climbing a face counts as play in itself.
+
 | Climb | Hazards | Lost gear |
 | --- | --- | --- |
 | Lava Tower | a scree bridge of cracked slabs, stonefall down the chimney (a niche halfway up to shelter), the windy lip | on the windy lip, in the chimney niche, on a ledge beyond the tower |

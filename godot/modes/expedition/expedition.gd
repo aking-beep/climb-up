@@ -176,6 +176,13 @@ func finish_climb(outcome: Dictionary) -> String:
 	session = r["session"]
 	if r["status"] == "applied":
 		Trek.advance(session, before, def)
+		# A three-star climb lifts the party.
+		if int(outcome.get("stars", 0)) >= 3 and active():
+			var s: Dictionary = state().duplicate(true)
+			s["teamCondition"] = mini(100, int(s["teamCondition"]) + 3)
+			s["energy"] = mini(100, int(s["energy"]) + 2)
+			s["lastNote"] = (String(s["lastNote"]) + " A clean climb: the party's spirits lift.").strip_edges()
+			session["state"] = s
 		last = {"kind": "climb", "label": p["choiceLabel"], "before": before, "outcome": outcome}
 	climb = {}
 	save()
@@ -211,6 +218,20 @@ func remember(progress: Dictionary) -> void:
 	save()
 
 
+## Best result per climb: {challengeId: {stars, flowers}}. Kept like gear.
+var best: Dictionary = {}
+
+
+## Records a result; true when it beats the best so far.
+func record_best(id: String, stars: int, flowers: int) -> bool:
+	var was: Dictionary = best.get(id, {"stars": 0, "flowers": 0})
+	var better: bool = stars > int(was["stars"]) or (stars == int(was["stars"]) and flowers > int(was["flowers"]))
+	if better:
+		best[id] = {"stars": stars, "flowers": flowers}
+		save()
+	return better and stars > 0
+
+
 func gear_found(id: String) -> Array:
 	return found.get(id, [])
 
@@ -224,7 +245,7 @@ func find_gear(id: String, index: int) -> void:
 
 
 func save() -> bool:
-	return SaveGame.write({"session": session, "climb": climb, "found": found, "settings": Settings.to_dict()})
+	return SaveGame.write({"session": session, "climb": climb, "found": found, "best": best, "settings": Settings.to_dict()})
 
 
 ## True when a saved expedition was restored. A save that does not have the
@@ -255,6 +276,8 @@ func load_saved() -> bool:
 		session["trek"] = t
 	var f: Variant = _whole(data.get("found", {}))
 	found = f if typeof(f) == TYPE_DICTIONARY else {}
+	var b: Variant = _whole(data.get("best", {}))
+	best = b if typeof(b) == TYPE_DICTIONARY else {}
 	var c: Variant = data.get("climb", {})
 	climb = c if typeof(c) == TYPE_DICTIONARY and p != null and c.get("attemptId") == p["attemptId"] else {}
 	last = {}

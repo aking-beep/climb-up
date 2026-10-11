@@ -140,6 +140,12 @@ def lava_tower():
     m.put(62, 29, "#")
     m.fill(137, 24, 138, 30, ".")
     m.put(141, 23, "#")
+    # Across the top of the tower: a boulder, a crack, a stone rolling at
+    # you from the far edge; and a boulder on the scree below.
+    m.put(76, 13, "#")
+    m.fill(90, 14, 91, 20, ".")
+    m.put(106, 13, "b")
+    m.put(124, 23, "#")
     # Water, and the lost gear: out on the windy lip, in the chimney's
     # niche, and on the ledge beyond the tower.
     m.put(70, 41, "w")
@@ -220,6 +226,27 @@ def summit_night():
     m.fill(55, floors[4], 56, floors[4] + 2, ".")
     m.put(26, floors[5] - 1, "d")
     m.put(75, RIM - 1, "#")
+    # Something every twenty steps or so on every bench.
+    f = floors
+    m.put(30, f[0] - 1, "#")
+    m.fill(86, f[0], 87, 91, ".")
+    m.fill(86, f[0], 87, f[0], "c")
+    m.fill(80, f[1], 81, f[1] + 2, ".")
+    m.put(40, f[1] - 1, "i")
+    m.put(30, f[1] - 1, "d")
+    m.put(35, f[2] - 1, "#")
+    m.fill(50, f[2], 51, f[2] + 2, ".")
+    m.fill(50, f[2], 51, f[2], "c")
+    m.put(40, f[3] - 1, "#")
+    m.fill(28, f[3], 29, f[3] + 2, ".")
+    m.put(30, f[4] - 1, "#")
+    m.put(43, f[4] - 1, "#")
+    m.fill(75, f[4], 76, f[4] + 2, ".")
+    m.fill(75, f[4], 76, f[4], "c")
+    m.put(90, f[4] - 1, "b")
+    m.fill(70, f[5], 71, f[5] + 2, ".")
+    m.put(45, f[5] - 1, "#")
+    m.fill(35, RIM, 36, RIM + 2, ".")
     m.put(x0 + 10, RIM - 1, "w")
     # Camp, people, cairns, signs.
     f0 = floors[0] - 1
@@ -266,8 +293,11 @@ def preview(m, path):
 
 
 def main():
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from flowers import sprinkle
     for name, build in (("lava_tower", lava_tower), ("summit_night", summit_night)):
         m = build()
+        print(name, "everlastings:", sprinkle(m.g, spacing=9 if name == "summit_night" else 5))
         out = LEVELS / name / f"{name}.txt"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(m.text())

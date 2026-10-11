@@ -6,6 +6,11 @@ extends TestCase
 ## slabs. It knows the route; it does not cheat the hazards.
 
 const T := 16.0
+## The most moving time, in seconds, between two things to do (a flower, a
+## cairn, a sign count), and between two real challenges (they do not).
+const QUIET_MAX := 6.0
+const CHALLENGE_MAX := 12.0
+const NOT_CHALLENGES := ["flower", "cairn", "sign", "talk", "water"]
 
 var level: Node
 var c: Climber
@@ -48,12 +53,21 @@ func _hop(held: Dictionary) -> void:
 ## On the way it hops what needs hopping, and goes back for a teammate who
 ## has run out of breath.
 func drive(keys: Array, done: Callable, seconds: float = 40.0, label: String = "") -> bool:
-	for i in int(seconds * 60.0):
+	# A deadline in physics frames, so detours (rests, breathers) count too.
+	var deadline := Engine.get_physics_frames() + int(seconds * 60.0)
+	while Engine.get_physics_frames() < deadline:
 		if done.call():
 			GameInput.scripted = {"_": false}
 			return true
+		if level.get("_ended") and label != "panel":
+			break
 		if level.get("mate_winded") and label != "breather":
 			await breather()
+			continue
+		# Out of breath on the walk: sit, as a player would.
+		var walking: bool = keys.has("move_left") or keys.has("move_right")
+		if walking and c.state == Climber.State.GROUND and c.stamina.fraction() < 0.2 and label != "breather" and label != "resting":
+			await rest_up(0.9)
 			continue
 		var held := {"_": false}
 		for k in keys:
@@ -115,6 +129,9 @@ func cross(until_x: float) -> bool:
 		var held := {"_": false}
 		var ahead := c.terrain.kinds_in(c.body_rect(c.global_position + Vector2(sign * T, 0)))
 		var windy: bool = c.exposed or ahead.has(Terrain.Kind.EXPOSED)
+		if c.state == Climber.State.GROUND and c.stamina.fraction() < 0.2 and not _on_slab():
+			await rest_up(0.9)
+			continue
 		if _on_slab():
 			held[dir] = true
 		elif _slab_near(sign, 2) and windy and not c.wind.calm_for(c.clock, 3.0):
@@ -139,7 +156,8 @@ func _safe_x(horizon: float) -> float:
 	var hz: Hazards = level.hazards
 	var x := c.global_position.x
 	for off in [T, -T, 2 * T, -2 * T]:
-		var x2: float = x + off
+		# Column centres: an edge of a face can snag on the lip above.
+		var x2: float = floorf((x + off) / T) * T + T / 2.0
 		if hz.threat_at(x2, horizon):
 			continue
 		var chest := Vector2(x2, c.global_position.y - Climber.SIZE.y * 0.5)
@@ -173,12 +191,19 @@ func climb_dodging(done: Callable, label: String, seconds: float = 60.0, lean: S
 				held["move_left" if target < x else "move_right"] = true
 		elif hz.threat_at(x, 1.6):
 			target = _safe_x(2.4)
+			if is_nan(target):
+				target = _safe_x(1.4)
+			if is_nan(target):
+				# Nowhere to step aside: climb on and hope to be out of it.
+				held["climb_up"] = true
 		else:
 			held["climb_up"] = true
 			var top := c.is_climbing() and c.terrain.hold_at(c.body_rect(c.global_position + Vector2(0, -6))) == Terrain.Kind.AIR
 			if lean != "" and top:
 				held[lean] = true
 		GameInput.scripted = held
+		if OS.get_environment("DODGE_DEBUG") != "" and i % 15 == 0 and "step 5" in label:
+			print("DODGE ", where(), " threat=", hz.threat_at(x, 1.6), " target=", target, " held=", held.keys(), " rocks=", hz.rocks.size())
 		await tree.physics_frame
 		if level.panel.open:
 			break
@@ -193,3 +218,61 @@ func climb_dodging(done: Callable, label: String, seconds: float = 60.0, lean: S
 
 func up_to(floor_row: float, label: String, lean: String = "") -> bool:
 	return await climb_dodging(func() -> bool: return c.state == Climber.State.GROUND and ty() <= floor_row + 0.05, label, 60.0, lean)
+
+
+## The longest stretch of moving with nothing to deal with: [seconds, where
+## it ended (tiles), what ended it]. Resting and reading do not count.
+func longest_quiet(challenges_only: bool = false) -> Array:
+	var worst := [0.0, Vector2.ZERO, ""]
+	var last := 0.0
+	var log: Array = level.pace_log.duplicate()
+	log.append([0, "end", level.travel, c.global_position / T])
+	for e in log:
+		if challenges_only and e[1] in NOT_CHALLENGES:
+			continue
+		var gap: float = e[2] - last
+		if gap > worst[0]:
+			worst = [gap, e[3], e[1]]
+		last = e[2]
+	return worst
+
+
+## Checks a finished climb's pacing and prints it.
+func check_pacing(label: String) -> void:
+	var quiet := longest_quiet()
+	var hard := longest_quiet(true)
+	print("      %s: %d engaged moments; longest quiet %.1f s (to %s), longest without a challenge %.1f s (to %s)" % [label, level.pace_log.size(), quiet[0], quiet[1], hard[0], hard[1]])
+	if OS.get_environment("PACE_DEBUG") != "":
+		var last := [0.0, Vector2.ZERO]
+		for e in level.pace_log:
+			if e[1] in NOT_CHALLENGES:
+				continue
+			if e[2] - last[0] > 7.0:
+				print("        gap %.1f s from %s to %s (%s)" % [e[2] - last[0], last[1], e[3], e[1]])
+			last = [e[2], e[3]]
+	check(quiet[0] <= QUIET_MAX, "%s: something to do every %.0f s of moving, but %.1f s ending at %s" % [label, QUIET_MAX, quiet[0], quiet[1]])
+	check(hard[0] <= CHALLENGE_MAX, "%s: a challenge every %.0f s of moving, but %.1f s ending at %s" % [label, CHALLENGE_MAX, hard[0], hard[1]])
+
+
+## Before climbing into a stone chute at x: wait out of the line until a stone
+## has just come down, then go, as a careful player would.
+func wait_for_stone_window(x: float) -> void:
+	var hz: Hazards = level.hazards
+	var near := false
+	for chute in hz.chutes:
+		if absf(chute["cell"].x * T + T / 2.0 - x) < 3.0 * T:
+			near = true
+	if not near:
+		return
+	var seen := false
+	for i in 60 * 15:
+		var falling := false
+		for r in hz.rocks:
+			if absf(r["node"].position.x - x) < 3.0 * T:
+				falling = true
+		if falling:
+			seen = true
+		elif seen:
+			return
+		GameInput.scripted = {"_": false}
+		await tree.physics_frame

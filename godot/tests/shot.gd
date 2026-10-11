@@ -3,6 +3,9 @@ extends Node
 ## a tool for reviewing the look without the editor.
 ##   godot --path godot res://tests/shot.tscn -- out=/tmp/x at=24,77 at=56,67 ...
 
+var finish_climb := false
+
+
 func _ready() -> void:
 	var out := "/tmp/shot"
 	var spots: Array[Vector2] = []
@@ -18,6 +21,8 @@ func _ready() -> void:
 			path = arg.substr(6)
 		elif arg.begins_with("hold="):
 			hold = float(arg.substr(5))
+		elif arg == "finish":
+			finish_climb = true
 		elif arg == "fresh":
 			Expedition.navigate = false
 			Expedition.new_expedition(7)
@@ -42,6 +47,16 @@ func _ready() -> void:
 			Expedition.last = {}
 	var scene: Node = load(path).instantiate()
 	add_child(scene)
+	if finish_climb:
+		await get_tree().create_timer(0.5).timeout
+		scene.panel.hide_panel()
+		scene.climber.lock(false)
+		scene.hazards.flowers = int(scene.hazards.flowers_total * 0.8)
+		scene.finish("complete")
+		await get_tree().create_timer(2.0).timeout
+		get_viewport().get_texture().get_image().save_png(out + "_0.png")
+		get_tree().quit(0)
+		return
 	await get_tree().create_timer(0.5).timeout
 	if spots.is_empty():
 		await get_tree().create_timer(hold).timeout

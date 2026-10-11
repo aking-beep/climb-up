@@ -174,6 +174,27 @@ def gear():
     return sheet
 
 
+def everlasting():
+    """Helichrysum, the papery everlasting of Kilimanjaro's moorland: a white
+    star with a yellow eye on a short grey stem. Two frames: still, and
+    catching the light."""
+    sheet = Image.new("RGBA", (20, 10))
+    for f in range(2):
+        im = Image.new("RGBA", (10, 10))
+        p = im.load()
+        for y in range(6, 10):
+            p[5, y] = rgb("#7d8a72")
+        p[4, 8] = rgb("#7d8a72")
+        petal = rgb("#f6f2e6") if f == 0 else rgb("#ffffff")
+        for dx, dy in ((0, -2), (0, 2), (-2, 0), (2, 0), (-1, -1), (1, -1), (-1, 1), (1, 1)):
+            p[5 + dx, 4 + dy] = petal
+        p[5, 4] = rgb("#e8b730")
+        if f == 1:
+            p[7, 1] = rgb("#ffffff", 200)
+        sheet.paste(outline(im), (f * 10, 0))
+    return sheet
+
+
 def main():
     atlas = Image.new("RGBA", (4 * T, 2 * T))
     for v in range(4):
@@ -184,6 +205,7 @@ def main():
     rock().save(props / "rock.png")
     water().save(props / "water.png")
     gear().save(props / "gear.png")
+    everlasting().save(props / "everlasting.png")
     print("wrote", TERRAIN / "hazards.png", "and rock, water, gear props")
 
 

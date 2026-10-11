@@ -55,17 +55,29 @@ func test_the_lava_tower_climbed() -> void:
 		eq(outcome.result, "complete", "result")
 		eq(outcome.challenge_id, "lava-tower", "which climb")
 		eq(outcome.assisted, null, "no teammate on the tower")
+		check(outcome.stars >= 2, "a clean ascent earns at least two stars, got %d" % outcome.stars)
+		check(outcome.flowers > 0 and outcome.flowers_total > outcome.flowers - 1, "everlastings were picked on the way (%d of %d)" % [outcome.flowers, outcome.flowers_total])
+		check_pacing("Lava Tower")
 		print("      Lava Tower took %d s of game time, %d%% stamina left, %d slips" % [outcome.seconds, outcome.stamina_left, outcome.slips])
-	await physics_frames(130)
+	await _results()
 	eq(Expedition.state()["checkpoint"], "camp2", "the outcome landed: the party sleeps at Barranco")
 	check(Expedition.pending() == null, "the climb is closed")
 	await _done()
+
+
+## The results card: shows the stars, then back to camp.
+func _results() -> void:
+	await drive([], func() -> bool: return level.panel.open, 5.0, "panel")
+	check(level.panel.open and level.panel._title.text != "", "the results card shows")
+	level.panel.choose("camp")
+	await physics_frames(2)
 
 
 func _switchback(row: float, right: bool, label: String) -> void:
 	var dir := "move_right" if right else "move_left"
 	await drive([dir], func() -> bool: return tx() >= 99.0 if right else tx() <= 19.5, 60.0, "walk toward " + label)
 	await rest_up(0.98)
+	await wait_for_stone_window((103.5 if right else 15.5) * T)
 	await drive([dir], func() -> bool: return c.is_climbing() or (tx() >= 103.0 if right else tx() <= 15.5), 20.0, "walk to " + label)
 	await up_to(row, label)
 
@@ -100,8 +112,9 @@ func test_the_summit_night_climbed_helping_jun() -> void:
 	if outcome:
 		eq(outcome.result, "complete", "result")
 		eq(outcome.assisted, true, "assisted")
+		check_pacing("summit night")
 		print("      summit night took %d s of game time, %d%% stamina left, %d slips, %d caught, %d wind strikes" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.caught, outcome.wind_strikes])
-	await physics_frames(130)
+	await _results()
 	check(Expedition.state()["summitReached"], "the summit is recorded on the expedition")
 	await _done()
 
@@ -160,8 +173,8 @@ func test_stones_are_announced_and_miss_the_next_column() -> void:
 
 func test_ice_slides() -> void:
 	await _load("summit-night")
-	await _put(Vector2i(40, 76))
-	check(c.terrain.kind(Vector2i(40, 77)) == Terrain.Kind.ICE, "on ice")
+	await _put(Vector2i(64, 76))
+	check(c.terrain.kind(Vector2i(64, 77)) == Terrain.Kind.ICE, "on ice")
 	await drive(["move_right"], func() -> bool: return absf(c.velocity.x) >= Climber.WALK * 0.95, 5.0, "up to speed on ice")
 	var from := c.global_position.x
 	await drive([], func() -> bool: return absf(c.velocity.x) < 1.0, 5.0, "sliding to a stop")
@@ -257,6 +270,21 @@ func test_a_teammate_who_runs_out_of_breath_waits_for_you() -> void:
 		if lvl.mate_state == "left":
 			break
 	eq(lvl.mate_state, "left", "a teammate left sitting is left")
+	await _done()
+
+
+func test_a_climber_at_the_edge_of_a_face_is_not_caught_under_the_lip() -> void:
+	await _load("summit-night")
+	# Hanging at the very left edge of the last rock step, under the shelf.
+	c.global_position = Vector2(102.1 * T, 46.0 * T)
+	c.reset_physics_interpolation()
+	c.state = Climber.State.CLIMB
+	c.velocity = Vector2.ZERO
+	var from := ty()
+	for i in 60 * 3:
+		GameInput.scripted = {"_": false, "climb_up": true}
+		await tree.physics_frame
+	check(ty() < from - 1.5 or c.state == Climber.State.GROUND, "pushing up gets past the lip (from %.2f to %.2f)" % [from, ty()])
 	await _done()
 
 

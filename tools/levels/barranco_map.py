@@ -177,6 +177,9 @@ put(101, SH - 1, "#", absolute=True)
 put(134, TOP - 1, "#", absolute=True)
 put(196, TOP + 3, "b", absolute=True)
 fill(205, TOP + 4, 206, TOP + 12, ".", absolute=True)
+fill(157, TOP - 3, 158, TOP + 4, ".", absolute=True)
+put(188, TOP + 3, "#", absolute=True)
+put(214, TOP + 3, "#", absolute=True)
 put(94, SH - 1, "w", absolute=True)
 
 # People, places, things.
@@ -217,6 +220,9 @@ put(222, TOP + 3, "X", absolute=True)
 
 
 def main():
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from flowers import sprinkle
+    print("everlastings:", sprinkle(g))
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join("".join(row) for row in g) + "\n")
     print("wrote", OUT, f"{W}x{H}")

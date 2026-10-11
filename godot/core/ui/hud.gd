@@ -11,6 +11,8 @@ var _prompt: Label
 var _wind: Label
 var _flash_time := 0.0
 var title := "Climb"
+var _route: ProgressBar
+var _route_label: Label
 
 
 func _ready() -> void:
@@ -56,6 +58,30 @@ func _ready() -> void:
 	_flash.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_flash.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_flash)
+	# The route, top right (left of pause): how far, and the everlastings.
+	var top := VBoxContainer.new()
+	top.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	top.anchor_left = 1.0
+	top.anchor_right = 1.0
+	top.offset_left = -190
+	top.offset_right = -40
+	top.offset_top = 8
+	top.add_theme_constant_override("separation", 1)
+	root.add_child(top)
+	_route_label = _label(8, Color(0.98, 0.97, 0.94))
+	_route_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	top.add_child(_route_label)
+	_route = ProgressBar.new()
+	_route.custom_minimum_size = Vector2(150, 4)
+	_route.show_percentage = false
+	_route.max_value = 1.0
+	var rf := StyleBoxFlat.new()
+	rf.bg_color = Color("#e9c46a")
+	_route.add_theme_stylebox_override("fill", rf)
+	var rb := StyleBoxFlat.new()
+	rb.bg_color = Color(0, 0, 0, 0.45)
+	_route.add_theme_stylebox_override("background", rb)
+	top.add_child(_route)
 	_prompt = _label(10, Color(1, 0.97, 0.88))
 	_prompt.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_prompt.anchor_left = 0.3
@@ -97,6 +123,12 @@ func update_from(level: Node) -> void:
 	var hz: Hazards = level.get("hazards")
 	if hz and hz.gear_total() > 0:
 		gear = " · Gear %d/%d" % [hz.gear_count, hz.gear_total()]
+	if level.has_method("route_progress"):
+		_route.value = level.route_progress()
+		var flowers := ""
+		if hz and hz.flowers_total > 0:
+			flowers = "  ·  everlastings %d/%d" % [hz.flowers, hz.flowers_total]
+		_route_label.text = "Route %d%%%s" % [int(_route.value * 100.0), flowers]
 	_stats.text = "Stamina %d%% · Slips %d/%d · Cairn %d/%d%s%s" % [pct, c.slips, level.max_slips, level.checkpoint, level.cairns.size() - 1, gear, mate]
 	if level.get("mate_winded"):
 		_wind.text = "%s is out of breath: go back and REST beside them" % level.mate_name()

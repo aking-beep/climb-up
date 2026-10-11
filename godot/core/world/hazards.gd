@@ -20,6 +20,8 @@ extends Node2D
 ## you find stays found across attempts (Expedition.found).
 
 signal found_gear(index: int)
+## Something the player had to deal with: for the level's pacing log.
+signal engaged(kind: String)
 
 const SLAB_HOLD := 1.0
 const SLAB_BACK := 6.0
@@ -51,6 +53,13 @@ var pickups: Array = []
 var rollers: Array = []      # spawners: {cell, dir, offset, next}
 var rolling: Array = []      # stones on the move: {node, dir, vy, start}
 var gear_count := 0
+## Everlastings: little flowers along the ground, a breath back each.
+var flowers := 0
+var flowers_total := 0
+const FLOWER_BREATH := 3.0
+var _flower_tex: Texture2D
+var _was_warned := false
+var _was_breaking := false
 var _clock := -1.0
 var _rock_tex: Texture2D
 
@@ -116,6 +125,22 @@ func setup(lvl: Node, t: Terrain, g: TileMapLayer, c: Climber, period: float, wo
 		var gone := taken.has(key)
 		s.visible = not gone
 		pickups.append({"cell": cell, "kind": "water", "key": key, "node": s, "taken": gone})
+	_flower_tex = load("res://assets/terrain/props/everlasting.png")
+	for cell in terrain.markers.get("f", []):
+		var s := Sprite2D.new()
+		var at := AtlasTexture.new()
+		at.atlas = _flower_tex
+		at.region = Rect2(0, 0, 10, 10)
+		s.texture = at
+		s.position = Terrain.feet(cell) - Vector2(0, 5)
+		add_child(s)
+		var key := "%d,%d" % [cell.x, cell.y]
+		var gone := taken.has(key)
+		s.visible = not gone
+		flowers_total += 1
+		if gone:
+			flowers += 1
+		pickups.append({"cell": cell, "kind": "flower", "key": key, "node": s, "taken": gone})
 
 
 ## The columns a chute's stones can fall in (the marker and its neighbours),
@@ -140,7 +165,21 @@ func step() -> void:
 	_rockfall(dt, now)
 	_roll(dt, now)
 	_pickups()
+	# Pacing: warnings and slabs the player is dealing with right now.
+	var warned := warned_here()
+	if warned and not _was_warned:
+		engaged.emit("stone")
+	_was_warned = warned
+	var breaking := slab_breaking()
+	if breaking and not _was_breaking:
+		engaged.emit("slab")
+	_was_breaking = breaking
 	var t := Time.get_ticks_msec() / 1000.0
+	for p in pickups:
+		if p["kind"] == "flower" and not p["taken"]:
+			# A glint now and then, so the eye finds the next one.
+			var glint := fposmod(t * 0.7 + p["cell"].x * 0.37, 3.0) < 0.25
+			p["node"].texture.region = Rect2(10 if glint else 0, 0, 10, 10)
 	for p in pickups:
 		if p["kind"] == "gear" and not p["taken"]:
 			p["node"].offset.y = sin(t * 3.0 + p["index"]) * 1.5
@@ -344,6 +383,9 @@ func _roll(dt: float, now: float) -> void:
 			_end_roll(st)
 			climber.slip("rock")
 			continue
+		if not st.get("met", false) and absf(n.position.x - climber.global_position.x) < 2.0 * Terrain.TILE and absf(n.position.y - climber.global_position.y) < 3.0 * Terrain.TILE:
+			st["met"] = true
+			engaged.emit("roller")
 		var ahead := Terrain.cell_of(n.position + Vector2(dir * (ROLL_HALF + 1), -2))
 		var k := terrain.kind(ahead)
 		var wall := terrain.is_solid(ahead) and k != Terrain.Kind.SLOPE_R and k != Terrain.Kind.SLOPE_L
@@ -398,6 +440,18 @@ func _pickups() -> void:
 		if not body.intersects(Rect2(Vector2(cell) * Terrain.TILE, Vector2.ONE * Terrain.TILE)):
 			continue
 		p["taken"] = true
+		if p["kind"] == "flower":
+			flowers += 1
+			climber.stamina.value = minf(climber.stamina.max_value, climber.stamina.value + FLOWER_BREATH)
+			p["node"].visible = false
+			_burst(p["node"].position, Color(1.0, 0.98, 0.85), 6)
+			Audio.play("chime", -20.0, 0.1)
+			level.on_water(p["key"])
+			engaged.emit("flower")
+			if flowers == flowers_total:
+				level.hud.flash("Every everlasting on this climb: %d of %d." % [flowers, flowers_total], 3.0)
+			continue
+		engaged.emit(p["kind"])
 		if p["kind"] == "water":
 			climber.stamina.value = minf(climber.stamina.max_value, climber.stamina.value + climber.stamina.max_value * WATER)
 			p["node"].visible = false
