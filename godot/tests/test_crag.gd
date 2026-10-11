@@ -96,7 +96,7 @@ func lead(seconds: float = 120.0) -> bool:
 		# while the stamina comes back.
 		if level.resting_rope:
 			held = {"_": false}
-		elif level.rest_offer > 0.0 and c.stamina.fraction() < 0.85:
+		elif level.can_rest() and level.action_word == "REST" and c.stamina.fraction() < 0.85:
 			held = {"interact": i % 4 < 2}
 		GameInput.scripted = held
 		if OS.get_environment("CRAG_DEBUG") != "" and i % 30 == 0:
@@ -229,7 +229,7 @@ func test_a_dyno_crosses_blank_rock() -> void:
 		GameInput.scripted = {"interact": i % 4 < 2}
 		await tree.physics_frame
 	GameInput.scripted = {"_": false}
-	await physics_frames(int((CragLevel.REST_OFFER + 0.3) * 60.0))
+	await physics_frames(2)
 	check(level.dyno_above(), "blank rock above, holds in reach")
 	check("jump" in level.hint_now().to_lower(), "and the HUD says so: " + level.hint_now())
 	var before := c.global_position.y
@@ -239,6 +239,7 @@ func test_a_dyno_crosses_blank_rock() -> void:
 	GameInput.scripted = {"_": false}
 	await drive([], func() -> bool: return c.state == Climber.State.CLIMB, 2.0, "the catch")
 	eq(c.state, Climber.State.CLIMB, "caught the holds above")
+	var after := c.stamina.value
 	await tree.physics_frame
 	check(level.catching > 0.0 and level.action_word == "GRIP", "and has to stick it (catching %.2f, button %s, state %d)" % [level.catching, level.action_word, c.state])
 	for i in 12:
@@ -248,7 +249,7 @@ func test_a_dyno_crosses_blank_rock() -> void:
 	await physics_frames(70)
 	eq(c.state, Climber.State.CLIMB, "still on the rock")
 	check(c.global_position.y < before - 2.0 * T, "two tiles higher, across the blank (%.0f px)" % (before - c.global_position.y))
-	check(c.stamina.value <= breath - Climber.DYNO_COST + 0.5, "a hard move's breath")
+	check(after <= breath - Climber.DYNO_COST + 0.5, "a hard move's breath (%.1f to %.1f)" % [breath, after])
 	await _done()
 
 
@@ -330,7 +331,8 @@ func test_a_clip_offers_a_rest_on_the_rope() -> void:
 	eq(level.checkpoint, 1, "tap tap tap: clipped")
 	GameInput.scripted = {"_": false}
 	await tree.physics_frame
-	check(level.rest_offer > 0.0 and level.action_word == "REST", "then the button offers a rest (%s)" % level.action_word)
+	check(level.can_rest() and level.action_word == "REST", "then the button offers a rest (%s)" % level.action_word)
+	eq(level.rope_left, CragLevel.ROPE_REST, "with a full green rest bar")
 	c.stamina.value = 40.0
 	GameInput.scripted = {"interact": true}
 	await tree.physics_frame
@@ -339,8 +341,19 @@ func test_a_clip_offers_a_rest_on_the_rope() -> void:
 	check(level.resting_rope, "a tap takes it")
 	await physics_frames(60)
 	check(c.stamina.value > 50.0, "stamina comes back on the rope (%.0f)" % c.stamina.value)
-	await physics_frames(120)
-	check(not level.resting_rope, "a rest is only a little: it ends")
+	# Move: the rest ends, and what is left of the bar waits for later.
+	GameInput.scripted = {"climb_up": true}
+	await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	await tree.physics_frame
+	check(not level.resting_rope and level.rope_left > 0.0, "moving ends it; the bar keeps the rest (%.0f)" % level.rope_left)
+	check(level.can_rest(), "and you can rest again")
+	GameInput.scripted = {"interact": true}
+	await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	await physics_frames(180)
+	check(not level.resting_rope and level.rope_left <= 0.0, "a bar is only a little: it runs out")
+	check(not level.can_rest(), "until the next clip")
 	check(c.stamina.value <= 40.0 + Crag.MAX_FALLS * 0 + CragLevel.ROPE_REST + 2.0, "worth at most %d stamina (%.0f)" % [int(CragLevel.ROPE_REST), c.stamina.value])
 	await _done()
 

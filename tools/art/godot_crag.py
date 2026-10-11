@@ -8,6 +8,8 @@ world pixel, dark outlines).
   godot/assets/crag/quickdraw.png  2 x (8 x 14): a bolt with a quickdraw,
                                     unclipped and clipped (rope through)
   godot/assets/crag/anchor.png     12 x 12: two bolts and a chain at the top
+  godot/assets/crag/jug.png        40 x 22: a big jug, chalked, with a pale
+                                    rim so it stands out from the rock
 
     python3 tools/art/godot_crag.py
 """
@@ -124,6 +126,32 @@ ANCHOR = [
 ]
 
 
+BIG_JUG = [
+    "..........gggggggggggggggggggg..........",
+    "......ggggwwwwwwwwwwwwwwwwwwwwgggg......",
+    "....ggwwwwoooooooooooooooooooowwwwgg....",
+    "...gwwooooHHHHHHHHHHHHHHHHHHHHoooowwg...",
+    "..gwwoHHHHhhhhhhhhhhhhhhhhhhhhHHHHowwg..",
+    "..gwoHHhhhhccccccccccccccccccchhhHHowg..",
+    ".gwoHHhhcccccccccccccccccccccccchhHHowg.",
+    ".gwoHhhcccccccccccccccccccccccccchhHowg.",
+    ".gwoHhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhHowg.",
+    ".gwoHhDDDDDDDDDDDDDDDDDDDDDDDDDDDhhHowg.",
+    ".gwoHhDSSSSSSSSSSSSSSSSSSSSSSSSSSDhHowg.",
+    ".gwoHhDSSSSSSSSSSSSSSSSSSSSSSSSSSDhHowg.",
+    "..gwoHhDSSSSSSSSSSSSSSSSSSSSSSSSDhHowg..",
+    "..gwoHHhDSSSSSSSSSSSSSSSSSSSSSSDhHHowg..",
+    "...gwoHHhDSSSSSSSSSSSSSSSSSSSSDhHHowg...",
+    "...gwwoHHhDDSSSSSSSSSSSSSSSSDDhHHowwg...",
+    "....gwwoHHhhDDDDDDDDDDDDDDDDhhHHowwg....",
+    ".....gwwooHHhhhhhhhhhhhhhhhhHHoowwg.....",
+    "......ggwwooHHHHHHHHHHHHHHHHoowwgg......",
+    "........ggwwooooooooooooooowwgg.........",
+    "..........ggwwwwwwwwwwwwwwwwgg..........",
+    "............gggggggggggggggg............",
+]
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     pal = {
@@ -140,7 +168,14 @@ def main():
     draws.paste(paint(DRAW_CLIPPED, pal), (8, 0))
     draws.save(OUT / "quickdraw.png")
     paint(ANCHOR, pal).save(OUT / "anchor.png")
-    print("wrote holds.png, quickdraw.png, anchor.png")
+    jug_pal = {
+        "o": rgb("#2a1d16"), "H": rgb("#a86b45"), "h": rgb("#d39a68"),
+        "c": rgb("#f6f2e8"), "D": rgb("#4a2c1c"), "S": rgb("#24150e"),
+        # A pale rim and a green halo: the same green as the rest bar.
+        "w": rgb("#f0e6c8", 235), "g": rgb("#8fd16b", 150),
+    }
+    paint(BIG_JUG, jug_pal).save(OUT / "jug.png")
+    print("wrote holds.png, quickdraw.png, anchor.png, jug.png")
 
 
 if __name__ == "__main__":

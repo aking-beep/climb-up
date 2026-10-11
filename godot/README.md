@@ -252,11 +252,13 @@ holds, big holds, a jump for a far hold), with the climbing name after.
   the bolt stays unclipped: a fall then drops you to the last one you did
   clip, and the game tells you so. The rope runs up through every clipped
   bolt to you.
-- **Rest on the rope.** Right after you clip, the big button turns into
-  REST for a few seconds: tap it to sit back on the rope and get a little
-  stamina back (up to 20, once per bolt; moving ends it). The bolts get
-  further apart the higher you go, so between the high ones you have to
-  rest on the big holds (jugs) instead.
+- **Rest on the rope.** Every clip fills a green rest bar over your head.
+  Once clipped, the big button reads REST whenever nothing else needs a
+  tap: tap it to sit back on the rope and get stamina back from the bar
+  (20 per bolt). Rest as often as you like; moving ends a rest and the
+  rest of the bar waits. The bolts get further apart the higher you go, so
+  between the high ones you rest on the big holds (jugs) too: they are
+  drawn big, chalked and glowing green so you can spot them.
 - **Tap to hold.** On tiny holds (crimps) a grip meter over your head runs
   down, faster if you stop; tap GRIP to squeeze it back up. Empty, and
   your fingers peel off.

@@ -22,10 +22,10 @@ const GRIP_TAP := 0.25
 ## After a jump (dyno) you have this long to stick the hold: tap fast.
 const CATCH_TIME := 1.0
 const CATCH_TAPS := 3
-## Just clipped: for a few seconds you can sit back on the rope and rest.
-## Each bolt gives one rest, worth up to ROPE_REST stamina, coming back at
-## ROPE_RATE a second. Moving ends it. Big holds (jugs) give more.
-const REST_OFFER := 4.0
+## Once clipped you can sit back on the rope and rest, any time, as often
+## as you like: each clip fills a green rest bar worth ROPE_REST stamina,
+## given back at ROPE_RATE a second while you sit. Moving ends a rest; the
+## rest of the bar waits for the next one. Big holds (jugs) give more.
 const ROPE_REST := 20.0
 const ROPE_RATE := 15.0
 const CLIP_REACH := Vector2(4.2, 1.4) * Terrain.TILE
@@ -69,8 +69,7 @@ var catch_taps := 0
 var _dyno_air := false
 var _tap := false
 var meter: Node2D
-## The rest on the rope after a clip: offered for a moment, then taken.
-var rest_offer := 0.0
+## The rest on the rope: the green bar left (rope_left), and resting now.
 var resting_rope := false
 var rope_left := 0.0
 var rope_rests := 0
@@ -112,6 +111,7 @@ func _ready() -> void:
 			if not terrain.is_solid(cell) and back.get_cell_source_id(cell) == -1:
 				back.set_cell(cell, TerrainTiles.CLIFF_SOURCE, TerrainTiles._cliff(cell))
 	_place_holds()
+	_place_jugs()
 
 	_start = Terrain.feet(terrain.markers["P"][0])
 	cairns.append(_start)
@@ -203,8 +203,8 @@ func _place_holds() -> void:
 			var k := terrain.kind(Vector2i(x, y))
 			if k != Terrain.Kind.CRIMP and k != Terrain.Kind.JUG:
 				continue
-			# A jug is one big hold: draw it once per pair of rows.
-			if k == Terrain.Kind.JUG and (posmod(y, 2) == 1 or posmod(x, 3) != 1):
+			# Jugs are drawn whole, one big hold per patch (_place_jugs).
+			if k == Terrain.Kind.JUG:
 				continue
 			var s := Sprite2D.new()
 			var at := AtlasTexture.new()
@@ -216,6 +216,33 @@ func _place_holds() -> void:
 			s.flip_h = posmod(x + y, 2) == 1 and k == Terrain.Kind.CRIMP
 			s.z_index = 1
 			add_child(s)
+
+
+## A jug is one big hold, easy to see: drawn across its whole patch of rock,
+## chalked, with a pale rim and a slow green glow (the rest colour).
+func _place_jugs() -> void:
+	var tex: Texture2D = load("res://assets/crag/jug.png")
+	for y in terrain.height:
+		for x in terrain.width:
+			var cell := Vector2i(x, y)
+			if terrain.kind(cell) != Terrain.Kind.JUG:
+				continue
+			if terrain.kind(cell + Vector2i.LEFT) == Terrain.Kind.JUG or terrain.kind(cell + Vector2i.UP) == Terrain.Kind.JUG:
+				continue
+			var size := Vector2i.ONE
+			while terrain.kind(cell + Vector2i(size.x, 0)) == Terrain.Kind.JUG:
+				size.x += 1
+			while terrain.kind(cell + Vector2i(0, size.y)) == Terrain.Kind.JUG:
+				size.y += 1
+			var s := Sprite2D.new()
+			s.texture = tex
+			s.position = (Vector2(cell) + Vector2(size) / 2.0) * Terrain.TILE
+			s.scale = Vector2.ONE * minf(1.2, Vector2(size).x * Terrain.TILE / tex.get_width())
+			s.z_index = 1
+			add_child(s)
+			var glow := create_tween().set_loops()
+			glow.tween_property(s, "modulate", Color(1.25, 1.3, 1.15), 0.9).set_trans(Tween.TRANS_SINE)
+			glow.tween_property(s, "modulate", Color.WHITE, 0.9).set_trans(Tween.TRANS_SINE)
 
 
 func _place_clips() -> void:
@@ -285,7 +312,7 @@ func _physics_process(_delta: float) -> void:
 	if resting_rope:
 		action_word = "GO"
 		prompt = "Resting on the rope"
-	elif rest_offer > 0.0:
+	elif can_rest() and not on_crimps:
 		action_word = "REST"
 		prompt = "Rest on the rope?"
 	elif catching > 0.0:
@@ -336,17 +363,17 @@ func _clip() -> void:
 	hud.flash("Clipped in! Bolt %d of %d. Tap %s to rest on the rope." % [clip_target + 1, clips.size(), _key("REST")], 2.2)
 	clip_target = -1
 	clip_taps = 0
-	rest_offer = REST_OFFER
+	# A fresh green rest bar with every clip.
+	rope_left = ROPE_REST
 	# The tap that clipped does not also take the rest.
 	_tap = false
 
 
-## Sitting back on the rope after a clip: a little stamina back while you
-## hang there. Tap to take it while it is offered; tap again, or move, to
-## climb on.
+## Sitting back on the rope: a little stamina back while you hang there.
+## Tap REST to sit back (any time once clipped, while the green bar has some
+## left); tap again, or move, to climb on.
 func _rope(dt: float) -> void:
 	if climber.state != Climber.State.CLIMB:
-		rest_offer = 0.0
 		resting_rope = false
 		return
 	var moving := GameInput.move() != Vector2.ZERO
@@ -356,21 +383,20 @@ func _rope(dt: float) -> void:
 		rope_left -= give
 		if _tap or moving or rope_left <= 0.0 or climber.stamina.value >= climber.stamina.max_value:
 			resting_rope = false
-			hud.flash("Back on the rock. Climb on to the next bolt.", 1.6)
+			hud.flash("Back on the rock." if rope_left > 0.0 else "Rest bar used up: clip the next bolt for a new one.", 1.6)
 		return
-	if rest_offer <= 0.0:
-		return
-	rest_offer -= dt
-	if _tap:
-		rest_offer = 0.0
+	if _tap and can_rest() and not on_crimps:
 		resting_rope = true
-		rope_left = ROPE_REST
 		rope_rests += 1
 		engage("rest")
 		hud.flash("You sit back on the rope and shake your arms out.", 1.6)
-	elif moving and rest_offer < REST_OFFER - 0.6:
-		# Climbed on without resting.
-		rest_offer = 0.0
+
+
+## A rest on the rope is there to take: clipped in, on the rock, nothing
+## else asking for a tap, and green left in the bar.
+func can_rest() -> bool:
+	return climber.state == Climber.State.CLIMB and checkpoint > 0 and rope_left > 0.0 \
+		and catching <= 0.0 and clip_target < 0 and not resting_rope
 
 
 ## Tiny holds: a grip meter that runs down while you are on them (faster if
@@ -483,8 +509,6 @@ func hint_now() -> String:
 		return ""
 	if resting_rope:
 		return "Resting on the rope: stamina coming back. Tap %s or move to climb on." % _key("GO")
-	if rest_offer > 0.0:
-		return "Clipped in. Tap %s to rest on the rope and get some stamina back." % _key("REST")
 	if catching > 0.0:
 		return "Stick it! Tap %s 3 times, fast (%d/%d)." % [_key("GRIP"), catch_taps, CATCH_TAPS]
 	if clip_target >= 0:
@@ -497,6 +521,8 @@ func hint_now() -> String:
 		return "No holds above. Press %s to jump for the next hold (a dyno)." % key
 	if hold == Terrain.Kind.JUG and stamina.fraction() < 0.95:
 		return "A big hold (a jug): stay here to get your stamina back."
+	if can_rest() and stamina.fraction() < 0.9:
+		return "Tired? Tap %s to rest on the rope (the green bar)." % _key("REST")
 	return ""
 
 
