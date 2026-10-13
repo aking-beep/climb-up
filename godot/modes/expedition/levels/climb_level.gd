@@ -54,6 +54,14 @@ var stars := 0
 ## they are unwell), sitting near them gives it back. At zero they stop.
 var mate_breath := 100.0
 const ARMS_GRACE := 3.0
+## However worn the party, a played climb's bar is never smaller than this:
+## every face on every climb fits in it, so a climb is always possible for
+## someone who rests to full before each face (test_climbs checks the
+## summit night at this bar).
+const MIN_BAR := 48.0
+## The emptiest the bar got on this go (a share of it): how close the climb
+## came to beating you. For balance tests and the results.
+var lowest_stamina := 1.0
 ## Slips this go, by what caused them, and what to try about each.
 var slips_by_cause := {}
 const SLIP_LESSONS := {
@@ -117,7 +125,7 @@ func _ready() -> void:
 	trek_factor = Trek.climb_factor(Expedition.session)
 	dosed = Expedition.climb.get("challengeId") == spec["id"] and Expedition.climb.get("dosed") == true
 	condition = Condition.of(Expedition.session, dosed)
-	stamina.max_value = roundf(stamina.max_value * condition["stamina"])
+	stamina.max_value = maxf(MIN_BAR, roundf(stamina.max_value * condition["stamina"]))
 	stamina.value = stamina.max_value
 	stamina.recovery = clampf(stamina.recovery * condition["recovery"], 0.2, 1.2)
 	stamina.thin_air *= condition["thinAir"]
@@ -452,6 +460,8 @@ func _physics_process(_delta: float) -> void:
 		climber.slip("hole")
 	hazards.step()
 	creatures.step()
+	if briefed and climber.state != Climber.State.LOCKED:
+		lowest_stamina = minf(lowest_stamina, stamina.fraction())
 	_arms()
 	_weather()
 	_symptoms()
@@ -504,7 +514,7 @@ func face_cost() -> float:
 		return 0.0
 	# At the speed you will actually climb: the cold slows you, and so does
 	# being tired (under 30% of the bar).
-	var speed := Climber.CLIMB_UP * climber.pace * climber.chill * (Climber.FATIGUE_SLOW if stamina.is_tired() else 1.0)
+	var speed := Climber.CLIMB_UP * climber.pace * (Climber.FATIGUE_SLOW if stamina.is_tired() else 1.0)
 	var secs_per_row := Terrain.TILE / speed
 	return (f.x - f.y) * secs_per_row * stamina.rate("climb") + f.y * secs_per_row * stamina.rate("climb", true)
 

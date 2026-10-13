@@ -172,6 +172,7 @@ func test_plain_words_for_people_who_never_climbed() -> void:
 	check(Plain.say("Pole pole, then pole pole.").count("(slowly, slowly)") == 1, "a local word explained once")
 	eq(Plain.score("Risk management"), "Staying safe", "the score's names are plain too")
 	eq(Plain.say("Scree and rock steps"), "Loose gravel and rock steps", "at the start of a sentence")
+	eq(Plain.say("The high camps are behind you."), "The camps up high are behind you.", "the plural too")
 
 
 func test_the_team_tab_fits_on_a_phone() -> void:

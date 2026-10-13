@@ -22,19 +22,19 @@ const ROUTES := {
 	"lemosho": {
 		"name": "The long way", "line": "10 days · safest",
 		"text": "Slow and steady. Lots of time for everyone's body to get used to the thin air, so less altitude sickness. The most food and medicine.",
-		"permit": 10, "supplies": 94, "medicine": 3, "upEnergy": 0, "upAcclim": 0, "upHealth": 0, "risk": 0, "climb": 1.0,
+		"permit": 10, "supplies": 94, "medicine": 3, "upEnergy": 0, "upAcclim": 0, "upHealth": 0, "risk": 0, "climb": 1.0, "porters": 0.4,
 	},
 	"machame": {
 		"name": "The faster way", "line": "9 days · harder",
 		"text": "Starts higher and climbs faster, with less food. Each day up is more tiring and people get sick sooner. You can rest some days, but not every day.",
 		"start": "ebc", "startHours": 24,
-		"permit": 9, "supplies": 86, "medicine": 2, "upEnergy": -5, "upAcclim": -3, "upHealth": 0, "risk": 10, "climb": 1.15,
+		"permit": 9, "supplies": 86, "medicine": 2, "upEnergy": -5, "upAcclim": -3, "upHealth": 0, "risk": 10, "climb": 1.15, "porters": 0.3,
 	},
 	"umbwe": {
 		"name": "The fastest way", "line": "8 days · hardest",
 		"text": "Straight up, very fast. The least food and medicine, the hardest climbs, and the most altitude sickness. Pick your one or two rest days carefully.",
 		"start": "camp1", "startHours": 36,
-		"permit": 8, "supplies": 84, "medicine": 1, "upEnergy": -7, "upAcclim": -5, "upHealth": -2, "risk": 16, "climb": 1.3,
+		"permit": 8, "supplies": 84, "medicine": 1, "upEnergy": -7, "upAcclim": -5, "upHealth": -2, "risk": 16, "climb": 1.3, "porters": 0.2,
 	},
 }
 
@@ -150,6 +150,17 @@ static func advance(session: Dictionary, before: Dictionary, def: Dictionary) ->
 	var notes: Array = []
 	var climbed: bool = int(s["altitude"]) > int(before["altitude"])
 	var descended: bool = int(s["altitude"]) < int(before["altitude"])
+	# The porters carry and cook: a share of what each day eats comes back,
+	# more on the longer routes (that is what the long way is for).
+	var eaten := int(before["supplies"]) - int(s["supplies"])
+	if eaten > 0:
+		s["supplies"] += ExpeditionEngine.js_round(eaten * float(r.get("porters", 0.0)))
+	# A night's sleep gives energy back: most low down and well fed, less
+	# high up, hungry or ill; a rest day gives more. Without it a party
+	# that slept every night still reached the summit on empty.
+	if hours >= 8.0 and not climbed:
+		s["energy"] += camp_recovery(session, s, hours)
+		s["health"] += 0 if not t["sick"].is_empty() else (3 if hours >= 20.0 else 2)
 	# A night is a long stop that does not go up: it was sleep if it gave
 	# energy back, and a bad night if it did not.
 	if hours >= 8.0 and not climbed:
@@ -193,6 +204,35 @@ static func advance(session: Dictionary, before: Dictionary, def: Dictionary) ->
 		s["lastNote"] = (String(s["lastNote"]) + " " + " ".join(notes)).strip_edges()
 	session["state"] = s
 	_settle_ending(session)
+
+
+## Energy a night (or a rest day, `hours` >= 20) gives back at camp.
+static func camp_recovery(session: Dictionary, s: Dictionary, hours: float) -> int:
+	var alt := float(s["altitude"])
+	var base := clampf(RECOVER_LOW - maxf(0.0, alt - 3500.0) / RECOVER_PER_M, RECOVER_MIN, RECOVER_LOW)
+	if int(s["supplies"]) < 20:
+		base *= 0.5
+	var worst := 0
+	for id in ensure(session)["sick"]:
+		worst = maxi(worst, int(ensure(session)["sick"][id]["stage"]))
+	base *= 1.0 - 0.25 * worst
+	if hours >= 20.0:
+		base *= RECOVER_REST_DAY
+	# Worn down by a hard push (a big gain in height since the last night
+	# at a height): the body spends the night catching up, not recovering.
+	var last_night := float(ensure(session).get("base", 0))
+	if last_night > 0.0 and float(s["altitude"]) - last_night > 500.0:
+		base *= 0.5
+	return maxi(0, ExpeditionEngine.js_round(base))
+
+
+## Energy back for a night low down (under 3,500 m), falling by one for
+## every RECOVER_PER_M metres higher, never under RECOVER_MIN; a rest
+## day gives RECOVER_REST_DAY times as much.
+const RECOVER_LOW := 10.0
+const RECOVER_PER_M := 300.0
+const RECOVER_MIN := 3.0
+const RECOVER_REST_DAY := 1.8
 
 
 ## Sickness comes from going up faster than the nights allow (`rise`, the

@@ -182,7 +182,7 @@ func _uphill_seconds(meters: float, acclimatization: float, drain: float) -> flo
 
 func test_the_thin_air_is_spaced_out_up_the_mountain() -> void:
 	# The four played climbs, for a party that rested well enough.
-	var climbs := {"barranco-wall": [4200.0, 1.0], "lava-tower": [4600.0, 0.85], "descent": [5300.0, 1.1], "summit-night": [5700.0, 1.15]}
+	var climbs := {"barranco-wall": [4200.0, 0.9], "lava-tower": [4600.0, 0.85], "descent": [5300.0, 1.1], "summit-night": [5700.0, 1.1]}
 	var secs := {}
 	for id in climbs:
 		secs[id] = _uphill_seconds(climbs[id][0], 100.0, climbs[id][1])
@@ -196,7 +196,7 @@ func test_the_thin_air_is_spaced_out_up_the_mountain() -> void:
 		check(f > last and f - last <= 0.15 + 0.001 or last == 0.0, "%d m: %.2f, a small step from %.2f" % [m, f, last])
 		last = f
 	# The camp's choices still count: a party not used to the height pays.
-	var raw := _uphill_seconds(5700.0, 10.0, 1.15)
+	var raw := _uphill_seconds(5700.0, 10.0, 1.1)
 	check(raw < secs["summit-night"] * 0.7, "not used to the height: %.0f s instead of %.0f s" % [raw, secs["summit-night"]])
 	check(raw >= 15.0, "hard, but still playable (%.0f s)" % raw)
 

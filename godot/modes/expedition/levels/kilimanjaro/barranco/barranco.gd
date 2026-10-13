@@ -10,7 +10,7 @@ func _init() -> void:
 		"id": "barranco-wall",
 		"map": "res://modes/expedition/levels/kilimanjaro/barranco/barranco.txt",
 		"hud": "Barranco Wall",
-		"difficulty": {"recovery": 0.85, "drain": 1.0, "wind": 5.0, "maxSlips": 3, "helpCost": 15.0, "rockPeriod": 5.0},
+		"difficulty": {"recovery": 0.95, "drain": 0.9, "wind": 5.0, "maxSlips": 3, "helpCost": 15.0, "rockPeriod": 5.0},
 		# A sunny morning in the valley; cloud comes up the wall as you climb.
 		"climate": {"temps": [[0.0, 14.0], [0.5, 7.0], [1.0, 1.0]], "drift": -1.0,
 			"light": [[0.0, "#fff6e6"], [0.6, "#f2f0ea"], [1.0, "#d4d8e0"]]},

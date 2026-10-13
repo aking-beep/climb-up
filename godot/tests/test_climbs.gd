@@ -60,7 +60,7 @@ func test_the_lava_tower_climbed() -> void:
 		check(outcome.stars >= 2, "a clean ascent earns at least two stars, got %d" % outcome.stars)
 		check(outcome.flowers > 0 and outcome.flowers_total > outcome.flowers - 1, "everlastings were picked on the way (%d of %d)" % [outcome.flowers, outcome.flowers_total])
 		check_pacing("Lava Tower")
-		print("      Lava Tower took %d s of game time, %d%% stamina left, %d slips, %.0f s resting" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.rest_seconds])
+		print("      Lava Tower took %d s of game time, %d%% stamina left, %d slips, %.0f s resting, lowest %d%% of a %d bar" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.rest_seconds, int(level.lowest_stamina * 100), int(c.stamina.max_value)])
 	await _results()
 	eq(Expedition.state()["checkpoint"], "camp2", "the outcome landed: the party sleeps at Barranco")
 	check(Expedition.pending() == null, "the climb is closed")
@@ -117,7 +117,7 @@ func test_the_summit_night_climbed_helping_jun() -> void:
 		eq(outcome.result, "complete", "result")
 		eq(outcome.assisted, true, "assisted")
 		check_pacing("summit night")
-		print("      summit night took %d s of game time, %d%% stamina left, %d slips, %d caught, %d wind strikes, %.0f s resting" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.caught, outcome.wind_strikes, outcome.rest_seconds])
+		print("      summit night took %d s of game time, %d%% stamina left, %d slips, %d caught, %d wind strikes, %.0f s resting, lowest %d%% of a %d bar" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.caught, outcome.wind_strikes, outcome.rest_seconds, int(level.lowest_stamina * 100), int(c.stamina.max_value)])
 	await _results()
 	check(Expedition.state()["summitReached"], "the summit is recorded on the expedition")
 	await _done()
@@ -562,4 +562,46 @@ func test_a_go_with_no_cairn_yet_still_resumes() -> void:
 	eq(c.slips, 1, "the slip is kept")
 	check(c.clock >= 40.0, "and the clock")
 	check("start of the climb" in level.hud.flash_text(), "it says where you are: " + level.hud.flash_text())
+	await _done()
+
+
+## The summit night is the boss: for a party at its most worn (the
+## smallest bar a climb allows) it takes nearly everything, but it can
+## always be done by resting to full before each face.
+func test_the_summit_is_the_boss_but_never_impossible() -> void:
+	await _load("summit-night")
+	level.queue_free()
+	await physics_frames(2)
+	# Rebuild with a worn party.
+	Expedition.state()["energy"] = 0
+	Expedition.state()["health"] = 40
+	level = load(Expedition.LEVELS["summit-night"]).instantiate()
+	root.add_child(level)
+	level.finished.connect(func(o: ChallengeOutcome) -> void: outcome = o)
+	await physics_frames(2)
+	level.panel.choose("start")
+	await physics_frames(1)
+	c = level.climber
+	eq(c.stamina.max_value, ClimbLevel.MIN_BAR, "a worn party gets the smallest bar")
+	await _switchback(77, true, "step 1")
+	await _switchback(68, false, "step 2")
+	await _switchback(59, true, "step 3")
+	await drive(["move_left"], func() -> bool: return level.panel.open, 60.0, "across the crevasse to Jun")
+	await rest_up_locked()
+	level.panel.choose("help")
+	await drive([], func() -> bool: return level.panel.open, 5.0, "panel")
+	level.panel.choose("continue")
+	await physics_frames(2)
+	await _switchback(50, false, "step 4")
+	await _switchback(41, true, "step 5, under stonefall")
+	await _switchback(32, false, "the rim step, under stonefall")
+	await drive(["move_right"], func() -> bool: return tx() >= 19.5, 10.0, "to the rim cairn")
+	await rest_up(0.99)
+	await cross(108.5)
+	await rest_up(0.98)
+	await up_to(24, "Stella step")
+	await drive(["move_right"], func() -> bool: return outcome != null, 30.0, "to Stella Point")
+	check(outcome != null and outcome.result == "complete", "the summit, even worn out")
+	check(level.lowest_stamina < 0.25, "and it is the hardest: down to %d%% of the bar" % int(level.lowest_stamina * 100))
+	print("      worn-out summit: %d s, %d slips, lowest %d%% of a %d bar" % [int(c.clock), c.slips, int(level.lowest_stamina * 100), int(c.stamina.max_value)])
 	await _done()

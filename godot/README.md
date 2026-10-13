@@ -154,13 +154,31 @@ exactly (the parity test still holds); a trek layer on top
   rested party; the summit is still the hardest breathing, about half as
   long again as low down for a party that rushed (`test_rules`).
 
+  **Three climbs, easy to hard.** The Lava Tower is the easy one, the
+  Barranco Wall the middle (drain 0.9, rest at 95%, fewer animals, no
+  rolling stone by the exit), the summit night the boss (drain 1.1, rest
+  at 80%, two slips, the cold and the thinnest air). On a played climb the
+  bar is never smaller than 48 (`ClimbLevel.MIN_BAR`): every face fits in
+  it, so even the summit is possible for a worn-out party that rests to
+  full before each face (test_climbs). A tired party (bar 54) gets up the
+  Barranco Wall without running dry (test_barranco).
+
+  **Camp gives energy back** (`Trek.camp_recovery`): a night's sleep gives
+  about 10 low down, 6 at 4,600 m, less hungry or ill, almost double on a
+  rest day, half after a big push up; and the porters stretch the food (a
+  share of each day's supplies comes back: 40% on the long way, 30% and
+  20% on the faster ones). A careful party now reaches every climb with
+  stamina for it and gets home on all three routes; a reckless one on the
+  fastest route still does not (test_trek).
+
   **The weather** (`core/world/climate.gd`, each level's `climate`). Every
   climb has its own day, moved along by how far up the route you are and
   by the clock: the Lava Tower from hot afternoon sun on black rock (27°C)
   to a cold sunset at the top, the Barranco Wall from a sunny valley into
   cloud, the summit night from -7°C to -16°C before dawn and a pink sunrise
   at Stella Point, the way down from frost into the heat. Below 5°C you
-  walk and climb slower (up to 15%) and resting works less (up to 20%);
+  walk slower (up to 15%; climbing speed is not slowed, so a face never
+  costs more than a bar) and resting works less (up to 20%);
   above 24°C every move costs more (up to 15%). The light over the scene
   shifts with it, the HUD shows the temperature in degrees and words, and
   the brief has a Weather row.

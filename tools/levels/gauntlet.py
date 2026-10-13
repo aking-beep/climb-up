@@ -214,8 +214,14 @@ SPREAD = {
                    "add": [(21, 55, "a"), (87, 13, "n"), (107, 13, "n")]},
     "summit_night": {"drop": [(25, 46), (59, 37)],
                      "add": [(55, 73, "v"), (45, 55, "v")]},
-    "barranco": {"drop": [(87, 25)],
-                 "add": [(18, 91, "n"), (74, 73, "a"), (71, 59, "n"), (47, 25, "a"), (172, 5, "v")]},
+    # The Barranco Wall is the middle climb: fewer than the summit's
+    # gauntlet, one per stretch (the top bench's ants make way for the
+    # raven by the plateau).
+    # (196, 15) is the rolling stone by the exit: with the boulder and the
+    # cracked slab beside it, three hazards in eight tiles was the hardest
+    # moment of the medium climb. The stone goes; the boulder and slab stay.
+    "barranco": {"drop": [(87, 25), (128, 11), (196, 15)],
+                 "add": [(18, 91, "n"), (74, 73, "a"), (47, 25, "a"), (172, 5, "v")]},
 }
 
 
@@ -226,7 +232,7 @@ def spread(g, name):
     if not s:
         return 0
     for x, y in s["drop"]:
-        assert g[y][x] in "nav", (name, x, y, g[y][x])
+        assert g[y][x] in "navb", (name, x, y, g[y][x])
         g[y][x] = "."
     for x, y, k in s["add"]:
         assert g[y][x] == ".", (name, x, y, g[y][x])

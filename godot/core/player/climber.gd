@@ -43,7 +43,7 @@ var pace := 1.0
 ## let go (0: at once, as at the crag, where running out is the pump fall).
 ## While hanging on you can only go down or sideways, slowly.
 var arms_grace := 0.0
-## The cold: multiplies how fast you walk and climb (Climate.pace).
+## The cold: multiplies how fast you walk (Climate.pace).
 var chill := 1.0
 var _arms_out := 0.0
 ## True while hanging on with nothing left (for the HUD and the level).
@@ -531,8 +531,8 @@ func _climb(delta: float, input: Vector2) -> void:
 	if stamina.is_tired():
 		speed_up *= FATIGUE_SLOW
 		speed_side *= FATIGUE_SLOW
-	speed_up *= chill
-	speed_side *= chill
+	# The cold slows walking, not climbing: on a face the arms are the clock,
+	# and a slower climb would cost more stamina than a bar can hold.
 	if can_dyno and GameInput.pressed_now("jump") and stamina.value >= DYNO_COST:
 		_dyno(input)
 		return
