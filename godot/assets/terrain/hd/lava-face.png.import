@@ -17,7 +17,7 @@ dest_files=["res://.godot/imported/lava-face.png-1aa16c3768a9d0bc3c520420315fc33
 
 compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.92
+compress/lossy_quality=0.75
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

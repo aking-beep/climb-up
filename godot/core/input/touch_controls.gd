@@ -89,19 +89,31 @@ func _button(action: String, word: String, at: Vector2, size: float) -> TouchScr
 	return b
 
 
-## A filled disc with a thin rim, drawn once at the button's size.
+## A filled disc with a thin rim, drawn once at four times the button's
+## size with soft (anti-aliased) edges and a gentle top-lit gradient, and
+## shown at the button's size, so it stays round on a phone's screen.
 static func _disc(size: float, fill: Color, rim: Color) -> ImageTexture:
-	var n := int(size)
+	var k := Art.HD
+	var n := int(size) * k
 	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
-	var c := Vector2(size / 2.0, size / 2.0)
+	var c := Vector2(n / 2.0, n / 2.0)
+	var outer := n / 2.0 - 0.5
+	var inner := outer - 1.5 * k
 	for y in n:
 		for x in n:
 			var d := Vector2(x + 0.5, y + 0.5).distance_to(c)
-			if d < size / 2.0 - 1.5:
-				img.set_pixel(x, y, fill)
-			elif d < size / 2.0:
-				img.set_pixel(x, y, rim)
-	return ImageTexture.create_from_image(img)
+			var cover := clampf(outer - d + 0.5, 0.0, 1.0)
+			if cover <= 0.0:
+				continue
+			var lit := 1.0 + 0.18 * (0.5 - float(y) / n)
+			var body := Color(fill.r * lit, fill.g * lit, fill.b * lit, fill.a)
+			var col := body.lerp(rim, clampf(d - inner + 0.5, 0.0, 1.0))
+			col.a *= cover
+			img.set_pixel(x, y, col)
+	img.generate_mipmaps()
+	var tex := ImageTexture.create_from_image(img)
+	tex.set_size_override(Vector2i(int(size), int(size)))
+	return tex
 
 
 func _blocked() -> bool:

@@ -17,7 +17,7 @@ dest_files=["res://.godot/imported/jun-hd.png-2d22cdc0c5e2c06dcdd052460550fb78.c
 
 compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.92
+compress/lossy_quality=0.85
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
