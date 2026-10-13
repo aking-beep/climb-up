@@ -334,6 +334,9 @@ func test_analytics_are_local_and_private() -> void:
 	Analytics.flush()
 	eq(Analytics.read_all().size(), 0, "the usage log off writes nothing")
 	Settings.log_usage = true
+	Analytics.event("route_started", {"route": "warm-up"})
+	Analytics.flush()
+	check(Analytics.export_text().contains("\"route_started\""), "a playtester can export the log as text")
 	# No sink is called without consent.
 	var called := [0]
 	Analytics.add_sink(func(_e: Dictionary) -> void: called[0] += 1)

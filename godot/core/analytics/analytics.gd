@@ -113,6 +113,13 @@ func read_all() -> Array:
 	return out
 
 
+## The log as text (one JSON event a line), for a playtester to paste.
+func export_text() -> String:
+	if not FileAccess.file_exists(PATH):
+		return ""
+	return FileAccess.get_file_as_string(PATH)
+
+
 func erase() -> void:
 	_buffer.clear()
 	recent.clear()

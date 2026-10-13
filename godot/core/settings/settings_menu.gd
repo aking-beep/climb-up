@@ -25,6 +25,7 @@ static func choices() -> Array:
 		["s_quality", "Graphics: %s" % ["Full", "Reduced", "Low power"][Settings.quality]],
 		["s_motion", "Reduced motion: %s" % ("On" if Settings.reduced_motion else "Off")],
 		["s_usage", "Usage log on this device: %s" % ("On" if Settings.log_usage else "Off")],
+		["s_export", "Copy my usage log (for playtests)"],
 		["s_fps", "Show FPS: %s" % ("On" if Settings.show_fps else "Off")],
 	]
 
@@ -66,6 +67,15 @@ static func apply(id: String, level: Node) -> bool:
 			Settings.set_value("log_usage", not Settings.log_usage)
 		"s_fps":
 			Settings.set_show_fps(not Settings.show_fps)
+		"s_export":
+			# For playtesters: the device's log as text, to paste into the
+			# survey. Nothing is sent by the game.
+			Analytics.flush()
+			DisplayServer.clipboard_set(Analytics.export_text())
+			var hud: Variant = level.get("hud")
+			if hud != null:
+				hud.flash("Usage log copied: %d events. Paste it into the playtest form." % Analytics.read_all().size(), 3.0)
+			return true
 		_:
 			return false
 	Analytics.event("settings_changed", {"setting": id.substr(2)})
