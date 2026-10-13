@@ -63,6 +63,10 @@ func _ready() -> void:
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(card)
 	get_viewport().size_changed.connect(fit)
+	# Measure again whenever the content changes size: wrapped text only
+	# knows its height a frame after it is laid out, and measuring before
+	# that left the card too short (the second choice behind a scrollbar).
+	card.minimum_size_changed.connect(func() -> void: fit.call_deferred())
 	fit.call_deferred()
 
 

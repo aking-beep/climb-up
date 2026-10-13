@@ -11,6 +11,8 @@ func _load(challenge: String) -> void:
 	Settings.touch_controls = false
 	Expedition.session = TestSessions.at(challenge)
 	check(Expedition.pending() != null, "the careful party reached %s" % challenge)
+	# A fresh go: nothing left over from an earlier test's climb.
+	Expedition.climb = {}
 	Expedition.resume_climb()
 	outcome = null
 	level = load(Expedition.LEVELS[challenge]).instantiate()
@@ -396,6 +398,8 @@ func test_falling_into_a_hole_starts_the_climb_again() -> void:
 	eq(lvl.checkpoint, 0, "and the climb starts again")
 	check(c.global_position.distance_to(lvl.cairns[0]) < 4.0, "back at the start (%s)" % c.global_position)
 	check("hole" in level.hud.flash_text(), "and it says so: " + level.hud.flash_text())
+	var why := lvl.slip_summary()
+	check("1 from holes" in why and "Try next:" in why, "the results will say what to try: " + why)
 	await _done()
 
 
@@ -479,3 +483,83 @@ func test_the_weather_changes_along_the_climb() -> void:
 	check(lvl.climate.degrees(0.2, 240.0) < now, "the night gets colder as time passes")
 	await _done()
 	check(Climate.pace(-15.0) >= Climate.SLOWEST and Climate.pace(-15.0) < 1.0, "the cold slows, within reason")
+
+
+func test_a_rest_stone_shelters_you_from_the_cold() -> void:
+	await _load("summit-night")
+	var lvl: ClimbLevel = level
+	var cell := Vector2i(-1, -1)
+	for y in lvl.terrain.height:
+		for x in lvl.terrain.width:
+			if cell.x < 0 and lvl.terrain.kind(Vector2i(x, y)) == Terrain.Kind.REST:
+				cell = Vector2i(x, y)
+	check(cell.x >= 0, "the summit night has a rest stone")
+	await _put(cell)
+	c.stamina.value = 10.0
+	GameInput.scripted = {"_": false, "rest": true}
+	await physics_frames(2)
+	GameInput.scripted = {"_": false}
+	await physics_frames(20)
+	eq(c.last_activity, "rest_stone", "sitting on the rest stone")
+	check(lvl.degrees < Climate.COOL, "in the cold (%d°C)" % lvl.degrees)
+	near(c.stamina.recovery, lvl._base_recovery, 0.001, "sheltered: the cold does not slow the rest")
+	check("sheltered" in level.hud._temp.text, "the HUD says so: " + level.hud._temp.text)
+	await _done()
+
+
+## A pause in the middle of a fall or a slip holds the moment: nothing
+## moves under the menu, and the fall or the walk back to the cairn
+## carries on after it (no cancelled falls, no skipped respawns).
+func test_a_pause_never_cancels_a_fall_or_a_slip() -> void:
+	await _load("lava-tower")
+	var lvl: ClimbLevel = level
+	# High above the start, falling.
+	c.global_position = lvl.cairns[0] - Vector2(0, 12 * T)
+	c.reset_physics_interpolation()
+	c.state = Climber.State.AIR
+	c.fall_from = c.global_position.y
+	await physics_frames(5)
+	c.lock(true)
+	var y := c.global_position.y
+	await physics_frames(60)
+	near(c.global_position.y, y, 0.5, "frozen under the pause")
+	c.lock(false)
+	eq(c.state, Climber.State.AIR, "still falling after it")
+	for i in 60 * 3:
+		await tree.physics_frame
+		if c.slips > 0:
+			break
+	eq(c.slips, 1, "and the long fall still counts")
+	# Paused during the slip itself: the respawn still happens after.
+	c.lock(true)
+	await physics_frames(90)
+	eq(c.state, Climber.State.LOCKED, "held under the menu")
+	c.lock(false)
+	for i in 120:
+		await tree.physics_frame
+		if c.state == Climber.State.GROUND:
+			break
+	check(c.global_position.distance_to(lvl.cairns[lvl.checkpoint]) < 4.0, "back at the cairn after the pause (%s)" % c.global_position)
+	await _done()
+
+
+## Quitting after a slip before the first cairn (or after a hole sent you
+## back to the start) resumes that go: the slips and the clock are kept,
+## not wiped by a fresh start.
+func test_a_go_with_no_cairn_yet_still_resumes() -> void:
+	await _load("lava-tower")
+	c.slips = 1
+	c.clock = 40.0
+	level._remember()
+	GameInput.scripted = {}
+	level.queue_free()
+	await physics_frames(2)
+	level = load(Expedition.LEVELS["lava-tower"]).instantiate()
+	root.add_child(level)
+	await physics_frames(2)
+	c = level.climber
+	check(not level.panel.open, "no brief: the go carries on")
+	eq(c.slips, 1, "the slip is kept")
+	check(c.clock >= 40.0, "and the clock")
+	check("start of the climb" in level.hud.flash_text(), "it says where you are: " + level.hud.flash_text())
+	await _done()

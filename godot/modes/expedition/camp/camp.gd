@@ -343,7 +343,11 @@ func _permit_words(s: Dictionary) -> String:
 	if t["route"] == "":
 		return ""
 	var left := Trek.hours_left(Expedition.session) / 24.0
-	return " · %s LEFT ON THE PERMIT" % (("%.1f DAYS" % left) if left > 0 else "NO DAYS")
+	if left < 0.05:
+		return " · NO DAYS LEFT ON THE PERMIT"
+	if left < 1.0:
+		return " · UNDER A DAY LEFT ON THE PERMIT (%d H)" % maxi(1, int(round(left * 24.0)))
+	return " · %.1f DAYS LEFT ON THE PERMIT" % left
 
 
 static func _short(text: String, n: int) -> String:

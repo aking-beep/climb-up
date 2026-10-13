@@ -840,6 +840,8 @@ func _teach() -> bool:
 		lesson = key
 		climber.lock(true)
 		var words: Array = LESSONS[key]
+		# Up top, so the climber and the button the tip is about stay in view.
+		panel.at_top = true
 		panel.show_panel("First climb · tip %d" % lessons_seen.size(), words[0], words[1], [["lesson", "Got it"]])
 		return true
 	return false
@@ -1362,12 +1364,18 @@ func share() -> void:
 	DisplayServer.clipboard_set(text)
 	Analytics.event("daily_shared", {"date": route.get("date", "")})
 	hud.flash("Result copied: paste it anywhere.", 2.4)
+	# Back to the results at once, so there is always a way on (the card
+	# is drawn in the background).
+	if not _results_panel.is_empty():
+		panel.show_panel(_results_panel[0], _results_panel[1], _results_panel[2], _results_panel[3])
 	var lines: Array = text.split("\n").slice(2)
 	var path: String = await ShareCard.save(self, route, lines)
 	if path != "" and is_inside_tree():
 		hud.flash("Result copied, and the card saved%s." % (" (downloading)" if OS.has_feature("web") else ""), 2.4)
 
 
+## The results card as last shown: [kicker, title, body, choices].
+var _results_panel: Array = []
 ## The last result shared (for tests).
 var shared_text := ""
 
@@ -1473,4 +1481,5 @@ func finish(sent: bool) -> void:
 	await get_tree().create_timer(1.0 if is_inside_tree() else 0.0).timeout
 	if is_inside_tree():
 		var kicker := "The crag · lesson" if route.get("tutorial", false) else "The crag · grade %s" % route["grade"]
+		_results_panel = [kicker, "%s · %s" % [head, route["name"]], "\n".join(lines), choices]
 		panel.show_panel(kicker, "%s · %s" % [head, route["name"]], "\n".join(lines), choices)

@@ -183,15 +183,33 @@ func is_climbing() -> bool:
 
 ## Stops the climber for a panel. On the rock they stay on the rock: they
 ## hang where they are and are still holding on when it closes.
+## In the middle of a move (falling, a slip, a mantle, helping) the moment
+## is frozen instead, and carries on from where it was when the panel
+## closes: a pause never cancels a fall or skips the walk back to a cairn.
 func lock(on: bool) -> void:
 	if on:
 		if state != State.DONE and state != State.LOCKED:
 			_before_lock = state
+			_held_velocity = velocity
 		if state != State.DONE:
 			state = State.LOCKED
-		velocity.x = 0.0
+		if not _frozen():
+			velocity.x = 0.0
 	elif state == State.LOCKED:
-		state = State.CLIMB if _before_lock == State.CLIMB and terrain.touches_climbable(body_rect()) else State.GROUND
+		if _frozen():
+			state = _before_lock
+			velocity = _held_velocity
+		else:
+			state = State.CLIMB if _before_lock == State.CLIMB and terrain.touches_climbable(body_rect()) else State.GROUND
+		_before_lock = State.GROUND
+
+
+## Locked mid-move: held still, to carry on after.
+func _frozen() -> bool:
+	return state == State.LOCKED and _before_lock in [State.AIR, State.SLIP, State.MANTLE, State.HELP]
+
+
+var _held_velocity := Vector2.ZERO
 
 
 var _before_lock: int = State.GROUND
@@ -250,7 +268,7 @@ func _physics_process(delta: float) -> void:
 		State.HELP:
 			_help(delta)
 		State.LOCKED, State.DONE:
-			if state == State.LOCKED and _before_lock == State.CLIMB:
+			if state == State.LOCKED and (_before_lock == State.CLIMB or _frozen()):
 				velocity = Vector2.ZERO
 			else:
 				velocity.x = move_toward(velocity.x, 0.0, DECEL * delta)
@@ -636,6 +654,8 @@ func hang_at(feet: Vector2) -> void:
 
 
 func _let_go() -> void:
+	arms_failing = false
+	_arms_out = 0.0
 	if on_ground_cell():
 		state = State.GROUND
 		return
@@ -837,6 +857,7 @@ func _help(delta: float) -> void:
 	if _timer >= HELP_TIME:
 		stamina.spend(helper_cost)
 		spotter = true
+		_before_lock = State.GROUND
 		state = State.LOCKED
 		if _on_help.is_valid():
 			_on_help.call()

@@ -54,6 +54,16 @@ var stars := 0
 ## they are unwell), sitting near them gives it back. At zero they stop.
 var mate_breath := 100.0
 const ARMS_GRACE := 3.0
+## Slips this go, by what caused them, and what to try about each.
+var slips_by_cause := {}
+const SLIP_LESSONS := {
+	"rock": ["falling stones", "Watch for grit trickling over a column: a stone follows. Step to the side until it passes."],
+	"fall": ["long falls", "Drops of more than four rows hurt. Climb down a face instead of letting go above a ledge."],
+	"arms": ["empty arms", "Rest to full before a face (the warning on grabbing it says what it costs), and keep moving on it."],
+	"wind": ["the wind", "On exposed ledges stop and BRACE when the wind warning shows, then walk between gusts."],
+	"hurt": ["thorns, ants and ravens", "Hop over thistles and ants; keep moving under a raven so it misses."],
+	"hole": ["holes", "Hop the gaps: a fall into a hole sends you back to the start."],
+}
 ## The level's day: temperature and light along the route (spec "climate").
 var climate: Climate
 var degrees := 10.0
@@ -331,7 +341,13 @@ func _fire(feet: Vector2) -> Node2D:
 
 func _resume_from_save() -> void:
 	var saved: Dictionary = Expedition.climb
-	if saved.get("challengeId") != spec["id"] or int(saved.get("checkpoint", 0)) <= 0:
+	if saved.get("challengeId") != spec["id"]:
+		return
+	# Anything happened on this go (a cairn, a slip, the clock, a teammate):
+	# carry on from it. Only an untouched climb starts with the brief.
+	var started: bool = int(saved.get("checkpoint", 0)) > 0 or int(saved.get("slips", 0)) > 0 \
+		or float(saved.get("seconds", 0.0)) >= 1.0 or String(saved.get("mate", "")) in ["helped", "left"]
+	if not started:
 		return
 	briefed = true
 	checkpoint = clampi(int(saved["checkpoint"]), 0, cairns.size() - 1)
@@ -350,7 +366,10 @@ func _resume_from_save() -> void:
 		mate.left_behind()
 	camera.snap()
 	hazards.skip_to(climber.clock)
-	hud.flash("Back at cairn %d" % checkpoint)
+	# Where you are matters more than the weather, which you met before.
+	_cold_said = true
+	_hot_said = true
+	hud.flash("Back at cairn %d" % checkpoint if checkpoint > 0 else "Back at the start of the climb")
 
 
 # --- The brief ----------------------------------------------------------------
@@ -429,7 +448,7 @@ func _physics_process(_delta: float) -> void:
 		return
 	# Down a hole and out of the bottom of the map: there is no floor to
 	# land on, so it is a fall that ends this go at the climb.
-	if climber.global_position.y > terrain.pixel_size().y + Terrain.TILE and climber.state != Climber.State.SLIP and climber.state != Climber.State.DONE:
+	if climber.global_position.y > terrain.pixel_size().y + Terrain.TILE and not climber.state in [Climber.State.SLIP, Climber.State.DONE, Climber.State.LOCKED]:
 		climber.slip("hole")
 	hazards.step()
 	creatures.step()
@@ -483,7 +502,10 @@ func face_cost() -> float:
 	var f := climber.face_above()
 	if f.x <= 0:
 		return 0.0
-	var secs_per_row := Terrain.TILE / (Climber.CLIMB_UP * climber.pace)
+	# At the speed you will actually climb: the cold slows you, and so does
+	# being tired (under 30% of the bar).
+	var speed := Climber.CLIMB_UP * climber.pace * climber.chill * (Climber.FATIGUE_SLOW if stamina.is_tired() else 1.0)
+	var secs_per_row := Terrain.TILE / speed
 	return (f.x - f.y) * secs_per_row * stamina.rate("climb") + f.y * secs_per_row * stamina.rate("climb", true)
 
 
@@ -504,19 +526,23 @@ func _weather() -> void:
 	var p := route_progress()
 	degrees = climate.degrees(p, climber.clock)
 	climber.chill = Climate.pace(degrees)
-	stamina.recovery = clampf(_base_recovery * Climate.rest(degrees), 0.2, 1.2)
+	# A rest stone is shelter: out of the wind, the cold does not slow rest.
+	var sheltered := climber.last_activity == "rest_stone"
+	stamina.recovery = clampf(_base_recovery * (1.0 if sheltered else Climate.rest(degrees)), 0.2, 1.2)
 	stamina.drain = clampf(_base_drain * Climate.heat(degrees), 0.5, 2.0)
 	if _tint:
 		_tint.color = climate.tint(p)
-	if degrees < 0.0 and not _cold_said:
+	if roundf(degrees) < 0.0 and not _cold_said:
 		_cold_said = true
-		hud.flash("Below freezing (%d°C): you move slower and rest works less. Keep going." % int(round(degrees)), 3.0)
+		hud.flash("Below freezing (%d°C): you move slower and rest works less, except on a rest stone (shelter)." % int(round(degrees)), 3.2)
 	elif degrees >= Climate.WARM and not _hot_said:
 		_hot_said = true
 		hud.flash("Hot sun (%d°C): every move costs a little more. Water helps." % int(round(degrees)), 3.0)
 
 
 func climate_line() -> String:
+	if climber.last_activity == "rest_stone" and degrees < Climate.COOL:
+		return "%d°C · sheltered by the rest stone: full rest" % int(round(degrees))
 	return Climate.words(degrees)
 
 
@@ -747,6 +773,8 @@ func _on_choice(id: String) -> void:
 				Expedition.remember({"dosed": true})
 				Expedition.save()
 				hud.flash("You take a dose. The symptoms stay off for this climb.", 3.0)
+			else:
+				hud.flash("No dose left in the kit: you start without one.", 3.0)
 			briefed = true
 			climber.lock(false)
 		"backoff":
@@ -806,6 +834,7 @@ func _on_slipped(saved: bool, reason: String) -> void:
 		hud.flash("%s grabs your pack. That slip doesn't count." % mate_name())
 		return
 	_hole = reason == "hole"
+	slips_by_cause[reason] = int(slips_by_cause.get(reason, 0)) + 1
 	var line: String = {"rock": "A falling stone knocks you off. Back to the last cairn.", "fall": "Fell too far. Back to the last cairn.",
 		"arms": "Your arms gave out on the rock. Back to the last cairn: rest before the next face."}.get(reason, "Slipped. Back to the last cairn.")
 	if _hole:
@@ -960,6 +989,21 @@ func outcome_now(kind: String) -> ChallengeOutcome:
 	return o
 
 
+## What the slips were, and the one thing to try next time (for the
+## cause that cost the most): the climb's own coaching, as the crag does.
+func slip_summary() -> String:
+	if slips_by_cause.is_empty():
+		return ""
+	var parts: Array = []
+	var worst := ""
+	for k in slips_by_cause:
+		parts.append("%d from %s" % [slips_by_cause[k], SLIP_LESSONS.get(k, [k])[0]])
+		if worst == "" or int(slips_by_cause[k]) > int(slips_by_cause[worst]):
+			worst = k
+	var tip: String = SLIP_LESSONS.get(worst, ["", ""])[1]
+	return "Slips: %s.%s" % [", ".join(parts), (" Try next: " + tip) if tip != "" else ""]
+
+
 ## Up to three: reach the top; no slips that counted; three in four of the
 ## everlastings picked.
 func star_count(kind: String, o: ChallengeOutcome) -> int:
@@ -1010,6 +1054,9 @@ func finish(kind: String) -> void:
 		lines.append("Stamina lost to hits: %d (thistles %d, ants %d, ravens %d)%s" % [o.hurt, creatures.stings, creatures.bites, creatures.raven_hits,
 			"; the party feels it at camp" if o.hurt >= 10 else ""])
 	lines.append("%d min on the mountain" % maxi(1, o.seconds / 60))
+	var why := slip_summary()
+	if why != "":
+		lines.append(why)
 	hud.flash(head)
 	await get_tree().create_timer(1.2 if is_inside_tree() else 0.0).timeout
 	panel.show_panel("Climb over", head, "\n".join(lines), [["camp", "Back to camp"]])

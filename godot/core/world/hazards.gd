@@ -274,7 +274,7 @@ func _rockfall(dt: float, now: float) -> void:
 		node.position.y += r["vy"] * dt
 		node.rotation += dt * 6.0
 		var box := Rect2(node.position - Vector2.ONE * ROCK_HALF, Vector2.ONE * ROCK_HALF * 2.0)
-		if box.intersects(climber.body_rect()) and climber.state != Climber.State.SLIP and climber.state != Climber.State.DONE:
+		if box.intersects(climber.body_rect()) and not climber.state in [Climber.State.SLIP, Climber.State.DONE, Climber.State.LOCKED, Climber.State.HELP]:
 			_shatter(r)
 			climber.slip("rock")
 			continue
@@ -397,7 +397,7 @@ func _roll(dt: float, now: float) -> void:
 			st["vy"] = minf(st["vy"] + ROCK_GRAVITY * dt, ROCK_MAX)
 			n.position.y += st["vy"] * dt
 		var box := Rect2(n.position - Vector2.ONE * ROLL_HALF, Vector2.ONE * ROLL_HALF * 2.0)
-		if box.intersects(climber.body_rect()) and climber.state != Climber.State.SLIP and climber.state != Climber.State.DONE and climber.state != Climber.State.LOCKED:
+		if box.intersects(climber.body_rect()) and not climber.state in [Climber.State.SLIP, Climber.State.DONE, Climber.State.LOCKED, Climber.State.HELP]:
 			_end_roll(st)
 			climber.slip("rock")
 			continue

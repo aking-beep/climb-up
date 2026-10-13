@@ -13,6 +13,8 @@ func _ready() -> void:
 		Expedition.new_expedition(7)
 		Expedition.session = TestSessions.at(id)
 		Expedition.climb = {}
+		# A fresh go: nothing left over from an earlier test's climb.
+		Expedition.climb = {}
 		Expedition.resume_climb()
 		rows.append(await _measure(id, load(Expedition.LEVELS[id]).instantiate()))
 	for id in ["warm-up", "thunderhead"]:

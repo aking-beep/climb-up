@@ -240,3 +240,11 @@ func test_each_hold_has_its_own_hang_time() -> void:
 	check(is_inf(t["jug"]) and is_inf(t["pocket"]), "big holds and pockets stop the clock")
 	m.grip = 0.5
 	check(m.seconds_left("crimp_hang") > t["crimp_hang"], "a tight grip buys time on tiny holds")
+
+
+func test_the_weather_words_match_the_number() -> void:
+	for deg in [-0.4, 0.4, 4.6, 5.0, 23.8, 24.2, 30.0, -15.0]:
+		var w := Climate.words(deg)
+		check(not "0%" in w.replace("10%", "").replace("20%", "").replace("30%", ""), "%.1f°C: no claim of a 0%% effect: %s" % [deg, w])
+		check(not ("freezing" in w and w.begins_with("0°C")), "%.1f°C: 0°C is not called freezing: %s" % [deg, w])
+	check("freezing" in Climate.words(-15.0) and "hot" in Climate.words(30.0), "the real cold and heat are named")

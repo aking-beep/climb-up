@@ -215,6 +215,8 @@ func _hint_for(level: Node) -> String:
 		return ""
 	if c.state == Climber.State.REST:
 		return "Resting. Move to get up."
+	if c.arms_failing:
+		return "Arms empty! Climb DOWN now, before they let go."
 	if c.stamina.fraction() < 0.2:
 		return "Arms are going. Get onto a ledge." if c.is_climbing() else "Out of breath. Sit and REST."
 	if c.state == Climber.State.CLIMB:

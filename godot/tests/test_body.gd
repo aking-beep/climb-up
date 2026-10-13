@@ -14,6 +14,8 @@ func _load(challenge: String, prep: Callable = Callable()) -> void:
 	if prep.is_valid():
 		prep.call()
 	Expedition.climb = {}
+	# A fresh go: nothing left over from an earlier test's climb.
+	Expedition.climb = {}
 	Expedition.resume_climb()
 	outcome = null
 	level = load(Expedition.LEVELS[challenge]).instantiate()
