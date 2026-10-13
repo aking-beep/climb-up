@@ -93,6 +93,13 @@ var current := "warm-up"
 ## The shoes picked last (offered first next time).
 var shoes := "neutral"
 var navigate := true
+## Set by retry(): the next level skips the brief and ties straight in.
+var quick_retry := false
+var _retry_ms := 0
+## Tutorial tips already seen on an earlier go: on a replay they show as a
+## short reminder instead of stopping the game (the first time, all of
+## them stop it, safety included).
+var lessons_seen: Array = []
 ## The daily route's log (Daily): {days: {date: {attempts, sends, falls,
 ## best, bestSeconds, bestFalls, hash}}, maxSeen (the latest date this
 ## device has shown), streak, lastSent}.
@@ -136,7 +143,7 @@ func map_text(id: String) -> String:
 
 func record(id: String) -> Dictionary:
 	return progress.get(id, {"attempts": 0, "sends": 0, "best": "", "bestFalls": -1, "bestSeconds": -1, "highpoint": 0, "beta": false,
-		"falls": 0, "challenge": false, "highRows": 0})
+		"falls": 0, "challenge": false, "highRows": 0, "highX": 0})
 
 
 ## Mastery stars on a route, 0 to 3 (Logbook.stars).
@@ -248,6 +255,37 @@ func climb(id: String) -> void:
 	go(LEVEL)
 
 
+## One tap from the results: the same route again, straight onto the rock
+## in the same shoes, no menu and no brief. The go counts once, at tie-in,
+## like any other.
+func retry(id: String) -> void:
+	if not unlocked(id):
+		return
+	Analytics.event("instant_retry_tapped", {"route": id})
+	quick_retry = true
+	_retry_ms = Time.get_ticks_msec()
+	current = id
+	if navigate and is_inside_tree():
+		# No fade: the fastest way back onto the rock.
+		get_tree().call_deferred("change_scene_to_file", LEVEL)
+
+
+## The level is playable again after a retry: how long it took (ms), or -1.
+func retry_landed() -> int:
+	if _retry_ms <= 0:
+		return -1
+	var ms := Time.get_ticks_msec() - _retry_ms
+	_retry_ms = 0
+	Analytics.event("retry_time_ms", {"route": current, "ms": ms})
+	return ms
+
+
+func see_lesson(key: String) -> void:
+	if not lessons_seen.has(key):
+		lessons_seen.append(key)
+		save_progress()
+
+
 ## Tying in starts a go: it counts from here.
 func tie_in(id: String) -> void:
 	Analytics.event("daily_started" if id == "daily" else "route_started", {"route": id, "attempt": int(daily_record()["attempts"]) + 1 if id == "daily" else int(record(id)["attempts"]) + 1})
@@ -300,7 +338,15 @@ func finish(id: String, sent: bool, falls: int, seconds: int, bolts: int = 0, st
 	var out := {"style": "", "better": false, "unlocked": "", "highpoint": false, "fasterBy": 0, "challenge": false,
 		"firstChallenge": false, "achievements": [], "starsBefore": stars_before}
 	r["falls"] = int(r.get("falls", 0)) + falls
-	r["highRows"] = maxi(int(r.get("highRows", 0)), int(stats.get("high_rows", 0)))
+	# The high point by height on the wall: new only above an earlier one
+	# (a first go sets it, it does not beat it).
+	var rows := int(stats.get("high_rows", 0))
+	var before_rows := int(r.get("highRows", 0))
+	out["highRowsBefore"] = before_rows
+	out["newHighPoint"] = not sent and before_rows > 0 and rows > before_rows
+	if rows > before_rows:
+		r["highRows"] = rows
+		r["highX"] = int(stats.get("high_x", 0))
 	if not sent and bolts > int(r.get("highpoint", 0)):
 		r["highpoint"] = bolts
 		out["highpoint"] = true
@@ -370,7 +416,7 @@ func daily_counts() -> bool:
 
 func daily_record(date: String = "") -> Dictionary:
 	var d := date if date != "" else today()
-	return daily.get("days", {}).get(d, {"attempts": 0, "sends": 0, "falls": 0, "best": "", "bestSeconds": -1, "bestFalls": -1, "hash": 0})
+	return daily.get("days", {}).get(d, {"attempts": 0, "sends": 0, "falls": 0, "best": "", "bestSeconds": -1, "bestFalls": -1, "hash": 0, "highRows": 0, "highX": 0})
 
 
 func _set_daily(d: Dictionary) -> void:
@@ -403,8 +449,16 @@ func finish_daily(sent: bool, falls: int, seconds: int, stats: Dictionary = {}) 
 	var d := daily_record()
 	if sent:
 		out["style"] = style_for(falls, maxi(1, int(d["attempts"])), false)
+	var rows := int(stats.get("high_rows", 0))
+	var before_rows := int(d.get("highRows", 0))
+	out["highRowsBefore"] = before_rows
+	out["newHighPoint"] = not sent and before_rows > 0 and rows > before_rows
 	if out["practice"]:
+		out["newHighPoint"] = false
 		return out
+	if rows > before_rows:
+		d["highRows"] = rows
+		d["highX"] = int(stats.get("high_x", 0))
 	d["falls"] = int(d["falls"]) + falls
 	if sent:
 		d["sends"] = int(d["sends"]) + 1
@@ -476,7 +530,8 @@ func load_daily() -> void:
 			var best := String(v.get("best", "")) if typeof(v.get("best")) == TYPE_STRING else ""
 			daily["days"][k] = {"attempts": maxi(0, _num(v.get("attempts"), 0)), "sends": maxi(0, _num(v.get("sends"), 0)),
 				"falls": maxi(0, _num(v.get("falls"), 0)), "best": best if STYLE_RANK.has(best) else "",
-				"bestSeconds": _num(v.get("bestSeconds"), -1), "bestFalls": _num(v.get("bestFalls"), -1), "hash": _num(v.get("hash"), 0)}
+				"bestSeconds": _num(v.get("bestSeconds"), -1), "bestFalls": _num(v.get("bestFalls"), -1), "hash": _num(v.get("hash"), 0),
+				"highRows": clampi(_num(v.get("highRows"), 0), 0, 999), "highX": clampi(_num(v.get("highX"), 0), 0, 9999)}
 
 
 func reset_daily() -> void:
@@ -487,16 +542,21 @@ func reset_daily() -> void:
 
 
 func save_progress() -> bool:
-	return SaveGame.write({"progress": progress, "shoes": shoes, "achievements": achievements, "version": 2}, SAVE)
+	return SaveGame.write({"progress": progress, "shoes": shoes, "achievements": achievements, "lessons": lessons_seen, "version": 2}, SAVE)
 
 
 func load_progress() -> void:
 	progress = {}
 	achievements = {}
 	shoes = "neutral"
+	lessons_seen = []
 	var data: Variant = SaveGame.read(SAVE)
 	if typeof(data) != TYPE_DICTIONARY or typeof(data.get("progress")) != TYPE_DICTIONARY:
 		return
+	if typeof(data.get("lessons")) == TYPE_ARRAY:
+		for k in data["lessons"]:
+			if typeof(k) == TYPE_STRING and CragLevel.LESSONS.has(k) and not lessons_seen.has(k):
+				lessons_seen.append(k)
 	if typeof(data.get("achievements")) == TYPE_DICTIONARY:
 		for a in data["achievements"]:
 			if Logbook.ACHIEVEMENTS.has(a):
@@ -519,6 +579,7 @@ func load_progress() -> void:
 			"falls": maxi(0, _num(d.get("falls"), 0)),
 			"challenge": typeof(d.get("challenge")) == TYPE_BOOL and d["challenge"],
 			"highRows": clampi(_num(d.get("highRows"), 0), 0, 999),
+			"highX": clampi(_num(d.get("highX"), 0), 0, 9999),
 		}
 
 
@@ -526,6 +587,9 @@ func reset() -> void:
 	progress = {}
 	achievements = {}
 	shoes = "neutral"
+	lessons_seen = []
+	quick_retry = false
+	_retry_ms = 0
 	SaveGame.erase(SAVE)
 
 

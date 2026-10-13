@@ -140,6 +140,7 @@ def main():
     write("thud", x)
     crag_sounds()
     music()
+    arcade_sounds()
     print("wrote", len(list(OUT.glob("*.wav"))), "placeholder sounds to", OUT)
 
 
@@ -178,6 +179,24 @@ def crag_sounds():
         m = n - at
         x[at:] += (np.sin(2 * np.pi * f * t[:m]) + 0.35 * np.sin(2 * np.pi * 2 * f * t[:m])) * env(m, 0.004, 0.45) * 0.28
     write("topout", x)
+
+
+def arcade_sounds():
+    """Short cues for the replay loop, made last (own noise source) so the
+    sounds above stay byte-identical."""
+    # A new record: a quick bright two-note lift, under half a second.
+    n = seconds(0.45)
+    t = np.arange(n) / RATE
+    x = np.zeros(n)
+    for i, f in enumerate((783.99, 1174.66)):
+        at = seconds(0.07 * i)
+        m = n - at
+        x[at:] += (np.sin(2 * np.pi * f * t[:m]) + 0.25 * np.sin(2 * np.pi * 3 * f * t[:m])) * env(m, 0.002, 0.16) * 0.3
+    write("record", x)
+    # A perfect catch: a crisp high ping on top of the slap.
+    n = seconds(0.2)
+    t = np.arange(n) / RATE
+    write("perfect", np.sin(2 * np.pi * 1318.5 * t) * env(n, 0.001, 0.06) * 0.35)
 
 
 def music():

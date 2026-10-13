@@ -17,6 +17,7 @@ Audio="*res://core/audio/audio.gd"
 Analytics="*res://core/analytics/analytics.gd"
 Expedition="*res://modes/expedition/expedition.gd"
 Crag="*res://modes/crag/crag.gd"
+Records="*res://core/records/records.gd"
 
 [display]
 

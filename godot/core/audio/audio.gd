@@ -27,6 +27,8 @@ const SETS := {
 	"pocket": ["pocket"],
 	"jug": ["jug"],
 	"topout": ["topout"],
+	"record": ["record"],
+	"perfect": ["perfect"],
 }
 const MUSIC := {"crag": "music_crag", "camp": "music_camp"}
 
