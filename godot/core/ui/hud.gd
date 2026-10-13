@@ -21,6 +21,12 @@ func _ready() -> void:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Inside the safe area: nothing under a notch or a rounded corner.
+	var inset := Settings.safe_insets()
+	root.offset_left = inset["left"]
+	root.offset_top = inset["top"]
+	root.offset_right = -inset["right"]
+	root.offset_bottom = -inset["bottom"]
 	add_child(root)
 	var box := PanelContainer.new()
 	box.position = Vector2(8, 6)

@@ -77,6 +77,11 @@ func playable() -> Array:
 
 
 func new_expedition(seed: int = 7) -> void:
+	# Starting over with one still under way is giving that one up.
+	if not session.is_empty() and active() and state()["history"].size() > 0:
+		Analytics.event("expedition_abandoned", {"checkpoint": state()["checkpoint"], "day": ExpeditionEngine.day_of(state())})
+	Analytics.event("expedition_started", {"seed": seed})
+	_reported_end = false
 	session = Coordinator.create_session(ExpeditionEngine.create(seed, def))
 	session["trek"] = Trek.fresh("")
 	climb = {}
@@ -272,7 +277,21 @@ func find_gear(id: String, index: int) -> void:
 	save()
 
 
+var _reported_end := false
+
+
+## Once an expedition is over (home, or lost on the mountain): one event.
+func _report_end() -> void:
+	if active() or _reported_end:
+		return
+	_reported_end = true
+	var sc := ExpeditionEngine.score(state())
+	Analytics.event("expedition_completed", {"returned": sc["returnedSafely"], "summit": sc["summitReached"], "overall": sc["overall"],
+		"day": ExpeditionEngine.day_of(state()), "descent_played": bool(trek().get("descent", {}).get("played", false))})
+
+
 func save() -> bool:
+	_report_end()
 	return SaveGame.write({"session": session, "climb": climb, "found": found, "best": best, "settings": Settings.to_dict()})
 
 

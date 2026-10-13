@@ -25,6 +25,7 @@ var _place: Label
 
 
 func _ready() -> void:
+	Audio.play_music("camp")
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var bg := ColorRect.new()
 	bg.color = Color(0.07, 0.07, 0.09)

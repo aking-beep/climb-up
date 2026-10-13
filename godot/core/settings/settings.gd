@@ -89,6 +89,35 @@ static func _detect_touch() -> bool:
 	return false
 
 
+## The screen's safe margins (notches, rounded corners, gesture bars) in
+## view units: {left, right, top, bottom}. Zero where there is no cutout.
+## Tests can set safe_override to a Rect2i in screen pixels.
+var safe_override: Variant = null
+
+
+func safe_insets() -> Dictionary:
+	var out := {"left": 0.0, "right": 0.0, "top": 0.0, "bottom": 0.0}
+	var root := get_tree().root
+	var win := Vector2(root.size)
+	if win.x <= 0 or win.y <= 0:
+		return out
+	var safe: Rect2i
+	if safe_override != null:
+		safe = safe_override
+	elif OS.has_feature("mobile"):
+		safe = DisplayServer.get_display_safe_area()
+	else:
+		return out
+	if safe.size.x <= 0 or safe.size.y <= 0:
+		return out
+	var k := Vector2(root.content_scale_size) / win if root.content_scale_size.x > 0 else Vector2.ONE
+	out["left"] = maxf(0.0, safe.position.x * k.x)
+	out["top"] = maxf(0.0, safe.position.y * k.y)
+	out["right"] = maxf(0.0, (win.x - safe.end.x) * k.x)
+	out["bottom"] = maxf(0.0, (win.y - safe.end.y) * k.y)
+	return out
+
+
 func particle_scale() -> float:
 	return [1.0, 0.5, 0.2][quality]
 

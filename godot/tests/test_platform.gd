@@ -183,3 +183,164 @@ func test_terrain_and_props_are_drawn_smooth() -> void:
 	check(absf(level.climber.global_position.y - y0) < 4.0, "the climber still stands on the hidden ground (moved %.1f px)" % (level.climber.global_position.y - y0))
 	level.queue_free()
 	await physics_frames(2)
+
+
+func test_the_settings_page_covers_sound_controls_and_privacy() -> void:
+	var keep := Settings.to_dict()
+	var level: Node = await _crag("warm-up")
+	level.settings_menu()
+	for id in ["s_music", "s_effects", "s_haptics", "s_touch", "s_size", "s_hand", "s_quality", "s_motion", "s_usage"]:
+		check(level.panel.has_choice(id), "settings has %s" % id)
+	# Music and effects are apart, and each steps down to off.
+	Settings.music_volume = 0.6
+	Settings.effects_volume = 1.0
+	level.panel.choose("s_music")
+	await tree.process_frame
+	eq(Settings.music_volume, 1.0, "music steps up")
+	level.panel.choose("s_music")
+	await tree.process_frame
+	eq(Settings.music_volume, 0.0, "and round to off")
+	eq(Settings.effects_volume, 1.0, "without touching the effects")
+	check(level.panel.open and level.panel.has_choice("s_music"), "the page stays open")
+	# Saved and read back.
+	Settings.load_settings()
+	eq(Settings.music_volume, 0.0, "music off is saved")
+	# Bad values in the file fall back or are clamped.
+	Settings.apply_dict({"music": "loud", "effects": 9, "touchScale": 0.1, "leftHanded": "yes", "logUsage": 0})
+	eq(Settings.music_volume, 0.6, "a bad music volume falls back")
+	eq(Settings.effects_volume, 1.0, "an effects volume is clamped to 1")
+	eq(Settings.touch_scale, 0.85, "control size is clamped")
+	check(not Settings.left_handed and Settings.log_usage, "bad flags fall back")
+	check(not Settings.share_usage, "usage is never shared by default")
+	level.queue_free()
+	Settings.apply_dict(keep)
+	Settings.save_settings()
+	await physics_frames(2)
+
+
+func test_the_game_plays_with_the_sound_off() -> void:
+	var keep := Settings.to_dict()
+	Settings.effects_volume = 0.0
+	Settings.music_volume = 0.0
+	var level: Node = await _crag("warm-up")
+	Audio.last = ""
+	# Climb a little: grabs and moves ask for sounds, none play, nothing breaks.
+	for i in 300:
+		GameInput.scripted = {"move_right": true} if level.climber.state == Climber.State.GROUND and not level.climber.can_grab() else {"climb_up": true}
+		await tree.physics_frame
+	GameInput.scripted = {}
+	eq(level.climber.state, Climber.State.CLIMB, "climbing with the sound off")
+	check(Audio.last != "", "the game still asked for its sounds (%s)" % Audio.last)
+	level.queue_free()
+	Settings.apply_dict(keep)
+	await physics_frames(2)
+
+
+func test_touch_controls_fit_the_hand_and_the_screen() -> void:
+	var keep := Settings.to_dict()
+	# A phone-shaped view (the headless window is tiny), and a stand-in level.
+	var screen := SubViewport.new()
+	screen.size = Vector2i(480, 270)
+	root.add_child(screen)
+	var level := Node2D.new()
+	screen.add_child(level)
+	Settings.touch_controls = true
+	Settings.left_handed = false
+	Settings.touch_scale = 1.0
+	TouchControls.attach(level)
+	await physics_frames(2)
+	var t: TouchControls = level.get_node("TouchControls")
+	var vp := Vector2(480, 270)
+	var act: TouchScreenButton = t.buttons["interact"]
+	var size: float = act.texture_normal.get_size().x
+	check(act.position.x > vp.x / 2.0, "right hand: the action button on the right (%s)" % act.position)
+	var right_x := act.position.x
+	# Bigger controls.
+	Settings.touch_scale = 1.3
+	TouchControls.attach(level)
+	await physics_frames(2)
+	t = level.get_node("TouchControls")
+	check(absf(t.buttons["interact"].texture_normal.get_size().x - size * 1.3) < 1.0, "buttons grow with the setting (%s)" % t.buttons["interact"].texture_normal.get_size())
+	check(absf(t.radius() - TouchControls.STICK_RADIUS * 1.3) < 0.01, "and the stick")
+	# Left hand: buttons mirrored to the left; pause stays top right.
+	Settings.touch_scale = 1.0
+	Settings.left_handed = true
+	TouchControls.attach(level)
+	await physics_frames(2)
+	t = level.get_node("TouchControls")
+	act = t.buttons["interact"]
+	check(act.position.x < vp.x / 2.0, "left hand: the action button on the left (%s)" % act.position)
+	check(absf((act.position.x + size) - (vp.x - right_x)) < 1.0, "mirrored exactly")
+	check(t.buttons["pause"].position.x > vp.x / 2.0, "pause stays top right, clear of the stats")
+	# The stick takes touches on the right for the left hand, not the left.
+	var touch := InputEventScreenTouch.new()
+	touch.index = 0
+	touch.pressed = true
+	touch.position = Vector2(vp.x * 0.15, vp.y * 0.7)
+	t._input(touch)
+	check(not t.stick_state()["active"], "left hand: a left-side touch is not the stick")
+	touch.position = Vector2(vp.x * 0.85, vp.y * 0.7)
+	t._input(touch)
+	check(t.stick_state()["active"], "the stick claims a right-side touch")
+	touch.pressed = false
+	t._input(touch)
+	# A notch: insets move everything inside the safe area.
+	Settings.left_handed = false
+	var win := Vector2i(tree.root.size)
+	Settings.safe_override = Rect2i(Vector2i(int(win.x * 0.05), 0), Vector2i(int(win.x * 0.9), win.y))
+	var inset := Settings.safe_insets()
+	check(inset["left"] > 0.0 and inset["right"] > 0.0, "a cutout gives insets (%s)" % inset)
+	TouchControls.attach(level)
+	await physics_frames(2)
+	t = level.get_node("TouchControls")
+	check(t.buttons["pause"].position.x + 32.0 <= vp.x - inset["right"] + 0.5, "pause clears the right cutout")
+	check(t.buttons["jump"].position.x + t.buttons["jump"].texture_normal.get_size().x <= vp.x - inset["right"], "so do the thumb buttons")
+	var hud := Hud.new()
+	level.add_child(hud)
+	await tree.process_frame
+	check(absf((hud.get_child(0) as Control).offset_left - inset["left"]) < 0.5, "the HUD sits inside the safe area")
+	Settings.safe_override = null
+	screen.queue_free()
+	Settings.apply_dict(keep)
+	Settings.touch_controls = false
+	await physics_frames(2)
+
+
+func test_analytics_are_local_and_private() -> void:
+	var keep_disk := Analytics.write_to_disk
+	Analytics.write_to_disk = true
+	Analytics.erase()
+	Analytics.event("route_started", {"route": "warm-up", "name": "Pat", "where": Vector2(1, 2), "pos": [1, 2]})
+	Analytics.event("totally_made_up", {"x": 1})
+	eq(Analytics.count("totally_made_up"), 0, "unknown events are dropped")
+	var e: Dictionary = Analytics.recent[-1]
+	eq(e["e"], "route_started", "known events are kept")
+	check(not e["p"].has("where") and not e["p"].has("pos"), "only plain values are kept (%s)" % e["p"])
+	check(not e.has("device") and not e.has("user") and e["s"].length() == 16, "a random session id, nothing about the device or player")
+	Analytics.flush()
+	var all := Analytics.read_all()
+	check(not all.is_empty() and all[-1]["e"] == "route_started", "written to this device")
+	# A climb records what the playtest plan measures.
+	var level: Node = await _crag("warm-up")
+	check(Analytics.count("route_started") >= 2, "tying in is a route start")
+	level.finish(true)
+	await physics_frames(70)
+	check(Analytics.count("route_completed") >= 1, "a send is a route completion")
+	level.queue_free()
+	# Turned off: nothing written.
+	Analytics.erase()
+	Settings.log_usage = false
+	Analytics.event("route_started", {"route": "x"})
+	Analytics.flush()
+	eq(Analytics.read_all().size(), 0, "the usage log off writes nothing")
+	Settings.log_usage = true
+	# No sink is called without consent.
+	var called := [0]
+	Analytics.add_sink(func(_e: Dictionary) -> void: called[0] += 1)
+	Analytics.event("route_started", {"route": "x"})
+	eq(called[0], 0, "no provider hears anything without consent")
+	Analytics._sinks.clear()
+	Analytics.erase()
+	Analytics.write_to_disk = keep_disk
+	Crag.reset()
+	await physics_frames(2)

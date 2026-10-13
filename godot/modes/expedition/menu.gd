@@ -4,6 +4,7 @@ extends Screen
 
 func _ready() -> void:
 	super._ready()
+	Audio.play_music("camp")
 	var has_save := Expedition.load_saved()
 	kicker("Kilimanjaro · Lemosho route, as a game")
 	title("Climb Up", 22)

@@ -291,6 +291,7 @@ func _ready() -> void:
 	Settings.interrupted.connect(_on_interrupted)
 	Settings.back_requested.connect(_on_back)
 	Audio.set_camp(0.0)
+	Audio.play_music("crag")
 	brief()
 
 
@@ -718,10 +719,11 @@ func _clip() -> void:
 	Audio.play("cairn", -8.0)
 	puff(Vector2(c["cell"]) * Terrain.TILE + Vector2(4, 9), Color(1, 1, 1, 0.8), 10)
 	var draw: Node2D = c["node"]
-	var tw := create_tween()
-	var base := draw.scale
-	tw.tween_property(draw, "scale", base * 1.5, 0.08)
-	tw.tween_property(draw, "scale", base, 0.2)
+	if not Settings.reduced_motion:
+		var tw := create_tween()
+		var base := draw.scale
+		tw.tween_property(draw, "scale", base * 1.5, 0.08)
+		tw.tween_property(draw, "scale", base, 0.2)
 	var head := "Clipped! Rest bar full." if int(c["gap"]) >= RUNOUT and clip_target > 0 else "Clipped in."
 	if int(c["gap"]) >= RUNOUT and clip_target > 0:
 		Audio.play("chime", -4.0)
@@ -1030,7 +1032,7 @@ func _draw_rope() -> void:
 	_reach_glow.visible = clip_target >= 0
 	if clip_target >= 0:
 		_reach_glow.position = Vector2(clips[clip_target]["cell"]) * Terrain.TILE + Vector2(4, 10)
-		_reach_glow.modulate.a = 0.6 + 0.4 * sin(climber.clock * 6.0)
+		_reach_glow.modulate.a = 0.8 if Settings.reduced_motion else 0.6 + 0.4 * sin(climber.clock * 6.0)
 
 
 func _on_slipped(_saved: bool, reason: String) -> void:
@@ -1216,17 +1218,13 @@ func pause_menu() -> void:
 ## Settings, a page of their own so the pause menu stays short on a phone.
 func settings_menu() -> void:
 	climber.lock(true)
-	panel.show_panel("Settings", route["name"], "", [
-		["touch", "Touch controls: %s" % ("On" if Settings.touch_enabled() else "Off")],
-		["quality", "Graphics: %s" % ["Full", "Reduced", "Low power"][Settings.quality]],
-		["motion", "Reduced motion: %s" % ("On" if Settings.reduced_motion else "Off")],
-		["haptics", "Vibration: %s" % ("On" if Settings.haptics else "Off")],
-		["fps", "Show FPS: %s" % ("On" if Settings.show_fps else "Off")],
-		["paused", "Back"],
-	])
+	panel.show_panel("Settings", route["name"], "", SettingsMenu.choices() + [["paused", "Back"]])
 
 
 func _on_choice(id: String) -> void:
+	if SettingsMenu.apply(id, self):
+		settings_menu()
+		return
 	match id:
 		"start":
 			_tie_in()
@@ -1249,24 +1247,6 @@ func _on_choice(id: String) -> void:
 			climber.lock(false)
 		"lower":
 			finish(false)
-		"touch":
-			Settings.set_touch_controls(not Settings.touch_enabled())
-			TouchControls.attach(self)
-			settings_menu()
-		"fps":
-			Settings.set_show_fps(not Settings.show_fps)
-			settings_menu()
-		"quality":
-			Settings.set_quality((Settings.quality + 1) % 3)
-			Scenery.apply_quality(self)
-			settings_menu()
-		"motion":
-			Settings.set_reduced_motion(not Settings.reduced_motion)
-			settings_menu()
-		"haptics":
-			Settings.set_haptics(not Settings.haptics)
-			Haptics.tap(30)
-			settings_menu()
 		"settings":
 			settings_menu()
 		"paused":
