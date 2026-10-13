@@ -12,6 +12,9 @@ const SKY_LOW := Color("#efe6d6")
 
 
 ## `theme`: {night, far, mid, foreground, snow, haze} (see ClimbLevel).
+const GRADE := preload("res://core/world/grade.gdshader")
+
+
 static func build(level: Node2D, terrain: Terrain, camera: Camera2D, theme: Dictionary = {}) -> void:
 	var size := terrain.pixel_size()
 	var night: bool = theme.get("night", false)
@@ -102,7 +105,7 @@ static func build(level: Node2D, terrain: Terrain, camera: Camera2D, theme: Dict
 		var p := Polygon2D.new()
 		var x := 300.0 + i * 520.0
 		p.polygon = PackedVector2Array([Vector2(x, -100), Vector2(x + 90, -100), Vector2(x + 520, size.y), Vector2(x + 300, size.y)])
-		p.color = Color(1.0, 0.92, 0.75, 0.045)
+		p.color = Color(1.0, 0.9, 0.7, 0.028)
 		p.material = add
 		shafts.add_child(p)
 	shafts.visible = theme.get("sunShafts", not night)
@@ -183,25 +186,22 @@ static func build(level: Node2D, terrain: Terrain, camera: Camera2D, theme: Dict
 	fg.repeat = false
 	near_air.add_child(fg)
 
-	# Lens: vignette, and a touch of warm grade at the edges.
+	# Lens: a colour grade over the world (not the HUD): shadows lean cool,
+	# lights warm, a little more contrast and colour, and a vignette. The
+	# grade reads the screen, so it is off with "Low power".
 	var lens := CanvasLayer.new()
 	lens.name = "Lens"
 	lens.layer = 5
 	var vignette := ColorRect.new()
+	vignette.name = "Grade"
 	vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
 	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var mat := ShaderMaterial.new()
-	var sh := Shader.new()
-	sh.code = """
-shader_type canvas_item;
-uniform float strength = 0.38;
-void fragment() {
-	vec2 uv = UV - 0.5;
-	float v = smoothstep(0.38, 0.85, length(uv * vec2(1.25, 1.0)));
-	COLOR = vec4(0.05, 0.035, 0.05, v * strength);
-}
-"""
-	mat.shader = sh
+	mat.shader = GRADE
+	var grade: Dictionary = theme.get("grade", {})
+	mat.set_shader_parameter("shadow_tint", grade.get("shadow", Vector3(0.9, 0.92, 0.98) if night else Vector3(0.9, 0.9, 1.04)))
+	mat.set_shader_parameter("light_tint", grade.get("light", Vector3(1.02, 1.0, 0.98) if night else Vector3(1.06, 1.01, 0.93)))
+	mat.set_shader_parameter("strength", 0.42)
 	vignette.material = mat
 	lens.add_child(vignette)
 	level.add_child(lens)
@@ -228,6 +228,9 @@ static func apply_quality(level: Node) -> void:
 	var lamp := level.get_node_or_null("Climber/Lamp")
 	if lamp:
 		lamp.enabled = Settings.lights_enabled()
+	var grade := level.get_node_or_null("Lens/Grade") as ColorRect
+	if grade and grade.material:
+		(grade.material as ShaderMaterial).set_shader_parameter("graded", Settings.quality != Settings.Quality.LOW_POWER)
 	var shafts := level.get_node_or_null("SunShafts")
 	if shafts and Settings.quality != Settings.Quality.FULL:
 		shafts.visible = false

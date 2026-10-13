@@ -25,6 +25,12 @@ var _trail: Array = []
 
 func _ready() -> void:
 	sprite = Sheet.sprite("res://assets/characters/%s.png" % person)
+	# A dark outline so people read against rock of any colour (the HD
+	# sheets draw their own).
+	if not Sheet.is_hd(Sheet.best(sprite.sprite_frames.get_frame_texture("idle", 0).atlas.resource_path)):
+		var outline := ShaderMaterial.new()
+		outline.shader = preload("res://core/world/outline.gdshader")
+		sprite.material = outline
 	add_child(sprite)
 	sprite.play(idle_anim)
 

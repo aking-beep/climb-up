@@ -346,7 +346,11 @@ bolting and exposure out from the map). Rows are half a metre.
   sound (sharper on tiny holds); the results count them.
 - **Maps** come from `tools/levels/crag_maps.py`, written bottom to top as
   segments (rock, crimps, jug, blank, traverse); holds, quickdraws and
-  the anchor from `tools/art/godot_crag.py`.
+  the anchor from `tools/art/crag_hd.py`, drawn smooth (see "Look").
+- **Gear you can see.** Quickdraws are a steel hanger, a bright blue sling
+  and two carabiners (the rope shows through the bottom one once clipped),
+  shown a little larger than life; the bolt in reach glows. The rope is a
+  round, shaded orange line with a dark outline, sagging between bolts.
 
 ## The Barranco Wall
 
@@ -373,10 +377,39 @@ tests/     headless test runner and suites; shot/demo tools
 ```
 
 Levels are ASCII maps stamped by `tools/levels/barranco_map.py` and
+## Look
+
+Pixel-art world, smooth illustrated people and gear, one colour grade:
+
+- **Rock** (`tools/art/godot_rock.py`) is drawn the way pixel artists draw
+  rock, not as noise: blocks (a tileable Voronoi stretched along the
+  bedding), each one a flat cluster lit by how it faces the upper-left
+  light, with a lit rim, a shadowed edge and a crack between blocks, a slow
+  swell of light and dark so the tiling never shows, and hue-shifted ramps
+  (cool shadows, warm lights). Per climb palette (Barranco basalt, Lava
+  Tower red, summit blue-grey): solid rock, a darker flatter back wall (it
+  is further away), and climbable faces lighter and warmer with vertical
+  joints, so the way up reads at a glance.
+- **Edges** are an overlay on the same rock, so edge and interior are one
+  surface: a warm lit lip with moss (snow on the summit), an outline and
+  an undercut shadow below, shaded sides, bevelled corners. Slopes, scree,
+  boulders and face holds come from the same palettes.
+- **People** (`tools/art/characters_hd.py`) are drawn as clean illustrated
+  characters (round shapes, a big readable head, cel shading, a warm rim
+  light, a crisp outline) at 4x and shown at a quarter scale, smooth, with
+  mipmaps: a phone draws them at its full resolution. Same poses and frame
+  layout as the pixel sheets (`tools/art/characters.py`), which remain as
+  the fallback.
+- **The lens** (`core/world/grade.gdshader`) grades the world under the
+  HUD: shadows toward a cool tint and lights toward a warm one per climb,
+  a little more contrast and colour, and a vignette. "Low power" keeps the
+  vignette only (no screen read).
+
 `tools/levels/kili_maps.py`. Card content comes from the Expo source via
 `tools/godot/export_content.ts`, which also records scripted playthroughs
 of the TypeScript engine for the parity test. Art: `tools/art/godot_barranco.py`
-(tiles, props), `tools/art/godot_backwalls.py` (rock strata),
+(props, fallback tiles), `tools/art/godot_rock.py` (rock, edges, faces),
+`tools/art/characters_hd.py` and `tools/art/crag_hd.py` (people and gear),
 `tools/art/godot_hazards.py` (ice, slabs, stones, water, gear),
 `tools/art/godot_creatures.py` (thistle, nettle, siafu, raven),
 `tools/art/godot_kili.py` (diorama plates, map sprites, scenery from the
@@ -390,7 +423,7 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-88 tests: the engine replaying seven expeditions recorded from the
+89 tests: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume

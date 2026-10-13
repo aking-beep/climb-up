@@ -61,6 +61,9 @@ var panel: StoryPanel
 var hud: Hud
 var belayer: Companion
 var rope: Line2D
+var rope_shadow: Line2D
+## The bolt in reach glows so the eye finds it.
+var _reach_glow: Sprite2D
 ## Bolts, bottom to top: {cell, node, clipped, hang (feet on the rope there)}.
 var clips: Array = []
 ## What the HUD reads: falls allowed, bolts clipped, the start plus bolts.
@@ -160,8 +163,7 @@ func _ready() -> void:
 	cairns.append(_start)
 	var anchor: Vector2i = terrain.markers["X"][0]
 	_top_y = Terrain.feet(anchor).y
-	var a := Sprite2D.new()
-	a.texture = load("res://assets/crag/anchor.png")
+	var a := _hd_sprite("res://assets/crag/anchor-hd.png", 1.3)
 	a.position = Terrain.feet(anchor) - Vector2(0, 10)
 	add_child(a)
 	_place_clips()
@@ -172,11 +174,24 @@ func _ready() -> void:
 	add_child(belayer)
 	belayer.global_position = Vector2(_base_x() - 2.5 * Terrain.TILE, _start.y)
 
+	# The rope: a dark outline under a round, shaded orange core, sagging
+	# between the bolts.
+	rope_shadow = Line2D.new()
+	rope_shadow.width = 3.0
+	rope_shadow.default_color = Color("#2a1410")
+	rope_shadow.z_index = 2
 	rope = Line2D.new()
-	rope.width = 1.0
-	rope.default_color = Color("#e0663c")
+	rope.width = 2.0
+	rope.texture = _rope_texture()
+	rope.texture_mode = Line2D.LINE_TEXTURE_STRETCH
+	rope.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	rope.z_index = 2
-	add_child(rope)
+	for line in [rope_shadow, rope]:
+		line.joint_mode = Line2D.LINE_JOINT_ROUND
+		line.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		line.end_cap_mode = Line2D.LINE_CAP_ROUND
+		line.antialiased = true
+		add_child(line)
 
 	climber = Climber.new()
 	climber.name = "Climber"
@@ -248,8 +263,33 @@ func _base_x() -> float:
 	return _start.x + 8 * Terrain.TILE
 
 
+## A smooth, illustrated sprite (tools/art/crag_hd.py): drawn at 4x,
+## shown at a quarter scale with smooth filtering.
+func _hd_sprite(path: String, size: float = 1.0) -> Sprite2D:
+	var s := Sprite2D.new()
+	s.texture = load(path)
+	s.scale = Vector2.ONE * size / 4.0
+	s.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	s.z_index = 1
+	return s
+
+
+## A round rope: a texture across its width, dark edges and a lit middle.
+static func _rope_texture() -> GradientTexture2D:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.3, 0.55, 1.0])
+	g.colors = PackedColorArray([Color("#a8381a"), Color("#ff9a5c"), Color("#e8622c"), Color("#9a3216")])
+	var t := GradientTexture2D.new()
+	t.gradient = g
+	t.fill_from = Vector2(0, 0)
+	t.fill_to = Vector2(0, 1)
+	t.width = 4
+	t.height = 16
+	return t
+
+
 func _place_holds() -> void:
-	_hold_tex = load("res://assets/crag/holds.png")
+	_hold_tex = load("res://assets/crag/crimp-hd.png")
 	for y in terrain.height:
 		for x in terrain.width:
 			var k := terrain.kind(Vector2i(x, y))
@@ -258,15 +298,10 @@ func _place_holds() -> void:
 			# Jugs are drawn whole, one big hold per patch (_place_jugs).
 			if k == Terrain.Kind.JUG:
 				continue
-			var s := Sprite2D.new()
-			var at := AtlasTexture.new()
-			at.atlas = _hold_tex
-			at.region = Rect2(0 if k == Terrain.Kind.CRIMP else 16, 0, 16, 16)
-			s.texture = at
+			var s := _hd_sprite("res://assets/crag/crimp-hd.png")
 			s.centered = false
-			s.position = Vector2(x, y) * Terrain.TILE + (Vector2(0, 8) if k == Terrain.Kind.JUG else Vector2.ZERO)
-			s.flip_h = posmod(x + y, 2) == 1 and k == Terrain.Kind.CRIMP
-			s.z_index = 1
+			s.position = Vector2(x, y) * Terrain.TILE
+			s.flip_h = posmod(x + y, 2) == 1
 			add_child(s)
 
 
@@ -274,7 +309,7 @@ func _place_holds() -> void:
 ## crimps, two to a patch (staggered, a hand and a foot), so they read as
 ## holds you can hang on, not as a sign.
 func _place_jugs() -> void:
-	var tex: Texture2D = load("res://assets/crag/jug.png")
+	var tex := "res://assets/crag/jug-hd.png"
 	for y in terrain.height:
 		for x in terrain.width:
 			var cell := Vector2i(x, y)
@@ -289,25 +324,39 @@ func _place_jugs() -> void:
 				size.y += 1
 			var spots: Array = [Vector2(0.3, 0.3), Vector2(0.7, 0.75)] if size.y > 1 else [Vector2(0.5, 0.5)]
 			for f in spots:
-				var s := Sprite2D.new()
-				s.texture = tex
+				var s := _hd_sprite(tex)
 				s.position = (Vector2(cell) + Vector2(size) * (f as Vector2)) * Terrain.TILE
-				s.z_index = 1
 				add_child(s)
 
 
 func _place_clips() -> void:
-	_draw_tex = load("res://assets/crag/quickdraw.png")
+	_draw_tex = load("res://assets/crag/quickdraw-hd.png")
+	_reach_glow = Sprite2D.new()
+	var glow := GradientTexture2D.new()
+	glow.fill = GradientTexture2D.FILL_RADIAL
+	glow.fill_from = Vector2(0.5, 0.5)
+	glow.fill_to = Vector2(1.0, 0.5)
+	var gg := Gradient.new()
+	gg.colors = PackedColorArray([Color(1, 0.95, 0.7, 0.55), Color(1, 0.95, 0.7, 0.0)])
+	glow.gradient = gg
+	glow.width = 64
+	glow.height = 64
+	_reach_glow.texture = glow
+	_reach_glow.scale = Vector2.ONE * 0.5
+	_reach_glow.z_index = 0
+	_reach_glow.visible = false
+	add_child(_reach_glow)
 	var cells: Array = terrain.markers.get("Q", []).duplicate()
 	cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y > b.y)
 	for cell in cells:
-		var s := Sprite2D.new()
+		# A touch larger than life, so the bolts are easy to find on a phone.
+		var s := _hd_sprite("res://assets/crag/quickdraw-hd.png", 1.3)
 		var at := AtlasTexture.new()
 		at.atlas = _draw_tex
-		at.region = Rect2(0, 0, 8, 14)
+		at.region = Rect2(0, 0, 48, 88)
 		s.texture = at
-		s.position = Vector2(cell) * Terrain.TILE + Vector2(4, 7)
-		s.z_index = 1
+		# The hanger at the bolt, the draw hanging below it.
+		s.position = Vector2(cell) * Terrain.TILE + Vector2(4, 11)
 		add_child(s)
 		var c := {"cell": cell, "node": s, "clipped": false, "hang": _hang_point(cell)}
 		clips.append(c)
@@ -553,7 +602,7 @@ func _clip() -> void:
 	grip = maxf(0.0, grip - float(cost["grip"]))
 	last_clip_cost = cost
 	c["clipped"] = true
-	c["node"].texture.region = Rect2(8, 0, 8, 14)
+	c["node"].texture.region = Rect2(48, 0, 48, 88)
 	checkpoint = maxi(checkpoint, clip_target + 1)
 	engage("clip")
 	Haptics.tap(15)
@@ -564,8 +613,9 @@ func _clip() -> void:
 	puff(Vector2(c["cell"]) * Terrain.TILE + Vector2(4, 9), Color(1, 1, 1, 0.8), 10)
 	var draw: Node2D = c["node"]
 	var tw := create_tween()
-	tw.tween_property(draw, "scale", Vector2(1.8, 1.8), 0.08)
-	tw.tween_property(draw, "scale", Vector2.ONE, 0.2)
+	var base := draw.scale
+	tw.tween_property(draw, "scale", base * 1.5, 0.08)
+	tw.tween_property(draw, "scale", base, 0.2)
 	var head := "Clipped! Rest bar full." if int(c["gap"]) >= RUNOUT and clip_target > 0 else "Clipped in."
 	if int(c["gap"]) >= RUNOUT and clip_target > 0:
 		Audio.play("chime", -4.0)
@@ -741,12 +791,30 @@ func _key(button: String) -> String:
 
 
 func _draw_rope() -> void:
-	var pts := PackedVector2Array([belayer.global_position - Vector2(0, 12)])
+	var knots: Array[Vector2] = [belayer.global_position - Vector2(0, 12)]
 	for c in clips:
 		if c["clipped"]:
-			pts.append(Vector2(c["cell"]) * Terrain.TILE + Vector2(4, 11))
-	pts.append(climber.global_position - Vector2(0, 11))
+			knots.append(Vector2(c["cell"]) * Terrain.TILE + Vector2(4, 19))
+	knots.append(climber.global_position - Vector2(0, 11))
+	# Each span sags a little under its own weight (less when pulled up
+	# steeply), drawn as a few points along a curve.
+	var pts := PackedVector2Array()
+	for i in knots.size() - 1:
+		var a := knots[i]
+		var b := knots[i + 1]
+		var length := a.distance_to(b)
+		var slack := clampf(length * 0.05, 0.0, 6.0) * (1.0 - absf(b.y - a.y) / maxf(length, 1.0) * 0.7)
+		for k in 8:
+			var t := k / 8.0
+			pts.append(a.lerp(b, t) + Vector2(0, slack * 4.0 * t * (1.0 - t)))
+	pts.append(knots[-1])
 	rope.points = pts
+	rope_shadow.points = pts
+	# The bolt in reach glows.
+	_reach_glow.visible = clip_target >= 0
+	if clip_target >= 0:
+		_reach_glow.position = Vector2(clips[clip_target]["cell"]) * Terrain.TILE + Vector2(4, 10)
+		_reach_glow.modulate.a = 0.6 + 0.4 * sin(climber.clock * 6.0)
 
 
 func _on_slipped(_saved: bool, reason: String) -> void:

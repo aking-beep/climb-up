@@ -142,3 +142,19 @@ func test_panels_fit_a_short_screen() -> void:
 	check(absf(p._box.get_global_rect().end.y - (screen - 10.0)) < 2.0, "and sits on the bottom edge")
 	screen_vp.queue_free()
 	await tree.process_frame
+
+
+func test_characters_are_drawn_smooth() -> void:
+	for who in ["you", "marco", "lena", "jun"]:
+		var path := "res://assets/characters/%s.png" % who
+		eq(Sheet.best(path), "res://assets/characters/%s-hd.png" % who, "%s has an HD sheet" % who)
+		var s := Sheet.sprite(path)
+		check(s.texture_filter == CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS, "%s is filtered smooth, not pixelated" % who)
+		var tex: Texture2D = s.sprite_frames.get_frame_texture("climb", 0)
+		eq(tex.get_size(), Vector2(Sheet.FRAME * Sheet.HD), "%s: frames are HD times the pixel frame" % who)
+		var on_screen: float = tex.get_size().y * s.scale.y
+		check(absf(on_screen - Sheet.FRAME.y * Sheet.HD_SIZE) < 0.5, "%s shows at the figure's size in the world (%.1f px)" % [who, on_screen])
+		var last: AtlasTexture = s.sprite_frames.get_frame_texture("celebrate", 1)
+		check(last.region.end.x <= last.atlas.get_width() and last.region.end.y <= last.atlas.get_height(), "%s: every frame is inside the sheet" % who)
+		s.free()
+	await tree.process_frame

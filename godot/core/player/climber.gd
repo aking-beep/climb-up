@@ -132,6 +132,12 @@ func _ready() -> void:
 	shape.position = Vector2(0, -SIZE.y / 2.0)
 	add_child(shape)
 	sprite = Sheet.sprite(sheet_path)
+	# A dark outline so people read against rock of any colour (the HD
+	# sheets draw their own).
+	if not Sheet.is_hd(Sheet.best(sprite.sprite_frames.get_frame_texture("idle", 0).atlas.resource_path)):
+		var outline := ShaderMaterial.new()
+		outline.shader = preload("res://core/world/outline.gdshader")
+		sprite.material = outline
 	add_child(sprite)
 	floor_max_angle = deg_to_rad(50)
 	floor_snap_length = 6.0
