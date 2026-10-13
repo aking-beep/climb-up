@@ -57,7 +57,7 @@ func test_each_challenge_asks_for_its_skill() -> void:
 		"first-climb": [{"falls": 0}, {"falls": 1}],
 		"warm-up": [{"bolts": 6, "good_clips": 6}, {"bolts": 6, "good_clips": 5}],
 		"sundown": [{"min_sloper_grip": 0.5}, {"min_sloper_grip": 0.2}],
-		"the-pinch": [{"style": "redpoint", "grip_taps": 7}, {"style": "redpoint", "grip_taps": 20}],
+		"the-pinch": [{"style": "redpoint", "wasted": 0, "grip_taps": 12}, {"style": "redpoint", "wasted": 2, "grip_taps": 5}],
 		"leap-of-faith": [{"style": "onsight", "perfect": 1}, {"style": "falls", "perfect": 1}],
 		"lions-roof": [{"rests": 0}, {"rests": 1}],
 		"thunderhead": [{"style": "redpoint", "perfect": 2}, {"style": "redpoint", "perfect": 1}],

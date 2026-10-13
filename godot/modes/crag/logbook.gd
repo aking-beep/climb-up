@@ -21,7 +21,7 @@ const CHALLENGES := {
 	"first-climb": ["No falls", "Climb the lesson without falling."],
 	"warm-up": ["Good clips", "Send it, clipping every bolt from a good hold (not tiny holds)."],
 	"sundown": ["Feather touch", "Send it without your grip on the slopers ever dropping below a third."],
-	"the-pinch": ["Economy", "Send it clean with 8 squeezes of GRIP or fewer."],
+	"the-pinch": ["Economy", "Send it clean without a wasted squeeze: none while the grip is above 70%, none in a flurry."],
 	"leap-of-faith": ["Stick it", "Send it clean with a perfect catch on the leap."],
 	"lions-roof": ["No sitting", "Send it without resting on the rope once."],
 	"thunderhead": ["Lightning", "Send it clean with both catches perfect."],
@@ -61,7 +61,7 @@ static func challenge_progress(id: String, s: Dictionary) -> String:
 		"sundown":
 			return "grip on the slopers dropped to %d%% (keep it above 33%%)" % int(float(s.get("min_sloper_grip", 0.0)) * 100.0)
 		"the-pinch":
-			return "%d squeezes%s (8 or fewer, clean)" % [int(s.get("grip_taps", 0)), "" if clean else ", with falls"]
+			return "%d wasted squeeze%s%s" % [int(s.get("wasted", 0)), "" if int(s.get("wasted", 0)) == 1 else "s", "" if clean else ", with falls"]
 		"leap-of-faith", "thunderhead":
 			return "%d perfect catch%s%s" % [int(s.get("perfect", 0)), "" if int(s.get("perfect", 0)) == 1 else "es", "" if clean else ", with falls"]
 		"lions-roof":
@@ -82,7 +82,7 @@ static func challenge_done(id: String, s: Dictionary) -> bool:
 		"sundown":
 			return float(s.get("min_sloper_grip", 0.0)) >= 1.0 / 3.0
 		"the-pinch":
-			return clean and int(s.get("grip_taps", 99)) <= 8
+			return clean and int(s.get("wasted", 99)) == 0 and s.has("wasted")
 		"leap-of-faith":
 			return clean and int(s.get("perfect", 0)) >= 1
 		"lions-roof":

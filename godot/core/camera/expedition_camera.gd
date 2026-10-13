@@ -22,6 +22,12 @@ var _shake := 0.0
 var _zoom_target := 1.0
 
 
+func _init() -> void:
+	# Physics interpolation is on: the camera follows in the physics step
+	# (Godot would switch it anyway, with a warning).
+	process_callback = Camera2D.CAMERA2D_PROCESS_PHYSICS
+
+
 func _ready() -> void:
 	enabled = true
 	# Moved in physics frames, drawn interpolated between them.

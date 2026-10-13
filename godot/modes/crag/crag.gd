@@ -17,7 +17,11 @@ extends Node
 const TITLE := "res://modes/title/title.tscn"
 const MENU := "res://modes/crag/crag_menu.tscn"
 const LEVEL := "res://modes/crag/crag_level.tscn"
+const LOGBOOK := "res://modes/crag/logbook_screen.tscn"
 const SAVE := "user://climb_up_crag.json"
+const DAILY_SAVE := "user://climb_up_daily.json"
+## Daily results kept, newest first.
+const DAILY_KEEP := 60
 const MAX_FALLS := 5
 
 ## Easiest first. Each one unlocks the next when sent. `level` is the grade
@@ -87,13 +91,23 @@ var current := "warm-up"
 ## The shoes picked last (offered first next time).
 var shoes := "neutral"
 var navigate := true
+## The daily route's log (Daily): {days: {date: {attempts, sends, falls,
+## best, bestSeconds, bestFalls, hash}}, maxSeen (the latest date this
+## device has shown), streak, lastSent}.
+var daily: Dictionary = {}
+## Tests set a UTC unix time here to play another day; -1 is the clock.
+var clock_override := -1
+var _daily_cache: Dictionary = {}
 
 
 func _ready() -> void:
 	load_progress()
+	load_daily()
 
 
 func route(id: String) -> Dictionary:
+	if id == "daily":
+		return daily_route()
 	for r in ROUTES:
 		if r["id"] == id:
 			return r
@@ -109,6 +123,13 @@ func index_of(id: String) -> int:
 
 func map_path(id: String) -> String:
 	return "res://modes/crag/routes/%s.txt" % id
+
+
+## The map of a route: its file, or the daily route made for today.
+func map_text(id: String) -> String:
+	if id == "daily":
+		return daily_route()["map"]
+	return FileAccess.get_file_as_string(map_path(id))
 
 
 func record(id: String) -> Dictionary:
@@ -149,9 +170,10 @@ var _facts := {}
 ## (well/sporty/runout), worstFall (m), groundFall (a fall low down can
 ## reach the ground), exposure (low/medium/high)}.
 func facts(id: String) -> Dictionary:
-	if _facts.has(id):
-		return _facts[id]
-	var t := Terrain.load_file(map_path(id))
+	var key := id if id != "daily" else "daily-" + today()
+	if _facts.has(key):
+		return _facts[key]
+	var t := Terrain.from_text(map_text(id))
 	var foot: int = (t.markers["P"][0] as Vector2i).y
 	var top: int = (t.markers["X"][0] as Vector2i).y
 	var rows: Array = []
@@ -177,7 +199,7 @@ func facts(id: String) -> Dictionary:
 		exposure = "low"
 	var f := {"bolts": rows.size(), "gaps": gaps, "first": first, "height": (foot - top) * ROW_M,
 		"longest": longest * ROW_M, "protection": protection, "worstFall": worst, "groundFall": ground, "exposure": exposure}
-	_facts[id] = f
+	_facts[key] = f
 	return f
 
 
@@ -209,6 +231,9 @@ static func _m(v: float) -> String:
 ## The first route is always open; each one after opens when the one
 ## before it has been sent.
 func unlocked(id: String) -> bool:
+	if id == "daily":
+		# After the lesson: the daily route assumes you know the moves.
+		return int(record("first-climb")["sends"]) > 0
 	var i := index_of(id)
 	return i == 0 or int(record(ROUTES[i - 1]["id"])["sends"]) > 0
 
@@ -223,6 +248,17 @@ func climb(id: String) -> void:
 
 ## Tying in starts a go: it counts from here.
 func tie_in(id: String) -> void:
+	Analytics.event("daily_started" if id == "daily" else "route_started", {"route": id, "attempt": int(daily_record()["attempts"]) + 1 if id == "daily" else int(record(id)["attempts"]) + 1})
+	if id != "daily" and int(record(id)["attempts"]) > 0:
+		Analytics.event("route_replayed", {"route": id, "sent_before": int(record(id)["sends"]) > 0})
+	if id == "first-climb" and int(record(id)["attempts"]) == 0:
+		Analytics.event("tutorial_started")
+	if id == "daily":
+		if daily_counts():
+			var d := daily_record()
+			d["attempts"] = int(d["attempts"]) + 1
+			_set_daily(d)
+		return
 	var r := record(id)
 	r["attempts"] = int(r["attempts"]) + 1
 	progress[id] = r
@@ -253,6 +289,10 @@ static func style_for(falls: int, attempts: int, beta: bool = false) -> String:
 ## firstChallenge (done for the first time), stars, starsBefore,
 ## achievements (new ids)} for the results card.
 func finish(id: String, sent: bool, falls: int, seconds: int, bolts: int = 0, stats: Dictionary = {}) -> Dictionary:
+	if id == "daily":
+		return finish_daily(sent, falls, seconds, stats)
+	if id == "first-climb" and sent and int(record(id)["sends"]) == 0:
+		Analytics.event("tutorial_completed", {"seconds": seconds, "falls": falls})
 	var r := record(id)
 	var stars_before := Logbook.stars(r)
 	var out := {"style": "", "better": false, "unlocked": "", "highpoint": false, "fasterBy": 0, "challenge": false,
@@ -298,7 +338,150 @@ func finish(id: String, sent: bool, falls: int, seconds: int, bolts: int = 0, st
 func earn(ids: Array) -> Array:
 	for a in ids:
 		achievements[a] = Time.get_date_string_from_system(true)
+		Analytics.event("achievement_earned", {"id": a})
 	return ids
+
+
+# --- The daily route ----------------------------------------------------------
+
+func now_unix() -> int:
+	return clock_override if clock_override >= 0 else int(Time.get_unix_time_from_system())
+
+
+func today() -> String:
+	return Daily.date_key(now_unix())
+
+
+func daily_route() -> Dictionary:
+	var date := today()
+	if not _daily_cache.has(date):
+		_daily_cache = {date: Daily.route_for(date)}
+	return _daily_cache[date]
+
+
+## False when the device's date is earlier than a day it has already
+## shown: the clock has been turned back. The route can still be climbed
+## for practice, but the go is not logged as that day's result.
+func daily_counts() -> bool:
+	return today() >= String(daily.get("maxSeen", ""))
+
+
+func daily_record(date: String = "") -> Dictionary:
+	var d := date if date != "" else today()
+	return daily.get("days", {}).get(d, {"attempts": 0, "sends": 0, "falls": 0, "best": "", "bestSeconds": -1, "bestFalls": -1, "hash": 0})
+
+
+func _set_daily(d: Dictionary) -> void:
+	var days: Dictionary = daily.get("days", {})
+	d["hash"] = daily_route()["hash"]
+	days[today()] = d
+	# Keep the newest DAILY_KEEP days.
+	var keys := days.keys()
+	keys.sort()
+	while keys.size() > DAILY_KEEP:
+		days.erase(keys.pop_front())
+	daily["days"] = days
+	save_daily()
+
+
+## Notes the day as seen (for the clock check). Called when the daily is
+## shown.
+func see_daily() -> void:
+	if today() > String(daily.get("maxSeen", "")):
+		daily["maxSeen"] = today()
+		save_daily()
+
+
+## A finished daily go. Styles as on the other routes, counted over today's
+## goes. Returns {style, better, practice (not logged: the clock was turned
+## back), streak, achievements, fasterBy, unlocked: ""}.
+func finish_daily(sent: bool, falls: int, seconds: int, stats: Dictionary = {}) -> Dictionary:
+	var out := {"style": "", "better": false, "unlocked": "", "highpoint": false, "fasterBy": 0, "practice": not daily_counts(),
+		"achievements": [], "streak": int(daily.get("streak", 0)), "stars": 0}
+	var d := daily_record()
+	if sent:
+		out["style"] = style_for(falls, maxi(1, int(d["attempts"])), false)
+	if out["practice"]:
+		return out
+	d["falls"] = int(d["falls"]) + falls
+	if sent:
+		d["sends"] = int(d["sends"]) + 1
+		if STYLE_RANK[out["style"]] > STYLE_RANK[String(d["best"])]:
+			d["best"] = out["style"]
+			out["better"] = true
+		if int(d["bestSeconds"]) > 0 and seconds < int(d["bestSeconds"]):
+			out["fasterBy"] = int(d["bestSeconds"]) - seconds
+		if int(d["bestSeconds"]) < 0 or seconds < int(d["bestSeconds"]):
+			d["bestSeconds"] = seconds
+		if int(d["bestFalls"]) < 0 or falls < int(d["bestFalls"]):
+			d["bestFalls"] = falls
+		# The streak: days in a row with a send.
+		var last := String(daily.get("lastSent", ""))
+		if last != today():
+			var yesterday := Daily.date_key(now_unix() - 86400)
+			daily["streak"] = int(daily.get("streak", 0)) + 1 if last == yesterday else 1
+			daily["lastSent"] = today()
+		out["streak"] = int(daily["streak"])
+		Analytics.event("daily_completed", {"date": today(), "style": out["style"], "falls": falls, "seconds": seconds})
+	_set_daily(d)
+	var s := stats.duplicate()
+	s["sent"] = sent
+	s["falls"] = falls
+	s["style"] = out["style"]
+	s["daily"] = true
+	out["achievements"] = earn(Logbook.earned("daily", s, progress, achievements, ROUTES))
+	save_progress()
+	return out
+
+
+## The result as text, for sharing anywhere (no images or emoji needed).
+func daily_share_text(date: String = "") -> String:
+	var r := daily_route() if date == "" or date == today() else Daily.route_for(date)
+	var d := daily_record(r["date"])
+	var lines := ["CLIMB UP · Daily route %s" % r["date"], "%s (%s)" % [r["name"], r["grade"]]]
+	if int(d["sends"]) > 0:
+		lines.append("%s in %d:%02d · %d fall%s · %d go%s" % [STYLES[d["best"]][0], int(d["bestSeconds"]) / 60, int(d["bestSeconds"]) % 60,
+			int(d["bestFalls"]), "" if int(d["bestFalls"]) == 1 else "s", int(d["attempts"]), "" if int(d["attempts"]) == 1 else "s"])
+	else:
+		lines.append("Not topped yet · %d go%s" % [int(d["attempts"]), "" if int(d["attempts"]) == 1 else "s"])
+	if int(daily.get("streak", 0)) > 1 and String(daily.get("lastSent", "")) == r["date"]:
+		lines.append("Streak: %d days" % int(daily["streak"]))
+	lines.append("Route #%08x" % int(r["hash"]))
+	return "\n".join(lines)
+
+
+func save_daily() -> bool:
+	return SaveGame.write(daily, DAILY_SAVE)
+
+
+func load_daily() -> void:
+	daily = {"days": {}, "maxSeen": "", "streak": 0, "lastSent": ""}
+	var data: Variant = SaveGame.read(DAILY_SAVE)
+	if typeof(data) != TYPE_DICTIONARY:
+		return
+	var date_ok := func(v: Variant) -> bool:
+		return typeof(v) == TYPE_STRING and v.length() == 10 and v[4] == "-" and v[7] == "-"
+	if date_ok.call(data.get("maxSeen")):
+		daily["maxSeen"] = data["maxSeen"]
+	if date_ok.call(data.get("lastSent")):
+		daily["lastSent"] = data["lastSent"]
+	daily["streak"] = clampi(_num(data.get("streak"), 0), 0, 10000)
+	if typeof(data.get("days")) == TYPE_DICTIONARY:
+		for k in data["days"]:
+			var v: Variant = data["days"][k]
+			if not date_ok.call(k) or typeof(v) != TYPE_DICTIONARY:
+				continue
+			var best := String(v.get("best", "")) if typeof(v.get("best")) == TYPE_STRING else ""
+			daily["days"][k] = {"attempts": maxi(0, _num(v.get("attempts"), 0)), "sends": maxi(0, _num(v.get("sends"), 0)),
+				"falls": maxi(0, _num(v.get("falls"), 0)), "best": best if STYLE_RANK.has(best) else "",
+				"bestSeconds": _num(v.get("bestSeconds"), -1), "bestFalls": _num(v.get("bestFalls"), -1), "hash": _num(v.get("hash"), 0)}
+
+
+func reset_daily() -> void:
+	daily = {"days": {}, "maxSeen": "", "streak": 0, "lastSent": ""}
+	_daily_cache = {}
+	clock_override = -1
+	SaveGame.erase(DAILY_SAVE)
 
 
 func save_progress() -> bool:

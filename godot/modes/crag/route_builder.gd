@@ -41,7 +41,6 @@ static func rows_of(segments: Array) -> int:
 static func build(segments: Array, x0: int, bolts: int, spread: float, first: int = 3) -> String:
 	var b := RouteBuilder.new()
 	if not b._build(segments, x0, bolts, spread, first):
-		push_warning("route: " + b.error)
 		return ""
 	return b.text()
 

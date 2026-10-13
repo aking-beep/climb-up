@@ -141,6 +141,13 @@ var shakeout_seconds := 0.0
 ## lowest the grip went on slopers (1 when it never did).
 var good_clips := 0
 var min_sloper_grip := 1.0
+## Squeezes that did nothing useful: with the grip still above
+## WASTED_ABOVE, or the third and later taps of a flurry (each inside the
+## cooldown of the last: mashing). A quick double tap is not counted.
+var wasted_squeezes := 0
+var _squeeze_queued := false
+const WASTED_ABOVE := 0.7
+var _burst := 0
 var _shake := 0.0
 var _tap := false
 var meter: Node2D
@@ -176,7 +183,7 @@ var _draw_tex: Texture2D
 
 func _ready() -> void:
 	route = Crag.route(Crag.current)
-	terrain = Terrain.load_file(Crag.map_path(route["id"]))
+	terrain = Terrain.from_text(Crag.map_text(route["id"]))
 	stamina = StaminaModel.new(100.0, 1.0, 1.0)
 	wind = WindSchedule.new(0.0, 1, -60.0)
 	var theme := {
@@ -289,6 +296,10 @@ func _ready() -> void:
 
 func mate_name() -> String:
 	return ""
+
+
+func is_daily() -> bool:
+	return route.get("id", "") == "daily"
 
 
 ## Where the cliff starts: the first column with the ledge over it.
@@ -469,6 +480,17 @@ func brief() -> void:
 		history = "%d tr%s so far, not topped yet%s. Top it with no falls for a redpoint." % [int(r["attempts"]), "y" if int(r["attempts"]) == 1 else "ies",
 			(": high point bolt %d of %d" % [int(r.get("highpoint", 0)), clips.size()]) if int(r.get("highpoint", 0)) > 0 else ""]
 	var kicker := "The crag · lesson" if route.get("tutorial", false) else "The crag · grade %s (%s moves)" % [route["grade"], route["level"]]
+	if is_daily():
+		Crag.see_daily()
+		var d := Crag.daily_record()
+		kicker = "Daily route · %s · grade %s" % [route["date"], route["grade"]]
+		history = "First go today: climb it clean for an onsight."
+		if int(d["sends"]) > 0:
+			history = "Today: %s in %s, %d go%s." % [Crag.STYLES[d["best"]][0], _clock(int(d["bestSeconds"])), int(d["attempts"]), "" if int(d["attempts"]) == 1 else "s"]
+		elif int(d["attempts"]) > 0:
+			history = "%d go%s today, not topped yet." % [int(d["attempts"]), "" if int(d["attempts"]) == 1 else "s"]
+		if not Crag.daily_counts():
+			history = "Your device's date is earlier than a day you have already played, so today's goes are practice: they will not be logged."
 	var body := "%s\nHardest part: %s\n%s · %s\nFall %d times and you have to come down · %s" % [route["text"], route["crux"],
 		Crag.protection_words(route["id"]), Crag.exposure_words(route["id"]), max_slips, history]
 	var choices: Array = [["start", "Tie in and climb"]]
@@ -482,7 +504,7 @@ func brief() -> void:
 			else:
 				choices.append([id, words])
 	choices.append(["look", "Look at the route first"])
-	if not route.get("tutorial", false) and not beta and int(r["sends"]) == 0:
+	if not route.get("tutorial", false) and not is_daily() and not beta and int(r["sends"]) == 0:
 		choices.append(["beta", "Ask for beta (tips: a clean first go is then a flash)"])
 	choices.append(["menu", "Back to the climbs"])
 	panel.show_panel(kicker, route["name"], body, choices)
@@ -802,7 +824,18 @@ func _grip(dt: float) -> void:
 	if catching > 0.0 or resting_rope:
 		return
 	grip -= grip_drain * (GRIP_STILL if climber.last_activity == "crimp_hang" else GRIP_MOVING) * dt
-	if _tap and _grip_cool <= 0.001:
+	# A tap is a squeeze only when the button says GRIP (not when it was
+	# for a clip or a rest).
+	var squeeze := _tap and action_word == "GRIP"
+	if squeeze:
+		_burst = _burst + 1 if _grip_cool > 0.001 else 0
+		if grip > WASTED_ABOVE or _burst >= 2:
+			wasted_squeezes += 1
+		# A tap during the cooldown waits for it, so no tap goes unanswered.
+		if _grip_cool > 0.001:
+			_squeeze_queued = true
+	if (squeeze or _squeeze_queued) and _grip_cool <= 0.001:
+		_squeeze_queued = false
 		grip = minf(1.0, grip + GRIP_TAP)
 		_grip_cool = GRIP_COOLDOWN
 		Audio.play("chalk", -14.0, 0.15)
@@ -1242,14 +1275,36 @@ func _on_choice(id: String) -> void:
 			Crag.climb(route["id"])
 		"next":
 			Crag.climb(outcome.get("unlocked", route["id"]))
+		"suggested":
+			Crag.climb(outcome.get("suggested", route["id"]))
+		"share":
+			share()
 		"menu":
 			Crag.go(Crag.MENU)
+
+
+## Shares today's result: the text goes to the clipboard (paste it
+## anywhere), and the picture card is saved (and downloaded on the web).
+func share() -> void:
+	var text := Crag.daily_share_text()
+	shared_text = text
+	DisplayServer.clipboard_set(text)
+	Analytics.event("daily_shared", {"date": route.get("date", "")})
+	hud.flash("Result copied: paste it anywhere.", 2.4)
+	var lines: Array = text.split("\n").slice(2)
+	var path: String = await ShareCard.save(self, route, lines)
+	if path != "" and is_inside_tree():
+		hud.flash("Result copied, and the card saved%s." % (" (downloading)" if OS.has_feature("web") else ""), 2.4)
+
+
+## The last result shared (for tests).
+var shared_text := ""
 
 
 ## What this go was like, for the logbook (Logbook.challenge_done) and the
 ## results card.
 func go_stats() -> Dictionary:
-	return {"grip_taps": int(taps["grip"]), "rests": rope_rests, "perfect": perfect_catches, "dynos": climber.dynos,
+	return {"grip_taps": int(taps["grip"]), "wasted": wasted_squeezes, "rests": rope_rests, "perfect": perfect_catches, "dynos": climber.dynos,
 		"bolts": clips.size(), "clipped": _clipped(), "good_clips": good_clips, "min_sloper_grip": min_sloper_grip,
 		"causes": falls_by_cause.duplicate(), "high_rows": high_rows, "moves": climber.moves, "shoes": shoes}
 
@@ -1303,6 +1358,11 @@ func finish(sent: bool) -> void:
 	lines.append("%s · %s · falls %d%s" % [_stars_text(int(outcome.get("stars", 0))), time, climber.slips, (" (%d to the ground)" % ground_falls) if ground_falls > 0 else ""])
 	# The route's challenge.
 	var ch: Array = Logbook.CHALLENGES.get(route["id"], [])
+	if is_daily():
+		if outcome.get("practice", false):
+			lines.append("Practice: your device's date is behind a day already played, so this go is not logged.")
+		elif sent and int(outcome.get("streak", 0)) > 1:
+			lines.append("Daily streak: %d days." % int(outcome["streak"]))
 	if not ch.is_empty():
 		var s := stats.duplicate()
 		s["sent"] = sent
@@ -1323,10 +1383,19 @@ func finish(sent: bool) -> void:
 		var next := Crag.route(outcome["unlocked"])
 		lines.append("New route open: %s (%s): %s." % [next["name"], next["grade"], next.get("skill", "")])
 		choices.append(["next", "Climb %s" % next["name"]])
+	if is_daily() and not outcome.get("practice", false):
+		choices.append(["share", "Share today's result"])
+	elif not is_daily():
+		var next_id := Crag.next_route()
+		if next_id != "" and next_id != route["id"] and outcome.get("unlocked", "") == "":
+			outcome["suggested"] = next_id
+			choices.append(["suggested", "Next up: %s" % Crag.route(next_id)["name"]])
 	choices.append(["again", "Climb it again"])
 	choices.append(["menu", "Back to the routes"])
 	hud.flash(head)
-	if sent:
+	if is_daily():
+		pass
+	elif sent:
 		Analytics.event("route_completed", {"route": route["id"], "style": outcome["style"], "falls": climber.slips, "seconds": int(climber.clock)})
 	else:
 		Analytics.event("route_failed", {"route": route["id"], "bolts": checkpoint, "falls": climber.slips, "seconds": int(climber.clock)})

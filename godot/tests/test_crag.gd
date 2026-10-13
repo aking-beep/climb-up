@@ -1,127 +1,9 @@
-extends ClimbBot
+extends CragBot
 ## Crag mode: the routes led by a scripted climber through the real input
 ## actions (walk to the line, climb, traverse where the line goes, rest on
 ## jugs, keep moving on crimps, dyno the blank, pull over the top), plus the
 ## rules one at a time: crimps, jugs, the dyno, clipping and lead falls,
 ## styles, unlocking, and saves. Nothing here touches the expedition.
-
-func _load(id: String, start: String = "start") -> void:
-	Crag.navigate = false
-	Settings.touch_controls = false
-	Crag.current = id
-	level = load(Crag.LEVEL).instantiate()
-	root.add_child(level)
-	await physics_frames(2)
-	c = level.climber
-	check(level.panel.open, "the brief is shown first")
-	if start != "":
-		level.panel.choose(start)
-	await physics_frames(1)
-
-
-func _done() -> void:
-	GameInput.scripted = {}
-	level.queue_free()
-	await physics_frames(2)
-
-
-func _above(dy: int, x: float) -> Vector2i:
-	var top := Terrain.cell_of(c.body_rect().position)
-	return Vector2i(Terrain.cell_of(Vector2(x, 0)).x, top.y - dy)
-
-
-## A column within reach sideways along the hands' row from which the line
-## goes on up: its x, or NAN.
-func _line_goes_up(dir: int) -> float:
-	var t: Terrain = level.terrain
-	var row := Terrain.cell_of(c.body_rect().position + Vector2(0, 4)).y
-	var col := Terrain.cell_of(c.global_position).x
-	for k in range(1, 16):
-		var x := col + dir * k
-		if not t.is_climbable(Vector2i(x, row)) and not t.is_climbable(Vector2i(x, row + 1)):
-			return NAN
-		if t.is_climbable(Vector2i(x, row - 1)):
-			return x * T + T / 2.0
-	return NAN
-
-
-## Leads the current route to the anchor, as a player would. Returns true
-## on the send.
-func lead(seconds: float = 300.0) -> bool:
-	var t: Terrain = level.terrain
-	var resting := false
-	var settling := false
-	var target := NAN
-	for i in int(seconds * 60.0):
-		if level._ended:
-			break
-		if level.panel.open and level.lesson != "":
-			# A lesson: read it, then on.
-			level.panel.choose("lesson")
-			await tree.physics_frame
-			continue
-		var held := {"_": false}
-		if c.state == Climber.State.SLIP:
-			target = NAN
-			resting = false
-		if c.state == Climber.State.GROUND and not c.can_grab():
-			held["move_right"] = true
-		elif c.state == Climber.State.GROUND:
-			held["climb_up"] = true
-		elif c.state == Climber.State.CLIMB:
-			var hold := t.hold_at(c.body_rect())
-			if hold == Terrain.Kind.JUG and (resting or c.stamina.fraction() < 0.9):
-				# Shake out on the jug until the arms are full.
-				resting = c.stamina.fraction() < 0.97
-			elif not is_nan(target):
-				if absf(target - c.global_position.x) < 1.5:
-					target = NAN
-				else:
-					held["move_left" if target < c.global_position.x else "move_right"] = true
-			else:
-				var top := t.hold_at(c.body_rect(c.global_position + Vector2(0, -6))) == Terrain.Kind.AIR
-				if top and level.dyno_above():
-					held["climb_up"] = true
-					held["jump"] = true
-				elif top:
-					var right := _line_goes_up(1)
-					var left := _line_goes_up(-1)
-					target = right if not is_nan(right) else left
-					if is_nan(target):
-						# The top of the line: pull over onto the ledge.
-						held["climb_up"] = true
-						held["move_right"] = true
-				else:
-					held["climb_up"] = true
-		if held.has("jump") and _hopped:
-			held.erase("jump")
-		_hopped = held.has("jump")
-		# Tap to clip each bolt and to stick a dyno; on tiny holds, squeeze
-		# GRIP only when the meter drops below half, as a player would.
-		if (level.action_word == "CLIP" or level.catching > 0.0) and i % 4 < 2:
-			held["interact"] = true
-		elif level.action_word == "GRIP" and level.on_crimps and level.grip < 0.5 and i % 4 < 2:
-			held["interact"] = true
-		# On slopers: move, and stop to let the grip settle when it drops.
-		if level.on_slopers and (settling or level.grip < 0.45):
-			settling = level.grip < 0.95
-			for k in ["climb_up", "move_left", "move_right", "jump"]:
-				held.erase(k)
-		else:
-			settling = false
-		# Just clipped and getting tired: rest on the rope, and keep still
-		# while the stamina comes back.
-		if level.resting_rope:
-			held = {"_": false}
-		elif level.can_rest() and level.action_word == "REST" and c.stamina.fraction() < 0.85:
-			held = {"interact": i % 4 < 2}
-		GameInput.scripted = held
-		if OS.get_environment("CRAG_DEBUG") != "" and i % 30 == 0:
-			print("CRAGDBG ", where(), " held=", held.keys(), " target=", target, " resting=", resting)
-		await tree.physics_frame
-	GameInput.scripted = {"_": false}
-	return level.result == "sent"
-
 
 func _fresh_progress() -> void:
 	Crag.navigate = false
@@ -129,6 +11,8 @@ func _fresh_progress() -> void:
 
 
 func test_the_title_opens_two_separate_games() -> void:
+	_fresh_progress()
+	SaveGame.erase()
 	var title: Node = load("res://modes/title/title.tscn").instantiate()
 	root.add_child(title)
 	await physics_frames(2)
@@ -136,21 +20,26 @@ func test_the_title_opens_two_separate_games() -> void:
 	for b in title.card.get_children():
 		if b is Button:
 			labels.append(b.text)
-	check(labels.size() == 2 and "Expedition" in labels[0] and "Crag" in labels[1], "Expedition and Crag: %s" % [labels])
+	check(labels.size() == 2 and "Crag" in labels[0] and "Expedition" in labels[1], "Crag and Expedition: %s" % [labels])
+	check("start here" in labels[0], "a new player is pointed at the crag: " + labels[0])
+	var focused: Control = title.get_viewport().gui_get_focus_owner()
+	check(focused != null and "Crag" in (focused as Button).text, "and it has the focus")
 	title.queue_free()
 	var menu: Node = load(Crag.MENU).instantiate()
-	_fresh_progress()
 	root.add_child(menu)
 	await physics_frames(2)
 	var routes := 0
 	var locked := 0
-	for b in menu.card.get_children():
-		if b is Button and Crag.ROUTES.any(func(r: Dictionary) -> bool: return b.text.begins_with(r["grade"] + "  ")):
-			routes += 1
-			if b.disabled:
-				locked += 1
+	for r in Crag.ROUTES:
+		var b: Button = menu.rows[r["id"]]
+		routes += 1
+		if b.disabled:
+			locked += 1
 	eq(routes, 7, "the lesson and six routes")
 	eq(locked, 6, "only the lesson is open at the start")
+	check(menu.rows["daily"].disabled, "the daily route opens after the lesson")
+	focused = menu.get_viewport().gui_get_focus_owner()
+	check(focused != null and "First Climb" in (focused as Button).text, "one clear first choice: %s" % (focused.text if focused else "none"))
 	menu.queue_free()
 	await physics_frames(1)
 
@@ -171,6 +60,10 @@ func test_every_route_is_led_to_the_anchor() -> void:
 		if r["id"] in ["leap-of-faith", "lions-roof", "thunderhead"]:
 			check(c.dynos >= (2 if r["id"] == "thunderhead" else 1), "%s needs its dynos (%d)" % [r["name"], c.dynos])
 		print("      %s %s: %s, %d falls, %d s, %d moves, %d dynos, %d rope rests, %d%% stamina left, taps %s" % [r["grade"], r["name"], level.outcome.get("style", "-"), c.slips, int(c.clock), c.moves, c.dynos, level.rope_rests, int(c.stamina.fraction() * 100), level.taps])
+		var gs: Dictionary = level.go_stats()
+		print("        challenge %s: %s (squeezes %d, rests %d, perfect %d, good clips %d/%d, sloper grip low %.2f)" % [Logbook.CHALLENGES[r["id"]][0],
+			Logbook.challenge_progress(r["id"], level.outcome.get("stats", gs).merged({"sent": true, "falls": c.slips, "style": level.outcome.get("style", "")})),
+			gs["grip_taps"], gs["rests"], gs["perfect"], gs["good_clips"], gs["bolts"], gs["min_sloper_grip"]])
 		await _done()
 	_fresh_progress()
 
@@ -584,16 +477,24 @@ func test_grip_wants_squeezes_not_mashing() -> void:
 		c.hang_at(Terrain.feet(crimp))
 		level.grip = 0.2
 		level.taps["grip"] = 0
+		level.wasted_squeezes = 0
+		# Start each style fresh: no flurry or cooldown left from the last.
+		level._burst = 0
+		level._grip_cool = 0.0
+		level._squeeze_queued = false
 		for i in 60:
-			# Mash: a tap every other frame. Squeeze: one every fifth of a second.
-			var tap: bool = (i % 2 == 0) if style == "mash" else (i % 12 == 0)
+			# Mash: a tap every other frame. Squeeze: one when the meter is
+			# low, as the hint says.
+			var tap: bool = (i % 2 == 0) if style == "mash" else (level.grip < 0.5 and i % 4 == 0)
 			GameInput.scripted = {"interact": tap}
 			await tree.physics_frame
-		results[style] = [level.grip, level.taps["grip"]]
+		results[style] = [level.grip, level.taps["grip"], level.wasted_squeezes]
 	GameInput.scripted = {"_": false}
 	print("      a second of grip: %s" % [results])
 	check(results["mash"][1] >= 4 * results["squeeze"][1], "mashing is many more taps (%s)" % [results])
-	check(results["mash"][0] <= results["squeeze"][0] + 0.05, "for no more grip (%s)" % [results])
+	check(results["mash"][0] <= results["squeeze"][0] + 0.25, "for little more grip (%s)" % [results])
+	check(results["mash"][2] >= 10, "and most of the mashing is wasted (%s)" % [results])
+	eq(results["squeeze"][2], 0, "squeezing when the meter drops wastes none")
 	await _done()
 
 

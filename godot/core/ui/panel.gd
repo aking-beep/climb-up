@@ -85,6 +85,7 @@ func _label(size: int, color: Color, font: Font) -> Label:
 
 ## choices: Array of [id, label] (or [id, label, disabled]).
 func show_panel(kicker: String, title: String, body: String, choices: Array) -> void:
+	choice_ids = choices.map(func(c: Array) -> String: return c[0])
 	_kicker.text = kicker.to_upper()
 	_kicker.visible = not kicker.is_empty()
 	_title.text = title
@@ -149,6 +150,26 @@ func _choose(id: String) -> void:
 func hide_panel() -> void:
 	visible = false
 	open = false
+
+
+## The ids of the choices showing (or last shown).
+var choice_ids: Array = []
+
+
+func has_choice(id: String) -> bool:
+	return open and choice_ids.has(id)
+
+
+func kicker_text() -> String:
+	return _kicker.text
+
+
+func body_text() -> String:
+	return _body.text
+
+
+func title_text() -> String:
+	return _title.text
 
 
 ## Picks a choice by id, as a tap or key press would. For tests and replays.
