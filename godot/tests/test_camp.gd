@@ -54,6 +54,26 @@ func _all_fit() -> String:
 			return "choice '%s' at %s outside %s" % [b.get_meta("title").text, r, area]
 	if camp._confirm and camp._confirm.get_global_rect().end.y > area.end.y + 1.0:
 		return "confirm outside the card"
+	return _sideways()
+
+
+## Nothing pushes the card past the screen's right edge: the tabs and every
+## button and line of text on the card are inside it, and no text is
+## squeezed into a thin column.
+func _sideways() -> String:
+	var right := float(view.x) + 1.0
+	if camp._card_box.get_global_rect().end.x > right:
+		return "the card runs off the screen (%s)" % camp._card_box.get_global_rect()
+	var stack: Array = [camp.paper, camp._tabs]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is Control and n.is_visible_in_tree() and (n is Button or n is Label):
+			var r: Rect2 = n.get_global_rect()
+			if r.end.x > right or r.position.x < -1.0:
+				return "'%s' off the side at %s" % [n.text.left(30), r]
+			if n is Label and n.autowrap_mode != TextServer.AUTOWRAP_OFF and n.text.length() > 12 and r.size.x < 60.0:
+				return "'%s' squeezed to %d px" % [n.text.left(30), r.size.x]
+		stack.append_array(n.get_children())
 	return ""
 
 
@@ -103,6 +123,8 @@ func _play_and_check() -> void:
 		Expedition.choose(pick)
 		await _settle()
 	check(checked >= 15, "a whole expedition's decisions were checked (%d)" % checked)
+	check(not Expedition.active(), "the expedition ended")
+	eq(_sideways(), "", "the results fit across the screen")
 	print("      %d decisions checked on a %d x %d screen, up to %d choices each" % [checked, view.x, view.y, most])
 	await _close()
 	SaveGame.erase()
@@ -152,6 +174,45 @@ func test_plain_words_for_people_who_never_climbed() -> void:
 	eq(Plain.say("Scree and rock steps"), "Loose gravel and rock steps", "at the start of a sentence")
 
 
+func test_the_team_tab_fits_on_a_phone() -> void:
+	# Someone sick, someone exhausted, an emergency: the most the tab holds.
+	for v in [Vector2i(480, 270), Vector2i(360, 270)]:
+		view = v
+		SaveGame.erase()
+		Expedition.navigate = false
+		Expedition.session = TestSessions.at("summit-night")
+		Expedition.session["pending"] = null
+		Expedition.trek()["sick"]["marco"] = {"kind": "ams", "stage": 2}
+		Expedition.trek()["sick"]["lena"] = {"kind": "stomach", "stage": 1}
+		await _open()
+		camp._open_tab("team")
+		await _settle()
+		eq(_sideways(), "", "%d x %d: the team tab fits across the screen" % [v.x, v.y])
+		var buttons := 0
+		var stack: Array = [camp.paper]
+		while not stack.is_empty():
+			var n: Node = stack.pop_back()
+			if n is Button:
+				buttons += 1
+				check(n.size.y < 30.0, "'%s' is one line tall (%d)" % [n.text, n.size.y])
+			stack.append_array(n.get_children())
+		check(buttons >= 4, "the sick get their buttons (%d)" % buttons)
+		# Scrolled to the bottom, the last button is on screen.
+		camp._scroll.scroll_vertical = 100000
+		await _settle()
+		var last: Control = null
+		stack = [camp.paper]
+		while not stack.is_empty():
+			var n: Node = stack.pop_front()
+			if n is Button:
+				last = n
+			stack.append_array(n.get_children())
+		check(last.get_global_rect().end.y <= view.y + 1.0, "the last button can be scrolled onto the screen")
+		await _close()
+	view = Vector2i(480, 270)
+	SaveGame.erase()
+
+
 func test_the_party_and_the_log_are_a_tab_away() -> void:
 	SaveGame.erase()
 	Expedition.navigate = false
@@ -162,17 +223,12 @@ func test_the_party_and_the_log_are_a_tab_away() -> void:
 	eq(camp._portraits.get_child_count(), 4, "four portraits")
 	camp._open_tab("team")
 	await _settle()
-	var text := ""
-	for c in camp.paper.get_children():
-		if c is Label:
-			text += c.text + " "
-		for g in c.get_children():
-			if g is Label:
-				text += g.text + " "
+	var text := _screen_text()
 	check("Lena" in text and "Jun" in text, "the team tab lists the party")
 	camp._open_tab("log")
 	await _settle()
 	check(camp.paper.get_child_count() > 0, "the log tab shows what happened")
+	eq(_sideways(), "", "the log tab fits across the screen")
 	camp._open_tab("decide")
 	await _settle()
 	check(not camp.choice_cards.is_empty(), "and back to the decision")

@@ -183,8 +183,8 @@ func refresh() -> void:
 		_results(s)
 	elif tab == "team":
 		_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-		_beats(s)
 		_party(s)
+		_beats(s)
 	elif tab == "log":
 		_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 		var now := Expedition.card()
@@ -251,8 +251,8 @@ func _fill_tabs() -> void:
 				var on := StyleBoxFlat.new()
 				on.bg_color = SPRUCE
 				on.set_corner_radius_all(4)
-				on.content_margin_left = 7
-				on.content_margin_right = 7
+				on.content_margin_left = 5
+				on.content_margin_right = 5
 				for key in ["normal", "hover", "focus", "pressed"]:
 					b.add_theme_stylebox_override(key, on)
 				for key in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color"]:
@@ -642,12 +642,10 @@ func _beats(s: Dictionary) -> void:
 	var open := Party.routines(s).filter(func(r: Dictionary) -> bool: return r["enabled"] and not lost.has(r["id"]))
 	if open.is_empty() and lost.is_empty():
 		return
-	paper.add_child(_label("AT CAMP · DOESN'T SPEND THE DAY", 7, MUTED, UiFont.body()))
+	paper.add_child(_label("CAMP JOBS · QUICK, THE DAY GOES ON", 7, MUTED, UiFont.body()))
 	for id in lost:
 		_text_label(lost[id], 8, MUTED)
-	var flow := HFlowContainer.new()
-	flow.add_theme_constant_override("h_separation", 3)
-	flow.add_theme_constant_override("v_separation", 3)
+	var flow := _action_flow()
 	for r in open:
 		var b := _small_button(r["label"], Expedition.play_routine.bind(r["id"]))
 		b.tooltip_text = r["detail"]
@@ -655,52 +653,106 @@ func _beats(s: Dictionary) -> void:
 	paper.add_child(flow)
 
 
+## Buttons that wrap onto the next line instead of pushing the card wider.
+func _action_flow() -> HFlowContainer:
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 3)
+	flow.add_theme_constant_override("v_separation", 3)
+	return flow
+
+
 func _party(s: Dictionary) -> void:
-	paper.add_child(_label("THE PARTY", 7, MUTED, UiFont.body()))
 	var session := Expedition.session
-	# What the next climb will feel like: camp choices carry onto the rock.
-	var t := Expedition.trek()
-	var night: String = {"well": "Last night: slept well.", "badly": "Last night: slept badly."}.get(String(t.get("sleep", "")), "")
-	_text_label(("%s Medicine kit: %d dose%s (painkillers and stomach pills)." % [night, int(t.get("medicine", 0)), "" if int(t.get("medicine", 0)) == 1 else "s"]).strip_edges(), 8, MUTED)
-	var body: Array = Condition.of(session)["lines"]
-	if not body.is_empty():
-		_text_label("On the next climb: " + " ".join(body), 8, Color("#8a6a1e"))
+	paper.add_child(_label("THE TEAM", 7, MUTED, UiFont.body()))
 	for id in Expedition.trek()["gone"]:
 		_text_label("%s went down with the porters." % Trek.NAMES[id], 8, MUTED)
 	for line in Trek.absence_lines(session, Expedition.def):
-		_text_label(line, 9, INK)
-	for m in Party.members(s):
-		if Trek.is_gone(session, m["id"]):
-			continue
-		var sick := Trek.sickness(session, m["id"])
-		var explain := Trek.explain_sickness(session, m["id"])
-		if not sick.is_empty():
-			m["line"] = explain["what"]
-			m["pose"] = "kneel" if sick["stage"] >= 2 else "lag"
-		elif m["pose"] == "kneel":
-			m["line"] = "Exhausted: too tired to walk on (energy %d). Sit with them, or rest a day before going higher." % int(m["energy"])
-		elif m["pose"] == "lag":
-			m["line"] = "Slowing down: getting tired (energy %d)." % int(m["energy"])
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 4)
-		var who := _label("%s · %s" % [m["name"], m["role"]], 8, INK, UiFont.display())
-		who.custom_minimum_size = Vector2(70, 0)
-		row.add_child(who)
-		var line := _label(m["line"], 8, EMBER if m["pose"] == "kneel" else (Color("#8a6a1e") if m["pose"] == "lag" else MUTED), UiFont.body())
-		line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		row.add_child(line)
-		if Party.tend_effect(s, m["id"]) != null:
-			row.add_child(_small_button("Sit with", Expedition.tend.bind(m["id"])))
-		if Trek.can_treat(session, m["id"]):
-			row.add_child(_small_button("Jun treats", Expedition.treat.bind(m["id"])))
-		if Trek.can_medicate(session, m["id"]):
-			row.add_child(_small_button(Trek.medicine_label(session, m["id"]), Expedition.medicate.bind(m["id"])))
-		if not sick.is_empty() and m["id"] != "you":
-			row.add_child(_small_button("Send down", Expedition.send_down.bind(m["id"])))
-		paper.add_child(row)
-		if not explain.is_empty():
-			_text_label("Why: %s  What helps: %s" % [explain["why"], explain["helps"]], 7, MUTED)
+		_text_label(line, 8, INK)
+	# The people in trouble first: their buttons are what this tab is for.
+	var members: Array = Party.members(s).filter(func(m: Dictionary) -> bool: return not Trek.is_gone(session, m["id"]))
+	var rank := func(m: Dictionary) -> int:
+		if not Trek.sickness(session, m["id"]).is_empty():
+			return 0
+		return {"kneel": 1, "lag": 2}.get(m["pose"], 3)
+	members.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return rank.call(a) < rank.call(b))
+	for m in members:
+		paper.add_child(_person_card(s, m))
+	# What the next climb will feel like: camp choices carry onto the rock.
+	var t := Expedition.trek()
+	var night: String = {"well": "Last night: slept well.", "badly": "Last night: slept badly."}.get(String(t.get("sleep", "")), "")
+	var doses := int(t.get("medicine", 0))
+	_text_label(("%s Medicine kit: %d dose%s." % [night, doses, "" if doses == 1 else "s"]).strip_edges(), 8, MUTED)
+	var body: Array = Condition.of(session)["lines"]
+	if not body.is_empty():
+		_text_label("On the next climb: " + " ".join(body), 8, Color("#8a6a1e"))
+
+
+## One person: name, how they are in a word and a sentence, what helps,
+## and what you can do, as buttons that wrap to the card's width.
+func _person_card(s: Dictionary, m: Dictionary) -> PanelContainer:
+	var session := Expedition.session
+	var sick := Trek.sickness(session, m["id"])
+	var explain := Trek.explain_sickness(session, m["id"])
+	var state := "ok"
+	var line: String = m["line"]
+	if not sick.is_empty():
+		state = "sick"
+		line = explain["what"]
+	elif m["pose"] == "kneel":
+		state = "down"
+		line = "Too tired to walk on (energy %d). Sit with them, or rest a day before going higher." % int(m["energy"])
+	elif m["pose"] == "lag":
+		state = "tired"
+		line = "Getting tired (energy %d)." % int(m["energy"])
+	var tag: Array = {"ok": ["OK", CampWidgets.GOOD], "tired": ["TIRED", CampWidgets.WARN], "down": ["EXHAUSTED", CampWidgets.BAD], "sick": ["SICK", Color("#8a4fae")]}[state]
+	var card := PanelContainer.new()
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(1, 0.99, 0.96)
+	st.border_color = tag[1] if state != "ok" else Color(0.8, 0.76, 0.68)
+	st.set_border_width_all(1)
+	st.border_width_left = 3
+	st.set_corner_radius_all(4)
+	st.content_margin_left = 5
+	st.content_margin_right = 4
+	st.content_margin_top = 2
+	st.content_margin_bottom = 3
+	card.add_theme_stylebox_override("panel", st)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 1)
+	card.add_child(v)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 4)
+	var who := _label("%s · %s" % [m["name"], m["role"]], 8, INK, UiFont.display())
+	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	who.clip_text = true
+	head.add_child(who)
+	var chip := CampWidgets.chip(tag[0], tag[1], Color.WHITE, "", 6)
+	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(chip)
+	v.add_child(head)
+	var say := _wrap(_label(line, 7, INK if state != "ok" else MUTED, UiFont.body()))
+	say.custom_minimum_size.x = 0
+	say.add_theme_constant_override("line_spacing", -3)
+	v.add_child(say)
+	if not explain.is_empty():
+		var why := _wrap(_label("Why: %s What helps: %s" % [explain["why"], explain["helps"]], 7, MUTED, UiFont.body()))
+		why.custom_minimum_size.x = 0
+		why.add_theme_constant_override("line_spacing", -3)
+		v.add_child(why)
+	var flow := _action_flow()
+	if Party.tend_effect(s, m["id"]) != null:
+		flow.add_child(_small_button("Sit with them", Expedition.tend.bind(m["id"])))
+	if Trek.can_treat(session, m["id"]):
+		flow.add_child(_small_button("Jun treats", Expedition.treat.bind(m["id"])))
+	if Trek.can_medicate(session, m["id"]):
+		flow.add_child(_small_button(Trek.medicine_label(session, m["id"]), Expedition.medicate.bind(m["id"])))
+	if not sick.is_empty() and m["id"] != "you":
+		flow.add_child(_small_button("Send down", Expedition.send_down.bind(m["id"])))
+	if flow.get_child_count() > 0:
+		v.add_child(flow)
+	else:
+		flow.free()
+	return card
 
 
 # --- The end -------------------------------------------------------------------
@@ -709,22 +761,28 @@ func _results(s: Dictionary) -> void:
 	var sc := ExpeditionEngine.score(s)
 	paper.add_child(_label("EXPEDITION OVER · %s" % _when(s).to_upper(), 7, MUTED, UiFont.body()))
 	var end := Trek.ending(Expedition.session)
-	paper.add_child(_label(end[0], 14, INK, UiFont.display()))
+	var title := _wrap(_label(end[0], 14, INK, UiFont.display()))
+	title.custom_minimum_size.x = 0
+	paper.add_child(title)
 	_text_label(end[1], 9, INK)
 	_text_label(Trek.route(Expedition.session)["name"] + " · " + Trek.route(Expedition.session)["line"], 8, MUTED)
 	_last(s)
 	paper.add_child(_label("%d" % int(sc["overall"]), 26, SPRUCE if sc["successful"] else EMBER, UiFont.display()))
-	_text_label("Highest point %s m. %s" % [ExpeditionEngine.format_meters(sc["highestAltitude"]), sc["explanation"]], 9, INK)
+	var why := String(sc["explanation"])
+	for name in Plain.SCORE:
+		why = why.replace(name, Plain.score(name))
+	_text_label("Highest point %s m. %s" % [ExpeditionEngine.format_meters(sc["highestAltitude"]), why], 9, INK)
 	for pair in [["Judgment", "judgment"], ["Risk management", "riskManagement"], ["Teamwork", "teamwork"], ["Preparation", "preparation"]]:
 		var row := HBoxContainer.new()
 		var l := _label(Plain.score(pair[0]), 9, INK, UiFont.body())
-		l.custom_minimum_size = Vector2(90, 0)
+		l.custom_minimum_size = Vector2(66, 0)
 		row.add_child(l)
 		var bar := ProgressBar.new()
 		bar.max_value = 100
 		bar.value = sc[pair[1]]
 		bar.show_percentage = false
-		bar.custom_minimum_size = Vector2(70, 5)
+		bar.custom_minimum_size = Vector2(40, 5)
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var fill := StyleBoxFlat.new()
 		fill.bg_color = SPRUCE
@@ -799,6 +857,10 @@ func _small_button(label: String, on_press: Callable) -> Button:
 	if UiFont.display():
 		b.add_theme_font_override("font", UiFont.display())
 	UiStyle.paper_button(b)
+	for key in ["normal", "hover", "focus", "pressed", "disabled"]:
+		var box: StyleBoxFlat = b.get_theme_stylebox(key)
+		box.content_margin_left = 5
+		box.content_margin_right = 5
 	b.custom_minimum_size = Vector2(0, 18)
 	b.pressed.connect(on_press)
 	return b
