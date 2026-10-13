@@ -290,7 +290,7 @@ func _draw_figures() -> void:
 		for i in tents.size():
 			var v := _to_view(fit, tents[i]["p"])
 			var px := _px(fit, tents[i]["scale"]) * 1.9
-			_figures.draw_rect(Rect2(v.x - 16 * px, v.y - 2 * px, 32 * px, 4 * px), Color(0.04, 0.05, 0.06, 0.3))
+			_shadow(v, 15.0 * px, 2.6 * px, 0.3)
 			_figures.draw_texture_rect_region(_props, Rect2(v.x - 16 * px, v.y - 24 * px, 32 * px, 24 * px), Rect2(i * 32, 0, 32, 24))
 		var fv := _to_view(fit, Vector2(c["x"], c["y"]))
 		var fpx := _px(fit, float(c["scale"])) * 1.3
@@ -299,13 +299,24 @@ func _draw_figures() -> void:
 	for p in placed():
 		var px: float = p["px"]
 		var v: Vector2 = p["at"]
-		_figures.draw_rect(Rect2(v.x - 9 * px, v.y - 2 * px, 18 * px, 4 * px), Color(0.03, 0.04, 0.05, 0.32))
+		_shadow(v, 7.5 * px, 2.0 * px, 0.32)
 		var frame := _frame(p["frames"], (_t + p["phase"]) * p["tempo"])
 		var src := Rect2((frame % 8) * FRAME.x, floor(frame / 8.0) * FRAME.y, FRAME.x, FRAME.y)
 		var dst := Rect2(v.x - FRAME.x * px / 2.0, v.y - FRAME.y * px, FRAME.x * px, FRAME.y * px)
 		if p["flip"]:
 			dst = Rect2(dst.position.x + dst.size.x, dst.position.y, -dst.size.x, dst.size.y)
 		_figures.draw_texture_rect_region(_sheets[p["id"]], dst, src)
+
+
+## A soft oval shadow on the ground at `at`.
+func _shadow(at: Vector2, rx: float, ry: float, alpha: float) -> void:
+	for i in 3:
+		var k := 1.0 - i * 0.25
+		var pts := PackedVector2Array()
+		for a in 16:
+			var t := a / 16.0 * TAU
+			pts.append(at + Vector2(cos(t) * rx * k, sin(t) * ry * k))
+		_figures.draw_colored_polygon(pts, Color(0.03, 0.04, 0.05, alpha * 0.4))
 
 
 func _draw_glow(node: Control) -> void:

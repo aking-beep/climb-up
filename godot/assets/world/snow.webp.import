@@ -17,7 +17,7 @@ dest_files=["res://.godot/imported/snow.webp-a08e5352c81424316904d3e015e7aa74.ct
 
 compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.75
+compress/lossy_quality=0.62
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
