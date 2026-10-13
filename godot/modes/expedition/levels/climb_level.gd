@@ -358,7 +358,8 @@ func brief() -> void:
 	if not dosed and Condition.medicine_helps(Expedition.session):
 		var what: String = {"ams": "Take a painkiller first (like Tylenol)", "stomach": "Take stomach pills first", "cold": "Hand warmers first"}.get(String(condition["sick"]), "Take medicine first")
 		choices.append(["medicine", "%s · %d left in the kit" % [what, condition["medicine"]]])
-	choices.append(["backoff", copy["backOff"]])
+	if String(copy["backOff"]) != "":
+		choices.append(["backoff", copy["backOff"]])
 	panel.show_panel(copy["kicker"], copy["title"], "%s\n%s" % [_brief_words(), facts], choices)
 
 

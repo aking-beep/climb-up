@@ -61,8 +61,11 @@ static func fresh(route: String = "") -> Dictionary:
 	# medicine: doses in the kit. sleep: how the last night went (well,
 	# badly, or "" before the first), for the climbs.
 	var doses: int = ROUTES[route]["medicine"] if ROUTES.has(route) else 0
+	# descent: the played way down from the summit (Expedition): {attemptId,
+	# choiceIndex, played, result}; empty until the party turns around up
+	# there.
 	return {"route": route, "sick": {}, "gone": [], "emergency": null, "ending": "", "treated": {}, "base": 0,
-		"medicine": doses, "sleep": "", "goneAt": {}}
+		"medicine": doses, "sleep": "", "goneAt": {}, "descent": {}}
 
 
 static func route(session: Dictionary) -> Dictionary:

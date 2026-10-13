@@ -15,7 +15,7 @@ const STATS := [
 	["health", "Health", false], ["energy", "Energy", false], ["acclimatization", "Used to height", false],
 	["teamCondition", "Team", false], ["supplies", "Supplies", false], ["weatherRisk", "Weather risk", true],
 ]
-const CLIMB_NAMES := {"lava-tower": "the Lava Tower", "barranco-wall": "the Barranco Wall", "summit-night": "the summit night"}
+const CLIMB_NAMES := {"lava-tower": "the Lava Tower", "barranco-wall": "the Barranco Wall", "summit-night": "the summit night", "descent": "the way down"}
 
 var diorama: Diorama
 var paper: VBoxContainer
@@ -223,6 +223,8 @@ func _last(s: Dictionary) -> void:
 	var o: Variant = last.get("outcome")
 	if o != null:
 		var heading: String = {"complete": "Climbed", "retreat": "Backed off", "fail": "Turned back by the mountain"}.get(o["result"], "")
+		if o.get("challengeId", "") == "descent":
+			heading = "Down safely" if o["result"] == "complete" else "Brought down"
 		v.add_child(_wrap(_label("%s · %s" % [heading, CLIMB_NAMES.get(o.get("challengeId", ""), "the climb")], 9, SPRUCE if o["result"] == "complete" else EMBER, UiFont.display())))
 		if int(o.get("seconds", 0)) > 0:
 			var bits := ["%d slip%s" % [int(o["slips"]), "" if int(o["slips"]) == 1 else "s"], "stamina left %d%%" % int(o["staminaLeft"]), "%d min" % maxi(1, int(o["seconds"]) / 60)]

@@ -16,6 +16,9 @@ const LEVELS := {
 	"barranco-wall": "res://modes/expedition/levels/kilimanjaro/barranco/barranco.tscn",
 	"summit-night": "res://modes/expedition/levels/kilimanjaro/summit_night/summit_night.tscn",
 }
+## The played way down from the summit. Not one of the Coordinator's climbs
+## (those are the Expo game's, kept identical): it lives on the trek.
+const DESCENT := "res://modes/expedition/levels/kilimanjaro/descent/descent.tscn"
 
 var def: Dictionary = {}
 var session: Dictionary = {}
@@ -109,6 +112,9 @@ func choose(index: int) -> void:
 			last = {"kind": "card", "label": choice["label"], "before": before}
 		save()
 		changed.emit()
+		return
+	if descent_launches(index):
+		_open_descent(index)
 		return
 	var r := Coordinator.choose(session, index, def)
 	session = r["session"]
@@ -222,6 +228,115 @@ func finish_climb(outcome: Dictionary) -> String:
 	go(CAMP)
 	changed.emit()
 	return r["status"]
+
+
+# --- The way down ----------------------------------------------------------------
+
+## True when this choice turns the party around on the summit and the way
+## down has not been played yet: it opens the descent level.
+func descent_launches(index: int) -> bool:
+	var c := card()
+	if c.is_empty() or c.get("trek", false) or state()["checkpoint"] != "summit" or pending() != null:
+		return false
+	if trek().get("descent", {}).get("played", false):
+		return false
+	var move := String(c["choices"][index]["effect"].get("move", ""))
+	return move == "retreat" or move == "down"
+
+
+func _open_descent(index: int) -> void:
+	var id := "descent:%s:%d" % [ExpeditionEngine.to_base36(int(state()["seed"])), state()["history"].size()]
+	trek()["descent"] = {"attemptId": id, "choiceIndex": index, "played": false, "result": ""}
+	climb = {"attemptId": id, "challengeId": "descent", "checkpoint": 0, "slips": 0, "mate": "waiting", "regrouped": false, "spotter": false, "seconds": 0.0}
+	save()
+	go(DESCENT)
+
+
+## What the way down did to the expedition, as an engine effect. A clean,
+## together descent is worth more than the summit was; leaving a spent
+## teammate on the rim costs the team; a descent that took more than you
+## had hurts, and can end the expedition up there.
+static func descent_effect(o: Dictionary) -> Dictionary:
+	# No hours of its own: it lands while the party is still on top, and the
+	# card's own move down is the time the descent takes.
+	var e := {"note": "You bring the team down off the summit cone to Barafu.", "hours": 0, "move": "wait"}
+	var scores := {}
+	if o.get("result") == "fail":
+		e["note"] = "The descent takes more than you have. Lena and the porters bring you down to Barafu."
+		e["health"] = -10
+		e["energy"] = -6
+		e["teamCondition"] = -6
+		e["hours"] = 2
+		scores["riskManagement"] = {"label": "The descent took more than the team had left", "delta": -6, "mark": "descent-fail"}
+	else:
+		var slips := int(o.get("slips", 0))
+		if slips > 0:
+			e["health"] = -mini(8, slips * 2)
+		else:
+			scores["riskManagement"] = {"label": "A clean descent: no slips on the scree", "delta": 4, "mark": "descent-clean"}
+		if int(o.get("staminaLeft", 100)) < 25:
+			e["energy"] = -4
+		if o.get("regrouped", false):
+			e["energy"] = int(e.get("energy", 0)) + 2
+	var a: Variant = o.get("assisted")
+	if a == true:
+		e["teamCondition"] = int(e.get("teamCondition", 0)) + 6
+		scores["teamwork"] = {"label": "You brought Jun down on the rope beside you", "delta": 8, "mark": "descent-assist"}
+		scores["judgment"] = {"label": "You kept the team together on the way down", "delta": 4, "mark": "descent-together"}
+	elif a == false:
+		e["teamCondition"] = int(e.get("teamCondition", 0)) - 6
+		scores["teamwork"] = {"label": "You went down ahead of Jun and left him to Lena", "delta": -6, "mark": "descent-left"}
+	if not scores.is_empty():
+		e["scores"] = scores
+	return e
+
+
+## The way down is over. The card's own move takes the party down, exactly
+## as the card would have without the level; then how the descent went
+## lands on the stats and the score straight away, like the trek's own
+## consequences (no extra engine step, so no extra roll of the mountain's
+## dice). A descent that went badly can still end the expedition. Lands
+## once.
+func finish_descent(outcome: Dictionary) -> String:
+	var d: Dictionary = trek().get("descent", {})
+	if d.is_empty() or d.get("played", false) or d.get("attemptId", "") != outcome.get("attemptId"):
+		return "stale"
+	var before := state()
+	var r := Coordinator.choose(session, int(d["choiceIndex"]), def)
+	session = r["session"]
+	Trek.advance(session, before, def)
+	_land_descent(descent_effect(outcome))
+	d["played"] = true
+	d["result"] = String(outcome.get("result", ""))
+	trek()["descent"] = d
+	Analytics.event("descent_completed", {"result": d["result"], "slips": int(outcome.get("slips", 0)), "assisted": outcome.get("assisted") == true})
+	last = {"kind": "climb", "label": "The way down", "before": before, "outcome": outcome}
+	climb = {}
+	save()
+	go(CAMP)
+	changed.emit()
+	return "applied"
+
+
+## Adds a descent effect's stats, scores and note to the state; the end of
+## the expedition is judged again after.
+func _land_descent(e: Dictionary) -> void:
+	var s: Dictionary = state().duplicate(true)
+	var was_active: bool = s["status"] == "active"
+	for key in ExpeditionEngine.STAT_KEYS:
+		s[key] += int(e.get(key, 0))
+	ExpeditionEngine._add_scores(s, e)
+	ExpeditionEngine._clamp_stats(s)
+	if was_active:
+		ExpeditionEngine._evaluate(s, def)
+	elif s["status"] == "complete" and (int(s["health"]) <= 0 or int(s["teamCondition"]) <= 0):
+		# Home, but the descent broke someone: not a safe return.
+		s["status"] = "failed"
+		s["returnedSafely"] = false
+	s["lastNote"] = (String(e.get("note", "")) + " " + String(s["lastNote"])).strip_edges()
+	session["state"] = s
+	if s["status"] != "active":
+		Trek._settle_ending(session)
 
 
 ## Leaving the climb from its brief without starting: lands as a retreat.

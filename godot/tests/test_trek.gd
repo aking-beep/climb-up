@@ -27,6 +27,13 @@ static func play(route: String, careful: bool, seed: int, brisk: bool = false) -
 		if p != null:
 			Expedition.finish_climb(TestSessions.complete(p))
 			continue
+		# The way down from the summit, played: a careful party brings Jun
+		# down with it, a careless one leaves him to Lena.
+		var dd: Dictionary = tk.get("descent", {})
+		if not dd.is_empty() and not dd.get("played", false):
+			Expedition.finish_descent({"attemptId": dd["attemptId"], "challengeId": "descent", "result": "complete", "staminaLeft": 60, "slips": 0,
+				"assisted": (true if careful else false) if not Trek.is_gone(Expedition.session, "jun") else null, "regrouped": false, "seconds": 300})
+			continue
 		var card := Expedition.card()
 		var pick := 0
 		if card["id"] == "trek-route":
