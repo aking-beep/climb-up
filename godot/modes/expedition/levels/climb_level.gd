@@ -272,7 +272,7 @@ func _place_props() -> void:
 
 func _sprite(name: String, feet: Vector2) -> Sprite2D:
 	var s := Sprite2D.new()
-	s.texture = load("res://assets/terrain/props/%s.png" % name)
+	s.texture = Art.tex("res://assets/terrain/props/%s.png" % name)
 	s.centered = false
 	s.position = feet - Vector2(s.texture.get_width() / 2.0, s.texture.get_height())
 	return s
@@ -280,7 +280,7 @@ func _sprite(name: String, feet: Vector2) -> Sprite2D:
 
 func _fire(feet: Vector2) -> Node2D:
 	var fire := AnimatedSprite2D.new()
-	var tex: Texture2D = load("res://assets/terrain/props/fire.png")
+	var tex: Texture2D = Art.tex("res://assets/terrain/props/fire.png")
 	var sf := SpriteFrames.new()
 	sf.set_animation_speed("default", 8.0)
 	for i in 4:

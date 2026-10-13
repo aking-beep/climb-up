@@ -156,6 +156,7 @@ func _ready() -> void:
 			var cell := Vector2i(x, y)
 			if not terrain.is_solid(cell) and back.get_cell_source_id(cell) == -1:
 				back.set_cell(cell, TerrainTiles.CLIFF_SOURCE, TerrainTiles._cliff(cell))
+	TerrainTiles.sync_back(back)
 	_place_holds()
 	_place_jugs()
 

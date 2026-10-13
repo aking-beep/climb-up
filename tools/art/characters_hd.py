@@ -24,7 +24,7 @@ SCALE = 4          # final texels per world pixel
 SS = 2             # supersampling on top of that
 K = SCALE * SS     # drawing units per world pixel
 LINE = (34, 24, 30, 255)
-OUT_W = 0.55       # outline width, world px
+OUT_W = 0.68       # outline width, world px: bold, as mobile games draw people
 
 SKIN = ("#f9d9b0", "#e9b688", "#c98f62")
 PANTS = ("#5e5246", "#4a4038", "#352e28")
@@ -33,7 +33,8 @@ PACK = ("#c09a5c", "#93723f", "#64492a")
 MAT = ("#69b3cc", "#3f8199")
 GLOVE = ("#b07a4a", "#7e5432")
 LAMP = ("#e4e8ea", "#9aa2a8", "#ffe27a")
-HARNESS = ("#2f3a4a", "#1f2733")
+HARNESS = ("#e8402e", "#a8261a", "#ff7a5c")   # a red harness: belt, dark edge, highlight
+CHALK = ("#3a6fd0", "#f4f1ea")                 # chalk bag and its rim
 
 
 def c(h, a=255):
@@ -119,18 +120,34 @@ def draw(pen: Pen, f: dict, who: dict):
     hx, hy, sx, sy, foot, knee, hand, elbow = joints(f)
 
     def boot(x, y, tone):
-        pen.rrect(x - 2.0, y - 2.6, x + 2.8, y, 1.0, c(BOOT[tone]), outline=True)
-        pen.rrect(x - 2.0, y - 0.7, x + 2.8, y, 0.4, c("#2b2420"))
-        pen.capsule([(x - 1.2, y - 2.0), (x + 1.4, y - 2.0)], 0.5, c(BOOT[0]), outline=False)
+        # Big, chunky boots: they read at phone size.
+        pen.rrect(x - 2.4, y - 3.0, x + 3.4, y, 1.2, c(BOOT[tone]), outline=True)
+        pen.rrect(x - 2.4, y - 0.8, x + 3.4, y, 0.4, c("#2b2420"))
+        pen.capsule([(x - 1.4, y - 2.3), (x + 1.8, y - 2.3)], 0.6, c(BOOT[0]), outline=False)
+
+    def leg_loop(hip, knee):
+        # A harness leg loop around the thigh, a third of the way down.
+        t = 0.34
+        cx, cy = hip[0] + (knee[0] - hip[0]) * t, hip[1] + (knee[1] - hip[1]) * t
+        dx, dy = knee[0] - hip[0], knee[1] - hip[1]
+        n = (dx * dx + dy * dy) ** 0.5 or 1
+        nx, ny = -dy / n, dx / n
+        a, b = (cx - nx * 2.1, cy - ny * 2.1), (cx + nx * 2.1, cy + ny * 2.1)
+        pen.capsule([a, b], 1.0, c(HARNESS[0]))
+        pen.capsule([(a[0] + 0.2, a[1] - 0.3), (b[0] + 0.2, b[1] - 0.3)], 0.35, c(HARNESS[2]), outline=False)
 
     # Back leg and arm, in shade.
     bf = foot(1)
     pen.capsule([(hx - 0.8, hy + 0.5), knee(1), (bf[0], bf[1] - 2.2)], 3.3, c(PANTS[2]))
+    leg_loop((hx - 0.8, hy + 0.5), knee(1))
     boot(bf[0], bf[1], 2)
     pen.capsule([(sx - 0.6, sy + 1.6), elbow(1), hand(1)], 2.5, jd)
     bh = hand(1)
-    pen.dot(bh[0], bh[1], 1.2 + OUT_W, LINE)
-    pen.dot(bh[0], bh[1], 1.2, c(GLOVE[1]))
+    pen.dot(bh[0], bh[1], 1.45 + OUT_W, LINE)
+    pen.dot(bh[0], bh[1], 1.45, c(GLOVE[1]))
+    # Chalk bag at the back of the harness.
+    pen.rrect(hx - 4.6, hy - 1.0, hx - 1.8, hy + 2.6, 0.9, c(CHALK[0]), outline=True)
+    pen.rrect(hx - 4.8, hy - 1.4, hx - 1.6, hy - 0.4, 0.5, c(CHALK[1]), outline=False)
 
     # Pack: body, lid, a rolled mat on top.
     px0, py0 = sx - 7.2, sy - 0.6
@@ -145,16 +162,26 @@ def draw(pen: Pen, f: dict, who: dict):
     pen.capsule([(sx - 1.8, sy + 1.6), (hx - 1.8, hy + 0.4)], 2.0, jl, outline=False)
     pen.capsule([(sx + 3.4, sy + 2.2), (hx + 3.2, hy + 0.8)], 1.2, jd, outline=False)
     pen.capsule([(sx + 2.0, sy + 1.0), (hx + 1.9, hy + 0.6)], 0.45, trim, outline=False)
-    # Harness and belay loop.
-    pen.capsule([(hx - 3.2, hy + 1.6), (hx + 4.0, hy + 1.6)], 1.3, c(HARNESS[0]), outline=False)
-    pen.dot(hx + 2.4, hy + 2.6, 0.8, c("#c9ccd2"))
     # Chest strap.
     pen.capsule([(sx - 2.4, sy + 4.2), (sx + 3.0, sy + 4.2)], 0.6, c(PACK[2]), outline=False)
 
     # Front leg and boot.
     ff = foot(0)
     pen.capsule([(hx + 0.8, hy + 0.5), knee(0), (ff[0], ff[1] - 2.2)], 3.5, c(PANTS[0]))
+    leg_loop((hx + 0.8, hy + 0.5), knee(0))
     boot(ff[0], ff[1], 1)
+    # The harness: a red waist belt with a highlight, the belay loop at the
+    # front, a gear loop at the side with two quickdraws hanging.
+    pen.capsule([(hx - 3.6, hy + 1.2), (hx + 4.2, hy + 1.2)], 1.7, c(HARNESS[0]))
+    pen.capsule([(hx - 3.2, hy + 0.7), (hx + 3.8, hy + 0.7)], 0.45, c(HARNESS[2]), outline=False)
+    pen.capsule([(hx - 3.2, hy + 1.8), (hx + 3.8, hy + 1.8)], 0.4, c(HARNESS[1]), outline=False)
+    pen.d.ellipse([*pen.p(hx + 2.6 - OUT_W, hy + 1.6 - OUT_W), *pen.p(hx + 4.6 + OUT_W, hy + 3.8 + OUT_W)], fill=LINE)
+    pen.d.ellipse([*pen.p(hx + 2.6, hy + 1.6), *pen.p(hx + 4.6, hy + 3.8)], fill=c(HARNESS[1]))
+    pen.d.ellipse([*pen.p(hx + 3.1, hy + 2.1), *pen.p(hx + 4.1, hy + 3.3)], fill=c(who["jacket"][1]))
+    for gx, col in ((hx - 2.6, "#4aa3ff"), (hx - 1.0, "#ffd23a")):
+        pen.capsule([(gx, hy + 1.8), (gx, hy + 3.4)], 0.6, c(col))
+        pen.dot(gx, hy + 4.2, 0.75 + OUT_W, LINE)
+        pen.dot(gx, hy + 4.2, 0.75, c("#c9ccd2"))
 
     # Head: big, round and friendly.
     tilt = f["head_tilt"] * 1.4
@@ -191,8 +218,8 @@ def draw(pen: Pen, f: dict, who: dict):
     pen.capsule([(sx + 1.2, sy + 1.6), elbow(0), hand(0)], 2.7, jl)
     pen.capsule([(sx + 0.8, sy + 1.2), elbow(0)], 0.9, c(who["jacket"][0]), outline=False)
     fh = hand(0)
-    pen.dot(fh[0], fh[1], 1.3 + OUT_W, LINE)
-    pen.dot(fh[0], fh[1], 1.3, c(GLOVE[0]))
+    pen.dot(fh[0], fh[1], 1.6 + OUT_W, LINE)
+    pen.dot(fh[0], fh[1], 1.6, c(GLOVE[0]))
     pen.dot(fh[0] - 0.4, fh[1] - 0.4, 0.6, c("#d6a070"))
 
 

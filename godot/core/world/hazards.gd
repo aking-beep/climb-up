@@ -71,7 +71,7 @@ func setup(lvl: Node, t: Terrain, g: TileMapLayer, c: Climber, period: float, wo
 	climber = c
 	rock_period = period
 	gear_words = words
-	_rock_tex = load("res://assets/terrain/props/rock.png")
+	_rock_tex = Art.tex("res://assets/terrain/props/rock.png")
 	for y in terrain.height:
 		for x in terrain.width:
 			if terrain.kind(Vector2i(x, y)) == Terrain.Kind.CRUMBLE:
@@ -106,7 +106,7 @@ func setup(lvl: Node, t: Terrain, g: TileMapLayer, c: Climber, period: float, wo
 		var cell: Vector2i = gears[n]
 		var s := Sprite2D.new()
 		var at := AtlasTexture.new()
-		at.atlas = load("res://assets/terrain/props/gear.png")
+		at.atlas = Art.tex("res://assets/terrain/props/gear.png")
 		at.region = Rect2((n % 3) * 14, 0, 14, 14)
 		s.texture = at
 		s.position = Terrain.feet(cell) - Vector2(0, 9)
@@ -118,14 +118,14 @@ func setup(lvl: Node, t: Terrain, g: TileMapLayer, c: Climber, period: float, wo
 		pickups.append({"cell": cell, "kind": "gear", "index": n, "node": s, "taken": had})
 	for cell in terrain.markers.get("w", []):
 		var s := Sprite2D.new()
-		s.texture = load("res://assets/terrain/props/water.png")
+		s.texture = Art.tex("res://assets/terrain/props/water.png")
 		s.position = Terrain.feet(cell) - Vector2(0, 7)
 		add_child(s)
 		var key := "%d,%d" % [cell.x, cell.y]
 		var gone := taken.has(key)
 		s.visible = not gone
 		pickups.append({"cell": cell, "kind": "water", "key": key, "node": s, "taken": gone})
-	_flower_tex = load("res://assets/terrain/props/everlasting.png")
+	_flower_tex = Art.tex("res://assets/terrain/props/everlasting.png")
 	for cell in terrain.markers.get("f", []):
 		var s := Sprite2D.new()
 		var at := AtlasTexture.new()

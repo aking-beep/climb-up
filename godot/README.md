@@ -379,7 +379,26 @@ tests/     headless test runner and suites; shot/demo tools
 Levels are ASCII maps stamped by `tools/levels/barranco_map.py` and
 ## Look
 
-Pixel-art world, smooth illustrated people and gear, one colour grade:
+Drawn for phones, in the spirit of the best-looking mobile games (the
+chunky, outlined Supercell characters; Alto's layered gradients and soft
+far layers): everything is painted at 4x and shown at a quarter scale with
+smooth filtering and mipmaps (the project default), so a phone draws it at
+its own resolution instead of blowing up pixels. One colour grade on top.
+
+- **Smooth terrain** (`tools/art/terrain_hd.py` → `assets/terrain/hd/`):
+  rock, back wall and faces with soft bevels and cracks, edges with rounded
+  grass, moss or snow caps, slopes, scree, boulders, holds, ice and slabs.
+  `TerrainTiles.paint_hd` lays them as scaled layers (`BackHD`, `GroundHD`,
+  `EdgesHD`) over the 16 px layers, which are hidden but keep the
+  collision. Without the HD files the pixel layers show as before.
+- **Smooth props** (`tools/art/props_hd.py` → `assets/terrain/props/hd/`):
+  cairns, signs, plants, tents, fire, stones, gear and creatures.
+  `Art.tex(path)` loads the HD file but reports the pixel size, so regions
+  and positions in code stay in world pixels.
+- **The harness.** Every climber wears one: a red waist belt with a belay
+  loop, leg loops, quickdraws on the gear loop and a chalk bag.
+
+The pixel sources below remain as the fallback and as the collision grid:
 
 - **Rock** (`tools/art/godot_rock.py`) is drawn the way pixel artists draw
   rock, not as noise: blocks (a tileable Voronoi stretched along the
@@ -395,8 +414,8 @@ Pixel-art world, smooth illustrated people and gear, one colour grade:
   an undercut shadow below, shaded sides, bevelled corners. Slopes, scree,
   boulders and face holds come from the same palettes.
 - **People** (`tools/art/characters_hd.py`) are drawn as clean illustrated
-  characters (round shapes, a big readable head, cel shading, a warm rim
-  light, a crisp outline) at 4x and shown at a quarter scale, smooth, with
+  characters (round shapes, a big readable head, big hands and boots, cel
+  shading, a warm rim light, a bold outline) at 4x and shown at a quarter scale, smooth, with
   mipmaps: a phone draws them at its full resolution. Same poses and frame
   layout as the pixel sheets (`tools/art/characters.py`), which remain as
   the fallback.
@@ -410,6 +429,7 @@ Pixel-art world, smooth illustrated people and gear, one colour grade:
 of the TypeScript engine for the parity test. Art: `tools/art/godot_barranco.py`
 (props, fallback tiles), `tools/art/godot_rock.py` (rock, edges, faces),
 `tools/art/characters_hd.py` and `tools/art/crag_hd.py` (people and gear),
+`tools/art/terrain_hd.py` and `tools/art/props_hd.py` (smooth terrain and props),
 `tools/art/godot_hazards.py` (ice, slabs, stones, water, gear),
 `tools/art/godot_creatures.py` (thistle, nettle, siafu, raven),
 `tools/art/godot_kili.py` (diorama plates, map sprites, scenery from the

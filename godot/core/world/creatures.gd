@@ -51,7 +51,7 @@ func setup(lvl: Node, t: Terrain, c: Climber, lush: bool) -> void:
 	level = lvl
 	terrain = t
 	climber = c
-	var plant_tex: Texture2D = load("res://assets/terrain/props/thistle.png")
+	var plant_tex: Texture2D = Art.tex("res://assets/terrain/props/thistle.png")
 	for cell in terrain.markers.get("n", []):
 		var s := Sprite2D.new()
 		var at := AtlasTexture.new()
@@ -63,7 +63,7 @@ func setup(lvl: Node, t: Terrain, c: Climber, lush: bool) -> void:
 		add_child(s)
 		# The spiny part: most of the tile, from the ground up.
 		plants.append({"cell": cell, "node": s, "rect": Rect2(feet.x - 5.0, feet.y - 12.0, 10.0, 12.0)})
-	var ant_tex: Texture2D = load("res://assets/terrain/props/ants.png")
+	var ant_tex: Texture2D = Art.tex("res://assets/terrain/props/ants.png")
 	for cell in terrain.markers.get("a", []):
 		var s := AnimatedSprite2D.new()
 		var sf := SpriteFrames.new()
@@ -79,7 +79,7 @@ func setup(lvl: Node, t: Terrain, c: Climber, lush: bool) -> void:
 		s.position = feet - Vector2(0, 3)
 		add_child(s)
 		ants.append({"node": s, "x0": feet.x, "x": feet.x, "y": feet.y, "dir": 1 if posmod(cell.x, 2) == 0 else -1})
-	var raven_tex: Texture2D = load("res://assets/terrain/props/raven.png")
+	var raven_tex: Texture2D = Art.tex("res://assets/terrain/props/raven.png")
 	for cell in terrain.markers.get("v", []):
 		var s := AnimatedSprite2D.new()
 		var sf := SpriteFrames.new()

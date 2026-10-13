@@ -118,13 +118,125 @@ static func edges_for(deep: String) -> String:
 
 ## A cracked slab: whole, breaking, or gone (crumbled away).
 static func set_slab(ground: TileMapLayer, cell: Vector2i, stage: String) -> void:
+	var hd: TileMapLayer = ground.get_meta("hd") if ground.has_meta("hd") else null
 	match stage:
 		"whole":
 			ground.set_cell(cell, HAZARD_SOURCE, Vector2i(_variant(cell, 2), 1))
+			if hd:
+				hd.set_cell(cell, HD_HAZARDS, Vector2i(_variant(cell, 2), 1))
 		"breaking":
 			ground.set_cell(cell, HAZARD_SOURCE, Vector2i(2 + _variant(cell, 2), 1))
+			if hd:
+				hd.set_cell(cell, HD_HAZARDS, Vector2i(2 + _variant(cell, 2), 1))
 		_:
 			ground.erase_cell(cell)
+			if hd:
+				hd.erase_cell(cell)
+
+
+# --- High resolution -----------------------------------------------------------
+# The terrain as players see it: smooth 4x art (tools/art/terrain_hd.py) on
+# layers drawn at a quarter scale, over the 16 px layers, which stay for
+# collision and are hidden. A phone draws the rock at its full resolution.
+
+const HD := 4
+const HD_DIR := "res://assets/terrain/hd/"
+const HD_SOLID := 0
+const HD_BACK := 1
+const HD_FACE := 2
+const HD_EDGES := 3
+const HD_HAZARDS := 4
+
+
+static func palette_of(deep: String) -> String:
+	return deep.get_file().get_slice("-wall", 0)
+
+
+static func hd_tileset(palette: String) -> TileSet:
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(T * HD, T * HD)
+	var files := {HD_SOLID: "%s-solid.png", HD_BACK: "%s-back.png", HD_FACE: "%s-face.png", HD_EDGES: "%s-edges.png", HD_HAZARDS: "hazards-hd.png"}
+	for id in files:
+		var path: String = HD_DIR + (String(files[id]) % palette if "%s" in String(files[id]) else String(files[id]))
+		var src := TileSetAtlasSource.new()
+		src.texture = load(path)
+		src.texture_region_size = Vector2i(T * HD, T * HD)
+		ts.add_source(src, id)
+		for row in src.texture.get_height() / (T * HD):
+			for col in src.texture.get_width() / (T * HD):
+				src.create_tile(Vector2i(col, row))
+	return ts
+
+
+static func _hd_layer(name: String, ts: TileSet, like: TileMapLayer) -> TileMapLayer:
+	var l := TileMapLayer.new()
+	l.name = name
+	l.tile_set = ts
+	l.collision_enabled = false
+	l.scale = Vector2.ONE / HD
+	l.z_index = like.z_index
+	l.modulate = like.modulate
+	l.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	return l
+
+
+## Builds the HD layers for a painted terrain and hides the pixel ones.
+static func paint_hd(terrain: Terrain, ground: TileMapLayer, back: TileMapLayer, theme: Dictionary = {}) -> void:
+	var palette := palette_of(theme.get("deep", DEEP))
+	if not ResourceLoader.exists(HD_DIR + palette + "-solid.png"):
+		return
+	var ts := hd_tileset(palette)
+	var hd_back := _hd_layer("BackHD", ts, back)
+	back.add_sibling(hd_back)
+	var hd := _hd_layer("GroundHD", ts, ground)
+	ground.add_sibling(hd)
+	var edges := _hd_layer("EdgesHD", ts, ground)
+	edges.scale = Vector2.ONE
+	edges.modulate = Color.WHITE
+	hd.add_child(edges)
+	ground.set_meta("hd", hd)
+	back.set_meta("hd", hd_back)
+	var crag := terrain.markers.has("Q")
+	for y in terrain.height:
+		for x in terrain.width:
+			var cell := Vector2i(x, y)
+			var v2 := _variant(cell, 2)
+			var v4 := _variant(cell, 4)
+			match terrain.kind(cell):
+				Terrain.Kind.ROCK:
+					hd.set_cell(cell, HD_SOLID, _cliff(cell))
+					var mask := terrain.open_mask(cell)
+					if mask != 0:
+						edges.set_cell(cell, HD_EDGES, Vector2i(mask, v2))
+				Terrain.Kind.SLOPE_R:
+					hd.set_cell(cell, HD_EDGES, Vector2i(v2, 2))
+				Terrain.Kind.SLOPE_L:
+					hd.set_cell(cell, HD_EDGES, Vector2i(2 + v2, 2))
+				Terrain.Kind.FACE, Terrain.Kind.CRIMP, Terrain.Kind.JUG:
+					hd.set_cell(cell, HD_FACE, _cliff(cell))
+					if terrain.kind(cell) == Terrain.Kind.FACE and not crag and _variant(cell, 3) != 0:
+						edges.set_cell(cell, HD_EDGES, Vector2i(4 + v4, 2))
+				Terrain.Kind.LOOSE:
+					hd.set_cell(cell, HD_EDGES, Vector2i(8 + v4, 2))
+				Terrain.Kind.SCRAMBLE:
+					hd.set_cell(cell, HD_EDGES, Vector2i(12 + v4, 2))
+				Terrain.Kind.ICE:
+					hd.set_cell(cell, HD_HAZARDS, Vector2i(v4, 0))
+				Terrain.Kind.CRUMBLE:
+					hd.set_cell(cell, HD_HAZARDS, Vector2i(v2, 1))
+	sync_back(back)
+	# The pixel layers keep their collision; only the HD ones are drawn.
+	ground.visible = false
+	back.visible = false
+
+
+## Copies the back wall's cells to its HD layer (after a level adds its own).
+static func sync_back(back: TileMapLayer) -> void:
+	if not back.has_meta("hd"):
+		return
+	var hd: TileMapLayer = back.get_meta("hd")
+	for cell in back.get_used_cells():
+		hd.set_cell(cell, HD_BACK, _cliff(cell))
 
 
 static func _cliff(cell: Vector2i) -> Vector2i:
@@ -228,3 +340,5 @@ static func paint(terrain: Terrain, ground: TileMapLayer, back: TileMapLayer, th
 				# Edge tiles have rounded corners: inside the mountain, the
 				# back wall shows through them, not the sky.
 				back.set_cell(cell, CLIFF_SOURCE, _cliff(cell))
+
+	paint_hd(terrain, ground, back, theme)

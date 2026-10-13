@@ -158,3 +158,28 @@ func test_characters_are_drawn_smooth() -> void:
 		check(last.region.end.x <= last.atlas.get_width() and last.region.end.y <= last.atlas.get_height(), "%s: every frame is inside the sheet" % who)
 		s.free()
 	await tree.process_frame
+
+
+func test_terrain_and_props_are_drawn_smooth() -> void:
+	# Props: the HD file is four times the pixel one but reports the pixel
+	# size, so sprite regions and positions are unchanged.
+	var pixel: Texture2D = load("res://assets/terrain/props/cairn.png")
+	var hd := Art.tex("res://assets/terrain/props/cairn.png")
+	eq(hd.get_size(), pixel.get_size(), "an HD prop keeps its world size")
+	check(hd.get_image().get_width() == pixel.get_width() * Art.HD, "and has four times the pixels")
+	# Terrain: smooth layers drawn over the pixel ones, which stay for collision.
+	var level: Node = load(Expedition.LEVELS["barranco-wall"]).instantiate()
+	root.add_child(level)
+	await physics_frames(2)
+	var ground: TileMapLayer = level.ground_layer
+	var hd_ground: TileMapLayer = ground.get_parent().get_node_or_null("GroundHD")
+	check(hd_ground != null, "the climb has an HD ground layer")
+	if hd_ground:
+		check(hd_ground.visible and not ground.visible, "the smooth layer shows, the pixel one does not")
+		check(not hd_ground.collision_enabled and ground.collision_enabled, "collision stays on the pixel layer")
+		eq(hd_ground.get_used_cells().size() >= ground.get_used_cells().size(), true, "every ground cell is drawn smooth")
+	var y0: float = level.climber.global_position.y
+	await physics_frames(60)
+	check(absf(level.climber.global_position.y - y0) < 4.0, "the climber still stands on the hidden ground (moved %.1f px)" % (level.climber.global_position.y - y0))
+	level.queue_free()
+	await physics_frames(2)
