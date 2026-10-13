@@ -88,9 +88,9 @@ func show_panel(kicker: String, title: String, body: String, choices: Array) -> 
 	choice_ids = choices.map(func(c: Array) -> String: return c[0])
 	_kicker.text = kicker.to_upper()
 	_kicker.visible = not kicker.is_empty()
-	_title.text = title
+	_title.text = Plain.say(title)
 	_title.visible = not title.is_empty()
-	_body.text = body
+	_body.text = Plain.say(body)
 	_body.visible = not body.is_empty()
 	for c in _buttons.get_children():
 		# Out of the layout now, so the new panel is measured without them.
@@ -99,7 +99,7 @@ func show_panel(kicker: String, title: String, body: String, choices: Array) -> 
 	var first: Button = null
 	for choice in choices:
 		var b := Button.new()
-		b.text = choice[1]
+		b.text = Plain.say(choice[1])
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.add_theme_font_size_override("font_size", 9)
 		if UiFont.display():

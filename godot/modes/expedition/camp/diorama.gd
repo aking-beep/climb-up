@@ -93,7 +93,8 @@ func _ready() -> void:
 		add_child(f)
 		_fog.append(f)
 	_figures = Control.new()
-	_figures.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# The party and the camp are drawn smooth (tools/art/diorama_hd.py).
+	_figures.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_figures.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_figures.draw.connect(_draw_figures)
 	add_child(_figures)
@@ -132,8 +133,8 @@ func _ready() -> void:
 	lens.draw.connect(_draw_lens.bind(lens))
 	add_child(lens)
 	for who in ["you", "lena", "marco", "jun"]:
-		_sheets[who] = load("res://assets/world/%s-map.png" % who)
-	_props = load("res://assets/world/props.png")
+		_sheets[who] = Art.tex("res://assets/world/%s-map.png" % who)
+	_props = Art.tex("res://assets/world/props.png")
 	_parchment = load("res://assets/world/map.png")
 	resized.connect(_layout)
 

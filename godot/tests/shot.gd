@@ -64,6 +64,12 @@ func _ready() -> void:
 	if "shrink" in OS.get_cmdline_user_args() and scene.get("panel"):
 		# A tall panel, then a short one: the short one must not keep the height.
 		scene.panel.show_panel("Short", "A short one", "One line.", [["x", "Got it"]])
+	# The camp: a choice picked (previewed), or another tab.
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("pick=") and scene.has_method("_pick"):
+			scene._pick(int(arg.substr(5)))
+		elif arg.begins_with("tab=") and scene.has_method("_open_tab"):
+			scene._open_tab(arg.substr(4))
 	if "look" in OS.get_cmdline_user_args() and scene is CragLevel:
 		# Reading the route: partway up the preview.
 		scene.panel.choose("look")

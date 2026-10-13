@@ -481,7 +481,7 @@ static func foresee(session: Dictionary, choice: Dictionary, def: Dictionary) ->
 	if move == "down" or move == "retreat":
 		band = "low"
 		why = ["going down helps sick people get better"]
-	return {"hours": hours, "costs": costs, "risk": band, "why": why}
+	return {"hours": hours, "costs": costs, "risk": band, "why": why, "deltas": deltas, "move": move}
 
 
 # --- Care at camp ----------------------------------------------------------------
