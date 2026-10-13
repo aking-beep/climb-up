@@ -15,6 +15,7 @@ func _fresh() -> void:
 	Crag.reset_daily()
 	Crag.clock_override = -1
 	Analytics.recent.clear()
+	Records.delete_all()
 	Analytics.write_to_disk = false
 
 

@@ -400,6 +400,7 @@ func _report_end() -> void:
 	if active() or _reported_end:
 		return
 	_reported_end = true
+	Records.expedition_finished(session)
 	var sc := ExpeditionEngine.score(state())
 	Analytics.event("expedition_completed", {"returned": sc["returnedSafely"], "summit": sc["summitReached"], "overall": sc["overall"],
 		"day": ExpeditionEngine.day_of(state()), "descent_played": bool(trek().get("descent", {}).get("played", false))})

@@ -486,6 +486,15 @@ var quick_started := false
 var retry_ms := -1
 ## The near-miss words this go ended with ("" when there was none).
 var near_miss := ""
+## What happened on this go, for the records service to check (Records):
+## [seconds, kind, data] for the tie-in, each clip, fall, rest and catch,
+## the height once a second, and the end.
+var attempt_log: Array = []
+var _log_next := 1.0
+
+
+func log_event(kind: String, info: Variant = null) -> void:
+	attempt_log.append([snappedf(climber.clock if climber else 0.0, 0.01), kind, info])
 
 
 func _mark_high_point() -> void:
@@ -713,6 +722,9 @@ func _physics_process(_delta: float) -> void:
 		return
 	if quick_started and retry_ms < 0 and climber.state != Climber.State.LOCKED:
 		retry_ms = maxi(0, Crag.retry_landed())
+	if briefed and climber.clock >= _log_next:
+		_log_next = floorf(climber.clock) + 1.0
+		log_event("h", high_rows)
 	var pressed := GameInput.pressed_now("interact")
 	_tap = pressed and not panel.open and not previewing
 	if previewing:
@@ -826,6 +838,7 @@ func _clip() -> void:
 	c["clipped"] = true
 	c["node"].texture.region = Rect2(48, 0, 48, 88)
 	checkpoint = maxi(checkpoint, clip_target + 1)
+	log_event("clip", [clip_target, int((_start.y - climber.global_position.y) / Terrain.TILE)])
 	engage("clip")
 	Haptics.tap(15)
 	# The rope snapping in: the gate clicks, chalk off the fingers, the
@@ -875,6 +888,7 @@ func _rope(dt: float) -> void:
 	if _tap and can_rest() and not on_crimps:
 		resting_rope = true
 		rope_rests += 1
+		log_event("rest", checkpoint)
 		engage("rest")
 		hud.flash("You sit back on the rope and shake your arms out.", 1.6)
 
@@ -1086,6 +1100,7 @@ func _stick(perfect: bool) -> void:
 	# The tap that caught the hold does nothing else (no clip, no squeeze).
 	_tap = false
 	catch_quality = "perfect" if perfect else "good"
+	log_event("catch", catch_quality)
 	engage("catch")
 	Haptics.tap(35 if perfect else 22)
 	Audio.play("catch", -4.0 if perfect else -7.0, 0.05)
@@ -1159,6 +1174,7 @@ func _draw_rope() -> void:
 
 
 func _on_slipped(_saved: bool, reason: String) -> void:
+	log_event("fall", [reason, int((_start.y - climber.global_position.y) / Terrain.TILE)])
 	_fall_top = minf(climber.fall_from, climber.global_position.y)
 	fall_cause = _cause
 	if fall_cause == "":
@@ -1371,6 +1387,8 @@ func _on_back() -> void:
 
 func _tie_in() -> void:
 	briefed = true
+	attempt_log = []
+	log_event("tie_in", shoes)
 	Crag.tie_in(route["id"])
 	climber.lock(false)
 
@@ -1489,6 +1507,7 @@ func finish(sent: bool) -> void:
 	else:
 		climber.lock(true)
 	panel.hide_panel()
+	log_event("end", ["top" if sent else "lowered", high_rows, climber.slips])
 	var stats := go_stats()
 	var best_before := int((Crag.daily_record() if is_daily() else Crag.record(route["id"]))["bestSeconds"])
 	var best_style_before := String((Crag.daily_record() if is_daily() else Crag.record(route["id"]))["best"])

@@ -20,6 +20,7 @@ func _ready() -> void:
 	var fresh := button("New expedition", _new, not has_save)
 	if not has_save:
 		fresh.grab_focus()
+	button("Records and leaderboards", func() -> void: Records.open("expedition", "res://modes/expedition/menu.tscn"))
 	button("Graphics: %s" % ["Full", "Reduced", "Low power"][Settings.quality], _quality)
 	button("Reduced motion: %s" % ("On" if Settings.reduced_motion else "Off"), _motion)
 	button("Back", func() -> void: Expedition.go("res://modes/title/title.tscn"))

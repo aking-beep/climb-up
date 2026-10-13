@@ -8,6 +8,7 @@ extends CragBot
 func _fresh_progress() -> void:
 	Crag.navigate = false
 	Crag.reset()
+	Records.delete_all()
 
 
 func test_the_title_opens_two_separate_games() -> void:

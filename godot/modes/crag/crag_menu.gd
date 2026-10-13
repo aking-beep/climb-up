@@ -38,6 +38,7 @@ func _ready() -> void:
 		if focus == null and not b.disabled:
 			focus = b
 	button("Logbook and achievements", func() -> void: Crag.go(Crag.LOGBOOK))
+	button("Records and leaderboards", func() -> void: Records.open("crag", Crag.MENU))
 	var back := button("Back", func() -> void: Crag.go(Crag.TITLE))
 	(focus if focus else back).grab_focus()
 
