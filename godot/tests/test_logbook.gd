@@ -117,6 +117,24 @@ func test_the_logbook_saves_and_survives_bad_data() -> void:
 	_fresh()
 
 
+func test_a_failed_go_leaves_a_high_point_to_beat() -> void:
+	_fresh()
+	Crag.tie_in("sundown")
+	Crag.finish("sundown", false, 3, 60, 2, {"high_rows": 14})
+	eq(Crag.record("sundown")["highRows"], 14, "the high point is logged")
+	Crag.current = "sundown"
+	var level: Node = load(Crag.LEVEL).instantiate()
+	root.add_child(level)
+	await physics_frames(2)
+	check(level.high_mark != null, "the next go shows it on the wall")
+	if level.high_mark:
+		var y: float = (level.high_mark.get_child(0) as Line2D).points[0].y
+		check(absf(y - (level._start.y - 14 * Terrain.TILE)) < 0.5, "at the height reached")
+	level.queue_free()
+	await physics_frames(2)
+	_fresh()
+
+
 func test_next_route_is_always_clear() -> void:
 	_fresh()
 	eq(Crag.next_route(), "first-climb", "a new player is pointed at the lesson")

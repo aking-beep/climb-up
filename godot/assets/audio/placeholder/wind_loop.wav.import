@@ -14,8 +14,8 @@ dest_files=["res://.godot/imported/wind_loop.wav-e4206b1284af9bd7f0bf3c1152579de
 
 force/8_bit=false
 force/mono=false
-force/max_rate=false
-force/max_rate_hz=44100
+force/max_rate=true
+force/max_rate_hz=11025
 edit/trim=false
 edit/normalize=false
 edit/loop_mode=0

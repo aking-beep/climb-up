@@ -14,8 +14,8 @@ dest_files=["res://.godot/imported/camp_loop.wav-389bf9afeef489591c25622297af9a5
 
 force/8_bit=false
 force/mono=false
-force/max_rate=false
-force/max_rate_hz=44100
+force/max_rate=true
+force/max_rate_hz=11025
 edit/trim=false
 edit/normalize=false
 edit/loop_mode=0

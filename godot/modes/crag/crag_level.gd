@@ -223,6 +223,7 @@ func _ready() -> void:
 	a.position = Terrain.feet(anchor) - Vector2(0, 10)
 	add_child(a)
 	_place_clips()
+	_mark_high_point()
 
 	belayer = Companion.new()
 	belayer.person = "lena"
@@ -432,6 +433,46 @@ func _place_clips() -> void:
 	for i in clips.size():
 		# Rows up from the bolt below (from the ground for the first).
 		clips[i]["gap"] = (clips[i - 1]["cell"].y if i > 0 else terrain.height) - clips[i]["cell"].y
+
+
+## Not sent yet but tried: a chalk line across the route at the highest
+## you have been, so the next go has something to beat.
+var high_mark: Node2D
+
+
+func _mark_high_point() -> void:
+	if is_daily():
+		return
+	var rec := Crag.record(route["id"])
+	var rows := int(rec.get("highRows", 0))
+	if rows <= 2 or int(rec["sends"]) > 0:
+		return
+	var y := _start.y - rows * Terrain.TILE
+	var row := Terrain.cell_of(Vector2(0, y - 1)).y
+	var xs: Array = []
+	for x in terrain.width:
+		if terrain.is_climbable(Vector2i(x, row)):
+			xs.append(x)
+	if xs.is_empty():
+		return
+	high_mark = Node2D.new()
+	high_mark.z_index = 3
+	var line := Line2D.new()
+	line.width = 1.5
+	line.default_color = Color(1, 1, 1, 0.75)
+	line.points = PackedVector2Array([Vector2(xs.min() * Terrain.TILE - 4, y), Vector2((xs.max() + 1) * Terrain.TILE + 4, y)])
+	high_mark.add_child(line)
+	var l := Label.new()
+	l.text = "your high point"
+	l.add_theme_font_size_override("font_size", 7)
+	l.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	l.add_theme_constant_override("outline_size", 3)
+	if UiFont.body():
+		l.add_theme_font_override("font", UiFont.body())
+	l.position = Vector2((xs.max() + 1) * Terrain.TILE + 6, y - 6)
+	high_mark.add_child(l)
+	add_child(high_mark)
 
 
 ## The longest gap between two bolts, in rows.
@@ -1157,7 +1198,30 @@ func hint_now() -> String:
 		return "A pocket: hanging here costs nothing. Wait, clip, plan the next bit."
 	if can_rest() and stamina.fraction() < 0.9:
 		return "Tired? Tap %s to rest on the rope (the green bar)." % _key("REST")
+	var side := traverse_dir()
+	if side != 0:
+		return "The line goes sideways here: move %s along the band." % ("right" if side > 0 else "left")
 	return ""
+
+
+## When the hands are at the top of the rock but the line carries on along
+## a band to one side: which way (1 right, -1 left), else 0.
+func traverse_dir() -> int:
+	var hands := climber.body_rect().position + Vector2(0, 4)
+	var row := Terrain.cell_of(hands).y
+	var col := Terrain.cell_of(climber.global_position).x
+	if terrain.is_climbable(Vector2i(col, row - 1)) or terrain.is_solid(Vector2i(col, row - 1)):
+		return 0
+	if Terrain.cell_of(Terrain.feet(terrain.markers["X"][0])).y >= row - 2:
+		return 0
+	for dir in [1, -1]:
+		for k in range(1, 14):
+			var x: int = col + dir * k
+			if not terrain.is_climbable(Vector2i(x, row)) and not terrain.is_climbable(Vector2i(x, row + 1)):
+				break
+			if terrain.is_climbable(Vector2i(x, row - 1)):
+				return dir
+	return 0
 
 
 ## Holds within dyno reach above the hands, across blank rock.

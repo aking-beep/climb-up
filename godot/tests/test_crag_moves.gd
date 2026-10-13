@@ -245,3 +245,19 @@ func test_each_route_tests_its_own_skill() -> void:
 	check(has.call("thunderhead", Terrain.Kind.SLOPER) > 0 and Crag.facts("thunderhead")["protection"] == "runout", "thunderhead: slopers too, and run-out")
 	for r in Crag.ROUTES:
 		check(String(r.get("skill", "")) != "", "%s names its skill" % r["id"])
+
+
+func test_a_traverse_says_which_way() -> void:
+	await _load("sundown")
+	var t: Terrain = level.terrain
+	# The left end of the traverse band: rock sideways, blank above.
+	var cell := Vector2i(-1, -1)
+	for y in t.height:
+		for x in t.width:
+			if cell.x < 0 and t.kind(Vector2i(x, y)) == Terrain.Kind.FACE and t.kind(Vector2i(x + 3, y)) == Terrain.Kind.SLOPER and not t.is_climbable(Vector2i(x, y - 1)) and not t.is_climbable(Vector2i(x, y - 2)):
+				cell = Vector2i(x, y)
+	check(cell.x >= 0, "found the band")
+	await _hang_on(cell)
+	eq(level.traverse_dir(), 1, "the line goes right")
+	check("right" in level.hint_now(), "and the hint says so: " + level.hint_now())
+	await _done()
