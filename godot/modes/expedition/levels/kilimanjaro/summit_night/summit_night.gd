@@ -1,7 +1,7 @@
 extends ClimbLevel
 ## Summit night: the last and hardest climb. Headlamps on at Barafu, frozen
 ## switchbacks of scree and rock to the crater rim, then Stella Point at
-## first light. The cold halves recovery, every move costs more, the rim
+## first light. The cold slows recovery, every move costs more, the rim
 ## wind comes often, two slips end it, and Jun is heavier to help.
 ## Geometry is summit_night.txt (tools/levels/kili_maps.py). Game fiction.
 
@@ -11,7 +11,10 @@ func _init() -> void:
 		"id": "summit-night",
 		"map": "res://modes/expedition/levels/kilimanjaro/summit_night/summit_night.txt",
 		"hud": "Summit night",
-		"difficulty": {"recovery": 0.55, "drain": 1.25, "wind": 30.0, "maxSlips": 2, "helpCost": 22.0, "rockPeriod": 4.8},
+		"difficulty": {"recovery": 0.8, "drain": 1.15, "wind": 30.0, "maxSlips": 2, "helpCost": 22.0, "rockPeriod": 4.8},
+		# Midnight cold, colder before dawn, then the sun at Stella Point.
+		"climate": {"temps": [[0.0, -7.0], [0.7, -16.0], [1.0, -10.0]], "drift": -1.0,
+			"light": [[0.0, "#9aa4d8"], [0.7, "#8e98cc"], [0.9, "#d8a8b8"], [1.0, "#ffd4b8"]]},
 		"meters": 5700,
 		"dangers": ["ice on the switchbacks", "a crevasse", "stones on the rock steps", "cracked slabs on the rim"],
 		"gear": [
@@ -33,7 +36,8 @@ func _init() -> void:
 			"grass": false,
 			"sunShafts": false,
 		},
-		"mate": {"person": "jun", "name": "Jun", "they": "he", "They": "He", "them": "him", "passDir": -1},
+		"mate": {"person": "jun", "name": "Jun", "they": "he", "They": "He", "them": "him", "passDir": -1,
+			"climbLines": ["Jun: My hands are coming back. Thank you.", "Jun: Count the zigzags with me.", "Jun: There's the rim. Keep going.", "Jun: Breathe. Then go."]},
 		"people": {
 			"l": ["lena", "Lena · Guide", [
 				"Pole pole. Nobody overtakes the headlamp in front of them.",

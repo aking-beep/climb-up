@@ -14,6 +14,7 @@ var title := "Climb"
 var _route: ProgressBar
 var _route_label: Label
 var _fps: Label
+var _temp: Label
 
 
 func _ready() -> void:
@@ -21,6 +22,12 @@ func _ready() -> void:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Inside the safe area: nothing under a notch or a rounded corner.
+	var inset := Settings.safe_insets()
+	root.offset_left = inset["left"]
+	root.offset_top = inset["top"]
+	root.offset_right = -inset["right"]
+	root.offset_bottom = -inset["bottom"]
 	add_child(root)
 	var box := PanelContainer.new()
 	box.position = Vector2(8, 6)
@@ -48,8 +55,12 @@ func _ready() -> void:
 	v.add_child(_stats)
 	_wind = _label(9, Color(1.0, 0.85, 0.55))
 	v.add_child(_wind)
+	_temp = _label(8, Color(0.75, 0.88, 1.0))
+	_temp.visible = false
+	v.add_child(_temp)
 	_hint = _label(9, Color(0.95, 0.94, 0.91))
 	_hint.position = Vector2(8, 66)
+	_backed(_hint)
 	root.add_child(_hint)
 	_flash = _label(11, Color(1, 0.97, 0.88))
 	_flash.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -97,6 +108,18 @@ func _ready() -> void:
 	root.add_child(_prompt)
 
 
+## A dark backing behind text drawn over the sky and the rock.
+func _backed(l: Label) -> void:
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(0.05, 0.05, 0.07, 0.55)
+	st.set_corner_radius_all(2)
+	st.content_margin_left = 4
+	st.content_margin_right = 4
+	st.content_margin_top = 1
+	st.content_margin_bottom = 2
+	l.add_theme_stylebox_override("normal", st)
+
+
 func _label(size: int, color: Color) -> Label:
 	var l := Label.new()
 	l.add_theme_font_size_override("font_size", size)
@@ -111,6 +134,11 @@ func _label(size: int, color: Color) -> Label:
 func flash(text: String, seconds: float = 2.6) -> void:
 	_flash.text = text
 	_flash_time = seconds
+
+
+## The message showing now (or the last one), for tests.
+func flash_text() -> String:
+	return _flash.text
 
 
 func update_from(level: Node) -> void:
@@ -155,7 +183,14 @@ func update_from(level: Node) -> void:
 		_wind.text = "Ice: small steps, it slides"
 	else:
 		_wind_line(c)
+	_wind.visible = _wind.text != ""
+	if level.has_method("climate_line"):
+		_temp.visible = true
+		_temp.text = level.climate_line()
+		var deg: float = level.degrees
+		_temp.add_theme_color_override("font_color", Color(1.0, 0.72, 0.45) if deg >= Climate.WARM else (Color(0.95, 0.94, 0.91) if deg >= Climate.COOL else Color(0.68, 0.84, 1.0)))
 	_hint.text = _hint_for(level)
+	_hint.visible = _hint.text != ""
 	# On touch the context button says what it does; keys need the reminder.
 	_prompt.text = ("E: %s" % level.prompt) if level.prompt != "" and not Settings.touch_enabled() else ""
 

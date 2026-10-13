@@ -41,7 +41,14 @@ screen, so pixel art stays sharp with no black bars.
 
 Touch controls appear automatically on phones; the pause menu toggles them,
 and has a "Show FPS" readout for playtests ([the checklist](../docs/playtest-checklist.md)).
-Grabs, slips and gusts buzz the phone (off with reduced motion). Walking
+Grabs, clips, slips and gusts buzz the phone; "Vibration" in either pause
+menu turns that off (on its own, apart from reduced motion; Android needs
+the VIBRATE permission, which the export preset asks for). When the app
+goes to the background, the phone locks, or the browser tab or window loses
+focus, a climb pauses under its pause menu (and the expedition saves where
+the climb is, so a killed app resumes there). The Android back button
+opens the pause menu on a climb and goes back a screen on the menus.
+Screens change with a short fade (instant with reduced motion). Walking
 never carries you off a drop: you stop at the edge, and walking onto a face
 from a ledge grabs it.
 
@@ -61,7 +68,7 @@ leaves their camp, easiest first:
 | --- | --- | --- | --- |
 | Lava Tower | Shira 2 | scramble, a loose scree face, a windy ledge, a chimney; 4 slips allowed | none |
 | Barranco Wall | Barranco | the full wall below; 3 slips | Marco |
-| Summit night | Barafu, by headlamp | five frozen switchbacks, the cold halves recovery, a long windy rim, Stella Point at dawn; 2 slips | Jun |
+| Summit night | Barafu, by headlamp | five frozen switchbacks, the cold slows recovery, a long windy rim, Stella Point at dawn; 2 slips | Jun |
 
 Each starts with a brief; backing off there (or turning back later) is a
 retreat that costs the day, not the expedition. The outcome lands once.
@@ -131,6 +138,45 @@ exactly (the parity test still holds); a trek layer on top
   | A dose of medicine before the climb | none of those symptoms |
   | A teammate sent down | not on the climb |
   | A steep route | more wind, faster stonefall |
+
+  Before each climb the brief shows this as rows, each a green or red
+  chip with the numbers the climb will use (`Condition.report`): the bar
+  (what the team's energy gives and what took a share of it), breath
+  (how much more walking costs at this height, and whether the party is
+  used to it), rest (how fast sitting down refills it: the cold, sleep,
+  food) and any illness with the medicine for it. The choices stay pinned
+  under the brief, so Start is always on screen.
+
+  The thin air rises gently with height (`StaminaModel.height_factor`:
+  about +15% for every 500 m above 4,000 m, never more than +60%), and a
+  party not yet used to the height pays up to two thirds more on top. A
+  full bar lasts at least 30 s of walking uphill on every climb for a
+  rested party; the summit is still the hardest breathing, about half as
+  long again as low down for a party that rushed (`test_rules`).
+
+  **The weather** (`core/world/climate.gd`, each level's `climate`). Every
+  climb has its own day, moved along by how far up the route you are and
+  by the clock: the Lava Tower from hot afternoon sun on black rock (27°C)
+  to a cold sunset at the top, the Barranco Wall from a sunny valley into
+  cloud, the summit night from -7°C to -16°C before dawn and a pink sunrise
+  at Stella Point, the way down from frost into the heat. Below 5°C you
+  walk and climb slower (up to 15%) and resting works less (up to 20%);
+  above 24°C every move costs more (up to 15%). The light over the scene
+  shifts with it, the HUD shows the temperature in degrees and words, and
+  the brief has a Weather row.
+
+  **Falls are never a mystery.** Grabbing a face your stamina will not get
+  you up says so ("This face takes about 26 stamina and you have 8").
+  Empty arms on a Kilimanjaro face hang on for 3 s with a warning, time to
+  climb down; if they let go, the slip says your arms gave out. Every slip
+  names its cause (a stone, a long fall, the wind, your arms). A fall into
+  a hole (the gaps that drop out of the bottom of the map) is the worst:
+  it counts as a slip and you start the climb again from the beginning.
+  Loose rock costs a third more, not 60%.
+
+  **Wildlife along the whole walk.** Thistles, ants and ravens are spread
+  one per stretch of the route, start to finish
+  (`tools/levels/gauntlet.py` `SPREAD`), not bunched on one bench.
 
   It also goes back the other way: stamina lost to thorns, ants and ravens
   on the climb costs the party energy at camp (a fifth of it, up to 12),
@@ -234,86 +280,132 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
 
 ## The crag
 
-`modes/crag/`: Lion Rock. First a lesson, **First Climb**: a short route
-where the game stops the first time each new thing comes up (the rock, a
-bolt, the rest on the rope, tiny holds, a big hold, a jump) and explains
-it, until you tap "Got it". Then six routes, easiest first; each opens when the
-one before it is finished. The words on screen are for non-climbers (tiny
-holds, big holds, a jump for a far hold), with the climbing name after.
+`modes/crag/`: Lion Rock. A first-time player is pointed here from the
+title ("new? start here") and lands on **First Climb**, a short lesson
+that stops the first time each new thing comes up (the rock, a bolt, the
+rest on the rope, tiny holds, a big hold, a jump, your first fall), one
+or two sentences each. Then six routes, easiest first; each opens when the
+one before it is sent. The crag menu always leads with one **Next up**
+route, then the **daily route**, the seven routes with their stars and
+best results, and the **logbook**. The words on screen are for
+non-climbers, with the climbing name after.
 
-Each route is taller than the one before, with more stretches of tiny
-holds and fewer big holds, further apart. The bolts make the grade: close
-and even on the warm-up, further apart the harder the route (and the
-higher you go on it). On the hard routes a fall costs a lot of height, the
-rope rests (one per clip) are few, and some gaps cross a whole stretch of
-tiny holds before the next clip.
+### Holds and moves
 
-| Grade | Route | Height | Bolts | Gaps between bolts (rows) | Crimp stretches | Big holds | Also |
+| Hold | Looks like | How it plays |
+| --- | --- | --- |
+| Ordinary rock | the pale line | costs a little to move and to hang |
+| Crimp (k) | small chalked edges | drains fast, worst if you stop. A grip meter (warm) fades; squeeze GRIP once when it drops below half. A tap during the 0.2 s cooldown waits for it (no tap goes unanswered); squeezes above 70% grip or in a flurry are wasted, and The Pinch's challenge counts them |
+| Sloper (z) | round grey domes | friction: moving loses grip by the square of your speed (half speed loses a quarter), holding still lets it settle back. Squeezing does nothing. The meter turns cool blue; out of grip you slide off. Move, pause, move |
+| Pocket (u) | dark holes with a lit rim | hang for free; cheap to clip from (1 stamina) |
+| Jug (J) | big incut holds | hang to shake out: stamina comes back, with chalk and a sound |
+| Blank rock | two rows with nothing | a dyno: JUMP (aim with the stick). A ring closes on the hold; tap GRIP **once** as the hands reach it. Within 0.15 s of contact is a perfect catch (half the jump's stamina back); up to 0.4 s after is a good catch; one tap up to 0.15 s before contact counts. Two or more taps before the hold is near is a snatch: the hands miss |
+
+Every fall names its cause and what to try next ("Pumped on the tiny
+holds: keep moving and squeeze when the meter drops below half"; "Slid
+off a sloper: move slowly and pause"; "Missed the catch: tap once, just as
+your hands reach the hold"; "Snatched too early"; "Hit the ground: clip as
+soon as you can low down"). The results card repeats the most common one.
+A route tried but not sent shows a chalk line at your high point. Where
+the line goes sideways the hint says which way.
+
+### The seven routes
+
+Three things describe a route, apart from each other, as on a real cliff:
+**the grade** (how hard the moves are), **the bolting** (how far apart the
+bolts are: well bolted up to 3.5 m, sporty up to 6 m, or run-out) and
+**the exposure** (how far a fall can go, and whether a fall low down can
+reach the ground). Bolting is set per route, not by grade. Each route
+tests one skill. Rows are half a metre; maps from
+`tools/levels/crag_maps.py`, which also writes `routes/specs.json`;
+`modes/crag/route_builder.gd` is the same builder in the game, and a test
+checks it makes the seven maps byte for byte.
+
+| Grade | Route | Skill | Height | Bolts (gaps, rows) | Bolting | Exposure | Challenge (third star) |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Lesson | First Climb | 20 rows | 3 | 7, 7 | 1 | 1 | everything once, explained |
-| 4 | Warm-up Wall | 27 | 6 | 4, 4, 5, 4, 4 | 2 | 1 | |
-| 5b | Sundown Traverse | 37 | 6 | 5, 5, 6, 7, 8 | 3 | 2 | a long traverse |
-| 6a | The Pinch | 40 | 6 | 4, 6, 7, 8, 9 | 4 | 2 | the longest crimps at the top |
-| 6b | Leap of Faith | 49 | 6 | 5, 6, 9, 10, 13 | 5 | 3 | a dyno |
-| 6c | Lion's Roof | 48 | 5 | 6, 8, 13, 15 | 6 | 3 | a traverse under a roof, a dyno |
-| 7a | Thunderhead | 56 | 5 | 7, 11, 14, 18 | 7 | 3 | two dynos, a roof |
+| Lesson | First Climb | the basics | 11 m | 3 (7, 7) | well | medium | no falls |
+| 4 | Warm-up Wall | clip, rest, repeat | 16.5 m | 6 (5, 5, 5, 5, 5) | well | low | every clip from a good hold (pockets, jug, rock) |
+| 5b | Sundown Traverse | slow and steady | 19.5 m | 4 (6, 10, 12) | sporty | high, ground-fall risk | grip on the slopers never below a third |
+| 6a | The Pinch | squeeze timing | 21 m | 8 (5, 5, 5, 4, 5, 5, 5) | well | low | clean, no wasted squeezes |
+| 6b | Leap of Faith | the timed catch | 25 m | 6 (4, 7, 8, 10, 12) | sporty | high | clean, a perfect catch |
+| 6c | Lion's Roof | steep ground | 25 m | 8 (5, 5, 4, 7, 7, 7, 7) | well | medium | no rests on the rope |
+| 7a | Thunderhead | all of it, run-out | 29 m | 5 (7, 10, 14, 17) | run-out | high, ground-fall risk | clean, both catches perfect |
 
-- **Pick your shoes.** Before every route (not the lesson) you choose:
-  neutral shoes (comfy and flat: you climb at three quarters of the speed,
-  and the rock costs 30% less stamina) or aggressive shoes (tight and bent:
-  30% faster, 35% more stamina). Neutral suits a long, pumpy route you want
-  to rest through; aggressive gets you past the hard bits and to the top
-  quicker. The game remembers your last pick and offers it first. In the
-  tests both pairs send the 6a and the 7a; aggressive is about 30% quicker,
-  neutral tops out with more stamina left.
-- **Tap to clip.** At each bolt the game asks "Clip in?": one tap of CLIP,
-  on every route. Where you clip from is the skill: one hand off a big hold
-  (jug) is free, off ordinary rock costs 2 stamina, off tiny holds (crimps)
-  costs a third of your grip and 4 stamina times (1 + the route's grip
-  drain), so about 6 on the 6a and 8 on the 7a. The hint says what the
-  clip will cost from where you are, and on tiny holds suggests climbing
-  to a big hold first. A clip snaps in with a click and a bell, and the
-  quickdraw jumps; after a long run-out (9 rows or more) it reads
-  "Clipped! Rest bar full." with a chime. Climb on without clipping and
-  the bolt stays unclipped: a fall then drops you to the last one you did
-  clip, and the game tells you so. The rope runs up through every clipped
-  bolt to you.
-- **Rest on the rope.** Every clip (and every fall the rope catches) fills
-  a green rest bar over your head.
-  Once clipped, the big button reads REST whenever nothing else needs a
-  tap: tap it to sit back on the rope and get stamina back from the bar
-  (20 per bolt). Rest as often as you like; moving ends a rest and the
-  rest of the bar waits. The bolts get further apart the harder the route, so
-  between the far ones you rest on the big holds (jugs) too: chunky
-  holds with chalk on the lip, bigger and brighter than the tiny ones.
-- **Tap to hold.** Tiny holds (crimps) burn stamina. A grip meter over
-  your head runs down (faster the harder the route, and faster if you
-  stop); tap GRIP to squeeze it back up. The tighter the grip, the less
-  the tiny holds cost: at full grip less than half, slack well over the
-  normal rate. On the hardest routes the grip fades fast: keep tapping.
-- **Stick the jump.** After a dyno you have a second to tap GRIP three
-  times, or the hold slips out of your hands.
-- Pausing, or a lesson, while on the rock keeps you on the rock.
-- On a phone the crag has one big tap button (it reads CLIMB, CLIP or
-  GRIP) beside JUMP, and no BRACE or REST.
-- **Lead climbing.** You start on the ground with a belayer. A fall stops on the rope a little below the last bolt you clipped,
-  and you are back on the rock there. Fall before the first bolt and you
-  hit the ground. Five falls on the easy routes, three on the hardest, and
-  you have to come down.
-- **The holds.** Ordinary rock; crimps (chalked edges) that empty the arms
-  fast, worst if you stop on them; jugs (big holds) where hanging gives
-  the arms back. Stamina is the one bar, as on Kilimanjaro.
-- **The dyno.** Blank rock with holds out of reach above: JUMP on the rock
-  (aim with the stick) and the hands catch the first hold they reach. It
-  costs a hard move's stamina. Miss and you drop back to the holds you
-  left.
-- **Style.** Reach the anchor and the route is sent: onsight (first go, no
-  falls), redpoint (no falls, after earlier goes), or sent with falls. The
-  best per route is kept (`user://climb_up_crag.json`), and the route list
-  shows it.
-- **Maps** come from `tools/levels/crag_maps.py`, written bottom to top as
-  segments (rock, crimps, jug, blank, traverse); holds, quickdraws and
-  the anchor from `tools/art/godot_crag.py`.
+- **Read the route first.** The camera runs up the line with the tiny
+  holds, big holds, blank rock, every bolt and the long run-outs marked.
+  Free: it does not spoil an onsight.
+- **Beta.** Tips worked out from the route (where to clip, the slopers,
+  the pockets, the catch). Taking it makes a clean first go a flash.
+- **Shoes.** Neutral (75% speed, 30% less stamina) or aggressive (130%
+  speed, 35% more), picked before each route.
+- **Clip.** One tap of CLIP at each bolt. Off a jug it is free, a pocket 1
+  stamina, rock 2, crimps or a sloper cost grip and stamina. The tap that
+  clips, catches or rests does only that (a CLIP or REST tap on crimps no
+  longer also counts as a squeeze, and a catch tap no longer clips).
+- **Rest on the rope.** Each clip fills a green rest bar; tap REST to sit
+  back and get stamina back from it.
+- **How long the arms last.** Every hold has its own cost a second, so
+  each one is a clock: on a full bar about 8 s hanging on tiny holds, 25 s
+  on a sloper, 50 s on ordinary rock; jugs and pockets stop the clock. The
+  stamina line shows it ("Stamina 85% (5 s here)", or "(resting)" on a
+  hold that gives it back).
+- **The grade curve.** Each route has a `pump` (how much every move costs)
+  set so the grades ask steadily more: a careful player's lowest point
+  goes 79, 71, 69, 57, 50, 45, 31% from the lesson to Thunderhead, and a
+  casual player (squeezes late, rests only when half empty) sends every
+  route but gets down to the last 5-8% on the two hardest
+  (`test_the_grades_climb_in_steady_steps`).
+- **Lead falls.** Twice the height above the last clipped bolt plus slack;
+  low down, or far above a low bolt, you hit the ground (25 stamina).
+- **Style**, honestly: onsight (first go, no falls, no beta), flash (first
+  go, no falls, with beta), redpoint (clean, after earlier goes, including
+  goes that lowered off), or "top, with falls". A go counts at tie-in.
+
+### Logbook, stars and achievements
+
+`modes/crag/logbook.gd`, shown on the logbook screen. Per route: goes,
+falls, sends, best style, best time (and "new best, N s faster"), high
+point, the route's challenge. **Stars**: one for the send, two for a
+clean send (redpoint or better), three with the route's challenge.
+**Achievements** ask for skill shown on a go, never a count of goes (a
+hundred sends of the lesson earn only "First send"): onsight, redpoint, a
+perfect catch, each skill challenge, Thunderhead without a fall, a clean
+sweep, three stars everywhere, a daily send and a daily onsight. Saved in
+`user://climb_up_crag.json`; bad or older data loads safely.
+
+### The daily route
+
+`modes/crag/daily.gd`. One route per UTC day, the same for every player on
+the same date and `Daily.VERSION`, opened once First Climb is sent:
+
+- **Deterministic.** Seed = FNV-1a of `climbup-daily-v<VERSION>-<date>-<n>`;
+  numbers from mulberry32, written out so they never change with the
+  engine (tests check both against an independent implementation and
+  mulberry32's published output). The route is built by the same
+  `RouteBuilder` as the fixed routes, with a name, a grade by weekday
+  (easier early in the week) and a featured skill. Bolting is chosen
+  apart from the grade.
+- **Fair.** `Daily.validate()` refuses a route unless the line is
+  continuous, dynos are two-row blanks with holds straight above, every
+  bolt is in reach, no more than six rows of hard holds go without a rest,
+  and a stamina budget (which charges sideways bands by their holds) never
+  runs dry. A day whose first roll fails tries the next sub-seed,
+  deterministically. A year of days validates (about two rolls a day); the
+  scripted climber leads two weeks of them to the anchor.
+- **Logged offline.** Per day: goes, sends, falls, best style, best time;
+  and a streak of days in a row with a send (`user://climb_up_daily.json`,
+  the last 60 days). No account, no network.
+- **Clock honesty.** If the device's date is earlier than a day it has
+  already shown, the route can still be climbed but the go is practice and
+  is not logged.
+- **Sharing.** "Share today's result" copies a text result (works
+  anywhere) and saves a picture card with the route's shape drawn hold by
+  hold (downloaded on the web; saved to app storage on Android, where a
+  native share sheet would need a plugin).
+- **Leaderboards later.** `Daily.payload()` is what a server would need to
+  check a result: date, version, seed, the map's hash and the go, nothing
+  about the player. There is no server: nothing here is global, and no
+  ranking is claimed.
 
 ## The Barranco Wall
 
@@ -326,6 +418,23 @@ in the wind → the upper face → the plateau → Karanga.
 
 Slips send you back to the last cairn; three end the attempt. Turning back
 is always in the pause menu. Quitting mid-climb resumes at the last cairn.
+
+## The way down
+
+`levels/kilimanjaro/descent/`. Turn around on the summit and the descent
+is played: Stella Point at sunrise, the rim in the wind, long scree, one
+rock step climbed down (stand at the edge and push DOWN), an icy bench, a
+rest halfway, Barafu. Quieter than the climbs up, with room between the
+beats. Jun sits on the rim, spent: short-rope him down beside you (it
+costs stamina, he catches your next slip, his breath runs low if you rush)
+or leave him with Lena. How it went lands once (`Expedition.finish_descent`):
+the card's own move down as before, then the result on stats and score.
+Bringing Jun down is teamwork and judgment; leaving him costs the team; a
+clean descent is good risk management; a ruinous one can still lose the
+expedition after the summit, and a summit without a safe return scores at
+most 36. It lives on the trek, outside the Coordinator, so the Expo engine
+parity holds, and it adds no extra roll of the mountain's dice: the
+scripted parties end exactly as they did before it.
 
 ## Layout
 
@@ -340,10 +449,59 @@ tests/     headless test runner and suites; shot/demo tools
 ```
 
 Levels are ASCII maps stamped by `tools/levels/barranco_map.py` and
+## Look
+
+Drawn for phones, in the spirit of the best-looking mobile games (the
+chunky, outlined Supercell characters; Alto's layered gradients and soft
+far layers): everything is painted at 4x and shown at a quarter scale with
+smooth filtering and mipmaps (the project default), so a phone draws it at
+its own resolution instead of blowing up pixels. One colour grade on top.
+
+- **Smooth terrain** (`tools/art/terrain_hd.py` → `assets/terrain/hd/`):
+  rock, back wall and faces with soft bevels and cracks, edges with rounded
+  grass, moss or snow caps, slopes, scree, boulders, holds, ice and slabs.
+  `TerrainTiles.paint_hd` lays them as scaled layers (`BackHD`, `GroundHD`,
+  `EdgesHD`) over the 16 px layers, which are hidden but keep the
+  collision. Without the HD files the pixel layers show as before.
+- **Smooth props** (`tools/art/props_hd.py` → `assets/terrain/props/hd/`):
+  cairns, signs, plants, tents, fire, stones, gear and creatures.
+  `Art.tex(path)` loads the HD file but reports the pixel size, so regions
+  and positions in code stay in world pixels.
+- **The harness.** Every climber wears one: a red waist belt with a belay
+  loop, leg loops, quickdraws on the gear loop and a chalk bag.
+
+The pixel sources below remain as the fallback and as the collision grid:
+
+- **Rock** (`tools/art/godot_rock.py`) is drawn the way pixel artists draw
+  rock, not as noise: blocks (a tileable Voronoi stretched along the
+  bedding), each one a flat cluster lit by how it faces the upper-left
+  light, with a lit rim, a shadowed edge and a crack between blocks, a slow
+  swell of light and dark so the tiling never shows, and hue-shifted ramps
+  (cool shadows, warm lights). Per climb palette (Barranco basalt, Lava
+  Tower red, summit blue-grey): solid rock, a darker flatter back wall (it
+  is further away), and climbable faces lighter and warmer with vertical
+  joints, so the way up reads at a glance.
+- **Edges** are an overlay on the same rock, so edge and interior are one
+  surface: a warm lit lip with moss (snow on the summit), an outline and
+  an undercut shadow below, shaded sides, bevelled corners. Slopes, scree,
+  boulders and face holds come from the same palettes.
+- **People** (`tools/art/characters_hd.py`) are drawn as clean illustrated
+  characters (round shapes, a big readable head, big hands and boots, cel
+  shading, a warm rim light, a bold outline) at 4x and shown at a quarter scale, smooth, with
+  mipmaps: a phone draws them at its full resolution. Same poses and frame
+  layout as the pixel sheets (`tools/art/characters.py`), which remain as
+  the fallback.
+- **The lens** (`core/world/grade.gdshader`) grades the world under the
+  HUD: shadows toward a cool tint and lights toward a warm one per climb,
+  a little more contrast and colour, and a vignette. "Low power" keeps the
+  vignette only (no screen read).
+
 `tools/levels/kili_maps.py`. Card content comes from the Expo source via
 `tools/godot/export_content.ts`, which also records scripted playthroughs
 of the TypeScript engine for the parity test. Art: `tools/art/godot_barranco.py`
-(tiles, props), `tools/art/godot_backwalls.py` (rock strata),
+(props, fallback tiles), `tools/art/godot_rock.py` (rock, edges, faces),
+`tools/art/characters_hd.py` and `tools/art/crag_hd.py` (people and gear),
+`tools/art/terrain_hd.py` and `tools/art/props_hd.py` (smooth terrain and props),
 `tools/art/godot_hazards.py` (ice, slabs, stones, water, gear),
 `tools/art/godot_creatures.py` (thistle, nettle, siafu, raven),
 `tools/art/godot_kili.py` (diorama plates, map sprites, scenery from the
@@ -357,7 +515,24 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=barranco
 ```
 
-74 tests: the engine replaying seven expeditions recorded from the
+119 tests (a script error during a test fails it, not just a failed
+check). New this sprint: `test_crag_moves` (the route builder matches the
+tools byte for byte; slopers want a steady pace; pockets are free; a dyno
+wants one timed tap, perfect, good or a reach just before; mashing a dyno
+misses; each route tests its own skill; a traverse says which way),
+`test_logbook` (styles named honestly, stars, each challenge asks for its
+skill, achievements cannot be ground out, saves survive bad data, the high
+point to beat, the next route is always clear), `test_daily` (the numbers
+match an independent implementation, one route per day for everyone, a
+year of routes validates, two weeks led to the top, results, streaks and
+sharing, a clock turned back does not count, the level offers a share),
+`test_descent` (the way down's effect, turning around opens it and it
+lands once, a ruinous descent can lose the expedition, the level played
+start to finish helping Jun), and in `test_platform` the settings page,
+playing with the sound off, touch controls for either hand and any size
+inside the safe area, and analytics that stay local and private.
+
+The rest: the engine replaying seven expeditions recorded from the
 TypeScript engine (178 steps, every state equal); the rules (stamina, wind,
 climb consequences, outcomes land once, saves); the flow (a played choice
 opens its climb without spending the card, back off at the brief, resume
@@ -367,12 +542,22 @@ input actions with every hazard live (the bot reads the same warnings a
 player sees), each hazard on its own (slabs hold a walker and drop someone
 who stops, a stone is announced before it falls, ice slides, water and gear,
 walking costs more breath on the summit), plus the order of difficulty and
-that every find stands on reachable ground. `test_crag` leads all five
+that every find stands on reachable ground. `test_crag` leads all seven
 crag routes to the anchor with a scripted climber (walk to the line,
-traverse where it goes, rest on jugs, keep moving on crimps, dyno, pull
-over) and checks the rules one at a time: crimps drain and jugs give back,
-a lead fall stops at the last bolt, a dyno crosses the blank, styles,
-unlocks and the crag's own save. `test_body` covers the
+traverse where it goes, rest on jugs, keep moving on crimps and squeeze
+only when the grip drops below half, dyno, pull over), prints the taps
+each route took by kind, and checks the rules one at a time: crimps drain
+and jugs give back, a lead fall is twice the height above the bolt and a
+low one reaches the ground, a dyno crosses the blank, grip wants squeezes
+not mashing, grade, bolting and exposure are apart, reading the route and
+beta (a flash), styles, high points, unlocks, a go counts at tie-in, and
+a bad save loads safely. `test_platform` covers the phone: going to the
+background mid-climb pauses (and saves the expedition), the back button,
+vibration as its own setting, a bad settings file, panels that fit and scroll on a short screen. `test_pacing` covers
+the expedition fixes: a regroup does not bring down an hour of stones at
+once, no stone starts on the climber, the brief names the cost of a slip
+at camp and leaves out a teammate who has gone down, the last slip says
+the climb is over. `test_body` covers the
 creatures (a hop clears a thistle, a sting or a bite is stamina gone, a
 raven hits someone standing still and misses someone who moved, a hit with
 no stamina left is a slip, poor party health is a smaller bar) and the camp reaching into the climb (a bad night, hunger and
@@ -387,9 +572,30 @@ godot --path godot --rendering-driver opengl3 res://tests/shot.tscn -- out=/tmp/
 godot --path godot --write-movie /tmp/climb.avi --fixed-fps 30 res://tests/demo.tscn
 ```
 
+## Settings, sound and analytics
+
+- **Settings** (`core/settings/settings_menu.gd`, the same page in every
+  pause menu): music and effects volumes apart (each down to off),
+  vibration, touch controls on or off, control size (85% to 130%), a
+  left-handed layout (buttons left, stick right), graphics quality,
+  reduced motion (no shake, no clip pop, no glow pulse), the usage log,
+  FPS. Everything stays inside the display's safe area (notches, rounded
+  corners). The game plays the same with all sound off.
+- **Analytics** (`core/analytics/analytics.gd`, see `docs/analytics.md`):
+  local only. Whitelisted events (launch, mode chosen, tutorial started
+  and finished, route started, failed, completed and replayed, daily
+  started, completed and shared, expedition started, abandoned and
+  completed, the descent, achievements, settings, session length) written
+  to `user://climb_up_events.jsonl` on the device. A random session id,
+  no device or player ids, no network code, no third-party SDK. A
+  provider can be added later behind a consent setting (`add_sink`).
+
 ## Placeholders and gaps
 
-- **Audio** is synthesized placeholder (see `assets/audio/README.md`). No music.
+- **Audio** is synthesized placeholder (see `assets/audio/README.md`),
+  including two quiet music loops (crag, camp). Real recordings and a
+  composed score are wanted; the hooks (`Audio.play_music`, the hold
+  sounds, separate music and effects volumes) are in place.
 - **Animation** reuses the side-view sheets; missing frames for a real
   mantle, scramble, traverse, crouch-walk, and a two-person help-up
   (`help` is one pose). Wanted: hand-drawn sheets with those clips.
@@ -399,7 +605,13 @@ godot --path godot --write-movie /tmp/climb.avi --fixed-fps 30 res://tests/demo.
 - **Export**: web and Android (debug) builds exist. They were checked in
   desktop Chromium and in Chromium emulating a phone (touch stick,
   landscape, menu → camp → cards → the Lava Tower), **not on a real
-  phone**: thumb feel, haptics and frame rate are unmeasured. No iOS build. The APK is debug-signed, not for
-  the Play Store.
+  phone**: thumb feel, haptics and frame rate are unmeasured. The APK is debug-signed, not for
+  the Play Store, and sits just under 30 MiB. An iOS export preset exists
+  (`export_presets.cfg`: bundle id, iOS 14+, iPhone and iPad) but no iOS
+  build has been made or tested: that needs a Mac, Xcode, the iOS export
+  template and an Apple team id.
+- **Foot placement** is not modelled: on a touchscreen a second set of
+  limb controls was judged too fiddly for now. Body position shows only in
+  the hold types (slopers want stillness, crimps want movement).
 - **Only Kilimanjaro.** Everest and the other mountains in the Expo app
   are not ported.

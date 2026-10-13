@@ -34,6 +34,7 @@ static func of(session: Dictionary, dosed: bool = false) -> Dictionary:
 		"medicine": int(t.get("medicine", 0)), "dosed": dosed, "lines": [],
 		# What shrank the bar, for the brief: [words, multiplier].
 		"factors": [],
+		"sleep": String(t.get("sleep", "")), "hungry": int(s.get("supplies", 100)) < 30,
 	}
 	var lines: Array = c["lines"]
 	match String(t.get("sleep", "")):
@@ -77,7 +78,7 @@ static func of(session: Dictionary, dosed: bool = false) -> Dictionary:
 	if c["health"] < 80.0:
 		# Poor health is a smaller bar: down to 70% of it at none.
 		c["stamina"] *= 0.7 + 0.3 * c["health"] / 80.0
-		c["factors"].append(["the team's low health (%d)" % int(c["health"]), 0.7 + 0.3 * c["health"] / 80.0])
+		c["factors"].append(["the team's health is low (%d)" % int(c["health"]), 0.7 + 0.3 * c["health"] / 80.0])
 		lines.append("The team's health is low (%d): less stamina." % int(c["health"]))
 	return c
 
@@ -103,3 +104,61 @@ static func medicine_helps(session: Dictionary) -> bool:
 ## Seconds between dizzy spells or cramps at `stage`, after the first.
 static func spell_period(stage: int, cramps: bool) -> float:
 	return (20.0 - 4.0 * stage) if cramps else (16.0 - 3.0 * stage)
+
+
+## What the camp's choices did to the body for this climb, row by row, for
+## the brief: each row is {tone: good/bad/info, icon, title, text}. Built
+## from the stamina model the climb actually uses, so the numbers shown are
+## the numbers played. `level_recovery`: the climb's own recovery (the
+## cold), already inside `st.recovery`.
+static func report(c: Dictionary, st: StaminaModel, energy: float, meters: float, acclimatization: float, level_recovery: float) -> Array:
+	var rows: Array = []
+	# The bar.
+	var base := int(StaminaModel.max_for_energy(energy))
+	var took: Array = []
+	for f in c["factors"]:
+		took.append("%s -%d%%" % [f[0], int(round((1.0 - f[1]) * 100.0))])
+	var bar := "Team energy %d gives a bar of %d." % [int(energy), base]
+	if not took.is_empty():
+		bar += " Lost to " + ", ".join(took) + "."
+	rows.append({"tone": "good" if took.is_empty() and base >= 85 else ("bad" if not took.is_empty() or base < 70 else "info"),
+		"icon": "bolt", "title": "Stamina %d" % int(st.max_value), "text": bar})
+	# Breath: the height, and how used to it the party is.
+	var need := ExpeditionEngine.acclimatization_need(meters)
+	var gap := StaminaModel.gap_factor(meters, acclimatization)
+	var walk := int(round((StaminaModel.height_factor(meters) - 1.0) * 100.0))
+	var breath := "Walking costs %d%% more breath at %s m" % [maxi(0, walk), ExpeditionEngine.format_meters(meters)] if walk > 0 else "Walking costs normal breath at %s m" % ExpeditionEngine.format_meters(meters)
+	if gap > 1.0:
+		breath += ". Not used to this height yet (%d of %d): that adds %d%%." % [int(acclimatization), need, int(round((gap - 1.0) * 100.0))]
+	else:
+		breath += ". You are used to the height (%d, %d needed): no extra cost." % [int(acclimatization), need]
+	if c["thinAir"] > 1.0:
+		breath += " Altitude sickness adds %d%%." % int(round((c["thinAir"] - 1.0) * 100.0))
+	rows.append({"tone": "bad" if gap > 1.0 or c["thinAir"] > 1.0 else "good", "icon": "peak", "title": "Breath", "text": breath})
+	# How fast it comes back when you sit.
+	var parts: Array = []
+	if level_recovery < 1.0:
+		parts.append("the cold -%d%%" % int(round((1.0 - level_recovery) * 100.0)))
+	var sleep := String(c.get("sleep", ""))
+	if sleep == "badly":
+		parts.append("slept badly -20%")
+	elif sleep == "well":
+		parts.append("slept well +10%")
+	if c.get("hungry", false):
+		parts.append("hungry -20%")
+	var rec := int(round(st.recovery * 100.0))
+	var back := "Sitting down refills stamina at %d%% speed" % rec
+	if not parts.is_empty():
+		back += " (" + ", ".join(parts) + ")"
+	rows.append({"tone": "good" if rec >= 100 else ("bad" if rec < 75 else "info"), "icon": "heart", "title": "Rest", "text": back + "."})
+	# Being ill, and the medicine.
+	if int(c["stage"]) > 0:
+		var what: String = {"ams": "Altitude sickness: now and then you feel dizzy and walk unsteadily.", "stomach": "A bad stomach: cramps now and then stop you for a moment.", "cold": "Cold: numb fingers: holding on to rock costs %d%% more." % int(round((1.0 + 0.3 * int(c["stage"]) - 1.0) * 100.0))}.get(String(c["sick"]), "Unwell.")
+		var off: bool = c["dizzy"] == 0 and c["cramps"] == 0 and c["grip"] <= 1.0
+		if off:
+			rows.append({"tone": "good", "icon": "crate", "title": "Medicine", "text": "You took something for it: the symptoms stay off for this climb."})
+		else:
+			if int(c["medicine"]) > 0:
+				what += " A dose first keeps that off (%d in the kit)." % int(c["medicine"])
+			rows.append({"tone": "bad", "icon": "cloud", "title": "Unwell", "text": what})
+	return rows

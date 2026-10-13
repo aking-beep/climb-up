@@ -3,6 +3,12 @@ extends Node
 ## particles, fog layers, lights. The simulation never reads it.
 
 signal changed
+## The game lost the player: the app went to the background, the window or
+## browser tab lost focus, or the phone locked. Levels pause and save.
+signal interrupted
+## The Android back button (or gesture). Levels open their pause menu,
+## menus go back a screen.
+signal back_requested
 
 enum Quality { FULL, REDUCED, LOW_POWER }
 
@@ -15,9 +21,25 @@ var touch_controls: Variant = null
 var master_volume := 0.8
 ## A frame-rate readout in the corner, for playtests.
 var show_fps := false
+## Short buzzes on phones (grabs, clips, falls). Apart from reduced motion.
+var haptics := true
+## Sound effects and music, each 0 … 1, under master_volume.
+var effects_volume := 1.0
+var music_volume := 0.6
+## The touch buttons and stick: 0.85 … 1.3 of their size, and the buttons
+## on the left (the stick on the right) for left-handed play.
+var touch_scale := 1.0
+var left_handed := false
+## Usage events written on this device (Analytics); and whether they may
+## be sent anywhere. Nothing sends them yet: share_usage stays off until a
+## consent screen and a provider exist (docs/analytics.md).
+var log_usage := true
+var share_usage := false
 
 
 func _ready() -> void:
+	# The back button is the game's to handle (pause, or back a screen).
+	get_tree().set_quit_on_go_back(false)
 	load_settings()
 	get_tree().root.size_changed.connect(_fit_view)
 	_fit_view()
@@ -34,6 +56,14 @@ func _fit_view() -> void:
 		return
 	var k := maxf(1.0, roundf(screen.y / 270.0))
 	root.content_scale_size = Vector2i(ceili(screen.x / k), ceili(screen.y / k))
+
+
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+			interrupted.emit()
+		NOTIFICATION_WM_GO_BACK_REQUEST:
+			back_requested.emit()
 
 
 func touch_enabled() -> bool:
@@ -57,6 +87,35 @@ static func _detect_touch() -> bool:
 		var coarse: Variant = JavaScriptBridge.eval("window.matchMedia('(pointer: coarse)').matches ? 1 : 0", true)
 		return int(coarse) == 1
 	return false
+
+
+## The screen's safe margins (notches, rounded corners, gesture bars) in
+## view units: {left, right, top, bottom}. Zero where there is no cutout.
+## Tests can set safe_override to a Rect2i in screen pixels.
+var safe_override: Variant = null
+
+
+func safe_insets() -> Dictionary:
+	var out := {"left": 0.0, "right": 0.0, "top": 0.0, "bottom": 0.0}
+	var root := get_tree().root
+	var win := Vector2(root.size)
+	if win.x <= 0 or win.y <= 0:
+		return out
+	var safe: Rect2i
+	if safe_override != null:
+		safe = safe_override
+	elif OS.has_feature("mobile"):
+		safe = DisplayServer.get_display_safe_area()
+	else:
+		return out
+	if safe.size.x <= 0 or safe.size.y <= 0:
+		return out
+	var k := Vector2(root.content_scale_size) / win if root.content_scale_size.x > 0 else Vector2.ONE
+	out["left"] = maxf(0.0, safe.position.x * k.x)
+	out["top"] = maxf(0.0, safe.position.y * k.y)
+	out["right"] = maxf(0.0, (win.x - safe.end.x) * k.x)
+	out["bottom"] = maxf(0.0, (win.y - safe.end.y) * k.y)
+	return out
 
 
 func particle_scale() -> float:
@@ -89,25 +148,56 @@ func set_show_fps(value: bool) -> void:
 	changed.emit()
 
 
+func set_haptics(value: bool) -> void:
+	haptics = value
+	save_settings()
+	changed.emit()
+
+
 func set_touch_controls(value: Variant) -> void:
 	touch_controls = value
 	save_settings()
 	changed.emit()
 
 
+func set_value(key: String, value: Variant) -> void:
+	set(key, value)
+	save_settings()
+	changed.emit()
+
+
 func to_dict() -> Dictionary:
-	return {"quality": quality, "reducedMotion": reduced_motion, "touchControls": touch_controls, "volume": master_volume, "showFps": show_fps}
+	return {"quality": quality, "reducedMotion": reduced_motion, "touchControls": touch_controls, "volume": master_volume, "showFps": show_fps, "haptics": haptics,
+		"effects": effects_volume, "music": music_volume, "touchScale": touch_scale, "leftHanded": left_handed, "logUsage": log_usage}
 
 
 func apply_dict(d: Variant) -> void:
 	if typeof(d) != TYPE_DICTIONARY:
 		return
-	quality = clampi(int(d.get("quality", Quality.FULL)), 0, 2)
-	reduced_motion = d.get("reducedMotion") == true
+	var q: Variant = d.get("quality", Quality.FULL)
+	quality = clampi(int(q), 0, 2) if typeof(q) == TYPE_INT or typeof(q) == TYPE_FLOAT else Quality.FULL
+	reduced_motion = _flag(d.get("reducedMotion"), false)
 	var t: Variant = d.get("touchControls")
 	touch_controls = t if typeof(t) == TYPE_BOOL else null
-	master_volume = clampf(float(d.get("volume", 0.8)), 0.0, 1.0)
-	show_fps = d.get("showFps") == true
+	var v: Variant = d.get("volume", 0.8)
+	master_volume = clampf(float(v), 0.0, 1.0) if typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT else 0.8
+	show_fps = _flag(d.get("showFps"), false)
+	haptics = _flag(d.get("haptics"), true)
+	effects_volume = _level(d.get("effects"), 1.0, 0.0, 1.0)
+	music_volume = _level(d.get("music"), 0.6, 0.0, 1.0)
+	touch_scale = _level(d.get("touchScale"), 1.0, 0.85, 1.3)
+	left_handed = _flag(d.get("leftHanded"), false)
+	log_usage = _flag(d.get("logUsage"), true)
+
+
+## A number from a saved file, kept in [lo, hi], or `default`.
+static func _level(v: Variant, default: float, lo: float, hi: float) -> float:
+	return clampf(float(v), lo, hi) if typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT else default
+
+
+## A yes/no from a saved file, or `default` when it is anything else.
+static func _flag(v: Variant, default: bool) -> bool:
+	return v if typeof(v) == TYPE_BOOL else default
 
 
 func save_settings() -> void:

@@ -53,6 +53,18 @@ var stars := 0
 ## A helped teammate's breath: walking drains it (more in thin air, more if
 ## they are unwell), sitting near them gives it back. At zero they stop.
 var mate_breath := 100.0
+const ARMS_GRACE := 3.0
+## The level's day: temperature and light along the route (spec "climate").
+var climate: Climate
+var degrees := 10.0
+var _base_recovery := 1.0
+var _base_drain := 1.0
+var _tint: ColorRect
+var _cold_said := false
+var _hot_said := false
+var _was_failing := false
+## The slip under way was a fall into a hole (back to the start).
+var _hole := false
 var mate_winded := false
 var _mate_away := 0.0
 var _mate_clock := -1.0
@@ -100,6 +112,9 @@ func _ready() -> void:
 	stamina.recovery = clampf(stamina.recovery * condition["recovery"], 0.2, 1.2)
 	stamina.thin_air *= condition["thinAir"]
 	stamina.grip = condition["grip"]
+	climate = Climate.from_spec(spec.get("climate", {}))
+	_base_recovery = stamina.recovery
+	_base_drain = stamina.drain
 	wind = WindSchedule.new(float(s["weatherRisk"]), seed, float(d["wind"]) + (trek_factor["steep"] - 1.0) * 40.0)
 	if Expedition.climb.get("challengeId") == spec["id"]:
 		attempt_id = Expedition.climb.get("attemptId", attempt_id)
@@ -135,9 +150,12 @@ func _ready() -> void:
 	climber.global_position = cairns[0]
 	climber.slipped.connect(_on_slipped)
 	climber.slip_finished.connect(_on_slip_finished)
+	# On Kilimanjaro, empty arms hang on for a moment: time to climb down.
+	climber.arms_grace = ARMS_GRACE
 	climber.grabbed.connect(func() -> void:
 		Haptics.tap(12)
-		engage("grab"))
+		engage("grab")
+		_face_warning())
 	climber.jumped.connect(func() -> void: engage("hop"))
 	climber.mantled.connect(func() -> void: engage("mantle"))
 	climber.mantled.connect(func() -> void: camera.kick(0.0))
@@ -181,6 +199,19 @@ func _ready() -> void:
 	camera.snap()
 
 	Scenery.build(self, terrain, camera, theme)
+	# The light of the hour, over the whole scene (multiplied in: white is
+	# none, warm is afternoon sun, orange is sunset, blue is night).
+	var tl := CanvasLayer.new()
+	tl.layer = 6
+	tl.name = "DayLight"
+	add_child(tl)
+	_tint = ColorRect.new()
+	_tint.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mul := CanvasItemMaterial.new()
+	mul.blend_mode = CanvasItemMaterial.BLEND_MODE_MUL
+	_tint.material = mul
+	tl.add_child(_tint)
 
 	hud = Hud.new()
 	hud.title = spec["hud"]
@@ -189,9 +220,13 @@ func _ready() -> void:
 	add_child(panel)
 	panel.chosen.connect(_on_choice)
 	TouchControls.attach(self)
+	Settings.interrupted.connect(_on_interrupted)
+	Settings.back_requested.connect(_on_back)
 
 	_resume_from_save()
 	Audio.set_camp(1.0)
+	# On the mountain: the wind and your breath, no music.
+	Audio.play_music("")
 	if not briefed:
 		brief()
 
@@ -255,12 +290,22 @@ func _place_props() -> void:
 			add_child(c)
 			c.global_position = Terrain.feet(cell)
 			c.sprite.flip_h = true
-			people.append({"node": c, "title": who[1], "lines": who[2]})
+			var said: Array = []
+			for line in who[2]:
+				var names_gone := false
+				for id in Expedition.trek()["gone"]:
+					if id != "you" and Trek.NAMES.get(id, "?") in String(line):
+						names_gone = true
+				if not names_gone:
+					said.append(line)
+			if said.is_empty():
+				said = ["Let's get up this."]
+			people.append({"node": c, "title": who[1], "lines": said})
 
 
 func _sprite(name: String, feet: Vector2) -> Sprite2D:
 	var s := Sprite2D.new()
-	s.texture = load("res://assets/terrain/props/%s.png" % name)
+	s.texture = Art.tex("res://assets/terrain/props/%s.png" % name)
 	s.centered = false
 	s.position = feet - Vector2(s.texture.get_width() / 2.0, s.texture.get_height())
 	return s
@@ -268,7 +313,7 @@ func _sprite(name: String, feet: Vector2) -> Sprite2D:
 
 func _fire(feet: Vector2) -> Node2D:
 	var fire := AnimatedSprite2D.new()
-	var tex: Texture2D = load("res://assets/terrain/props/fire.png")
+	var tex: Texture2D = Art.tex("res://assets/terrain/props/fire.png")
 	var sf := SpriteFrames.new()
 	sf.set_animation_speed("default", 8.0)
 	for i in 4:
@@ -304,6 +349,7 @@ func _resume_from_save() -> void:
 	elif mate and mate_state == "left":
 		mate.left_behind()
 	camera.snap()
+	hazards.skip_to(climber.clock)
 	hud.flash("Back at cairn %d" % checkpoint)
 
 
@@ -315,32 +361,65 @@ func brief() -> void:
 	climber.lock(true)
 	var copy: Dictionary = spec["copy"]
 	var d: Dictionary = spec["difficulty"]
-	var facts := "%s\nFall %d times and you turn back · Wind: %s" % [
-		Condition.explain(condition, float(Expedition.state()["energy"]), stamina.max_value), max_slips, wind.describe()]
-	if d["recovery"] < 0.8:
-		facts += " · the cold makes stamina come back slower"
-	facts += " · up here (%s m) even walking tires you" % ExpeditionEngine.format_meters(float(spec.get("meters", 4000)))
-	for line in condition["lines"]:
-		facts += "\n" + line
+	var st: Dictionary = Expedition.state()
+	# What camp did to the body, row by row, with the numbers the climb uses.
+	var rows := Condition.report(condition, stamina, float(st["energy"]), float(spec.get("meters", 4000)), float(st["acclimatization"]), float(d["recovery"]))
+	# The weather along the way: where it starts and ends, and what it does.
+	var t0 := climate.degrees(0.0, 0.0)
+	var t1 := climate.degrees(1.0, 0.0)
+	var coldest := minf(t0, t1)
+	for k in climate.temps:
+		coldest = minf(coldest, float(k[1]))
+	var weather := "Starts at %d°C, ends near %d°C." % [int(round(t0)), int(round(t1))]
+	if coldest < Climate.COOL:
+		weather += " In the cold you move up to %d%% slower and rest works less." % int(round((1.0 - Climate.pace(coldest)) * 100.0))
+	if maxf(t0, t1) >= Climate.WARM:
+		weather += " In the heat every move costs up to %d%% more." % int(round((Climate.heat(maxf(t0, t1)) - 1.0) * 100.0))
+	weather += " The longer you take, the more it changes."
+	rows.append({"tone": "bad" if coldest < 0.0 or maxf(t0, t1) >= Climate.WARM else "info", "icon": "cloud", "title": "Weather", "text": weather})
+	# The climb itself, in one smaller paragraph.
+	var facts: Array = ["Fall %d times and you turn back." % max_slips, "Wind: %s." % wind.describe()]
+	if float(d["drain"]) > 1.0:
+		facts.append("Up here every move costs %d%% more." % int(round((float(d["drain"]) - 1.0) * 100.0)))
 	if trek_factor["steep"] > 1.0:
-		facts += "\nYour route is steep: more wind, and the stones come faster."
+		facts.append("Your route is steep: more wind, and the stones come faster.")
 	var missing: Array = []
 	for id in Expedition.trek()["gone"]:
 		if id != "you":
 			missing.append(Trek.NAMES[id])
 	if not missing.is_empty():
-		facts += "\nWithout %s: the rope team is smaller than it was." % " and ".join(missing)
+		facts.append("Without %s: the rope team is smaller than it was." % " and ".join(missing))
 	var dangers: Array = spec.get("dangers", [])
 	if not dangers.is_empty():
-		facts += "\nWatch for: " + ", ".join(dangers) + "."
+		facts.append("Watch for: " + ", ".join(dangers) + ".")
 	if hazards.gear_total() > 0:
-		facts += " Lost gear found here: %d of %d." % [hazards.gear_count, hazards.gear_total()]
+		facts.append("Lost gear found here: %d of %d." % [hazards.gear_count, hazards.gear_total()])
+	# What the climb costs back at camp, before you start it.
+	var stakes: Dictionary = Coordinator.CLIMBS.get(spec["id"], {}).get("stakes", {})
+	if not stakes.is_empty():
+		facts.append("After: each slip costs the party %d health at camp (up to %d); topping out under 25%% stamina costs 4 energy." % [int(stakes["slip"]), int(stakes["slipMax"])])
 	var choices: Array = [["start", "Start the climb"]]
 	if not dosed and Condition.medicine_helps(Expedition.session):
 		var what: String = {"ams": "Take a painkiller first (like Tylenol)", "stomach": "Take stomach pills first", "cold": "Hand warmers first"}.get(String(condition["sick"]), "Take medicine first")
 		choices.append(["medicine", "%s · %d left in the kit" % [what, condition["medicine"]]])
-	choices.append(["backoff", copy["backOff"]])
-	panel.show_panel(copy["kicker"], copy["title"], "%s\n%s" % [copy["brief"], facts], choices)
+	if String(copy["backOff"]) != "":
+		choices.append(["backoff", copy["backOff"]])
+	panel.show_panel(copy["kicker"], copy["title"], _brief_words(), choices)
+	panel.show_rows("Your climber, from your camp choices", rows, " ".join(facts))
+
+
+## The level's brief, without the line about a teammate who has gone down.
+func _brief_words() -> String:
+	var words: String = spec["copy"]["brief"]
+	if mate == null and mate_name() != "":
+		var keep: Array = []
+		for sentence in words.split(". "):
+			if not (mate_name() in sentence and "somewhere" in sentence):
+				keep.append(sentence)
+		words = ". ".join(keep)
+		if not words.ends_with("."):
+			words += "."
+	return words
 
 
 # --- The climb --------------------------------------------------------------
@@ -348,12 +427,20 @@ func brief() -> void:
 func _physics_process(_delta: float) -> void:
 	if _ended or climber == null:
 		return
+	# Down a hole and out of the bottom of the map: there is no floor to
+	# land on, so it is a fall that ends this go at the climb.
+	if climber.global_position.y > terrain.pixel_size().y + Terrain.TILE and climber.state != Climber.State.SLIP and climber.state != Climber.State.DONE:
+		climber.slip("hole")
 	hazards.step()
 	creatures.step()
+	_arms()
+	_weather()
 	_symptoms()
 	_mate_breath()
 	if _travel_clock >= 0.0 and climber.last_activity in ["walk", "walk_up", "ice"]:
-		travel += clampf(climber.clock - _travel_clock, 0.0, 0.1)
+		# At normal walking pace: the cold slows you, but the spacing of
+		# things along the route is what this measures.
+		travel += clampf(climber.clock - _travel_clock, 0.0, 0.1) * climber.chill
 	_travel_clock = climber.clock
 	# Stepping onto ice is a challenge of its own: keep your footing.
 	if climber.on_ice and not _was_on_ice:
@@ -388,6 +475,58 @@ func _physics_process(_delta: float) -> void:
 	if streaks:
 		streaks.emitting = wind.phase_at(climber.clock) == WindSchedule.Phase.BLOW
 	hud.update_from(self)
+
+
+## Stamina the face above costs to climb in one go, at this pace and with
+## what this climb asks (thin air does not reach the arms; the cold does).
+func face_cost() -> float:
+	var f := climber.face_above()
+	if f.x <= 0:
+		return 0.0
+	var secs_per_row := Terrain.TILE / (Climber.CLIMB_UP * climber.pace)
+	return (f.x - f.y) * secs_per_row * stamina.rate("climb") + f.y * secs_per_row * stamina.rate("climb", true)
+
+
+## On grabbing the rock: say whether the arms will last to the top.
+func _face_warning() -> void:
+	var cost := face_cost()
+	if cost <= 0.0:
+		return
+	if cost > stamina.value:
+		hud.flash("This face takes about %d stamina and you have %d. Climb down and rest first." % [ceili(cost), int(stamina.value)], 3.0)
+	elif cost > stamina.value * 0.7:
+		hud.flash("Tight: this face takes about %d of your %d stamina. Keep moving." % [ceili(cost), int(stamina.value)], 2.6)
+
+
+## The temperature here and now, and what it does: slower in the cold,
+## slower to recover, dearer to move in the heat. Said once each way.
+func _weather() -> void:
+	var p := route_progress()
+	degrees = climate.degrees(p, climber.clock)
+	climber.chill = Climate.pace(degrees)
+	stamina.recovery = clampf(_base_recovery * Climate.rest(degrees), 0.2, 1.2)
+	stamina.drain = clampf(_base_drain * Climate.heat(degrees), 0.5, 2.0)
+	if _tint:
+		_tint.color = climate.tint(p)
+	if degrees < 0.0 and not _cold_said:
+		_cold_said = true
+		hud.flash("Below freezing (%d°C): you move slower and rest works less. Keep going." % int(round(degrees)), 3.0)
+	elif degrees >= Climate.WARM and not _hot_said:
+		_hot_said = true
+		hud.flash("Hot sun (%d°C): every move costs a little more. Water helps." % int(round(degrees)), 3.0)
+
+
+func climate_line() -> String:
+	return Climate.words(degrees)
+
+
+## Arms empty on the rock: say so the moment it starts.
+func _arms() -> void:
+	if climber.arms_failing and not _was_failing:
+		hud.flash("Your arms are giving out! Climb down now, or you fall.", 2.5)
+		Haptics.tap(40)
+		Audio.play("grip", -2.0)
+	_was_failing = climber.arms_failing
 
 
 ## Being unwell, from the trek: a dizzy spell or a cramp now and then, on
@@ -425,6 +564,10 @@ func _arrive() -> void:
 			engage("cairn")
 			Audio.play("cairn", -8.0)
 			hud.flash("Cairn %d of %d" % [checkpoint, cairns.size() - 1])
+			# The teammate you helped climbs with you, and says so.
+			var said: Array = spec.get("mate", {}).get("climbLines", [])
+			if mate_state == "helped" and not said.is_empty():
+				hud.flash("Cairn %d of %d · %s" % [checkpoint, cairns.size() - 1, said[checkpoint % said.size()]], 3.0)
 			_remember()
 	for cell in terrain.markers.get("X", []):
 		if climber.body_rect().intersects(Rect2(Vector2(cell) * Terrain.TILE, Vector2.ONE * Terrain.TILE)):
@@ -434,6 +577,21 @@ func _arrive() -> void:
 		if not _vista_seen and feet.distance_to(Terrain.feet(v)) < 3 * Terrain.TILE:
 			_vista_seen = true
 			hud.flash(spec["copy"]["vista"])
+
+
+## The app went to the background, the tab or window lost focus, or the
+## phone locked: stop the clock under the pause menu, and save where the
+## climb is so a closed app resumes from here.
+func _on_interrupted() -> void:
+	if _ended or panel.open or climber == null:
+		return
+	pause_menu()
+	_remember()
+
+
+func _on_back() -> void:
+	if not _ended and not panel.open:
+		pause_menu()
 
 
 func _remember() -> void:
@@ -525,13 +683,22 @@ func mate_panel() -> void:
 	panel.show_panel(
 		"Teammate",
 		copy["mateTitle"],
-		"%s Helping costs you %d stamina now; %s would climb behind you after, and catch you if you slip. %s" % [copy["mateBody"], int(climber.helper_cost), spec["mate"].get("they", "they"),
+		"%s%s Helping costs you %d stamina now; %s would climb behind you after, and catch you if you slip. %s" % [copy["mateBody"], _mate_sick_words(), int(climber.helper_cost), spec["mate"].get("they", "they"),
 			"Lena is an hour behind." if not _no_lena() else "Lena went down. If you leave %s, %s turns back for good." % [spec["mate"].get("them", "them"), spec["mate"].get("they", "they")]],
 		[
 			["help", ("Help %s" % mate_name()) if can else "Help %s (need %d stamina: step back and rest)" % [mate_name(), int(climber.helper_cost)], not can],
 			["leave", ("Leave %s for Lena" % spec["mate"].get("them", "them")) if not _no_lena() else "Go on without %s" % spec["mate"].get("them", "them")],
 			["back", "Step back"],
 		])
+
+
+## A teammate who is sick at camp is sick on the rock too: they stop for
+## breath more often.
+func _mate_sick_words() -> String:
+	var sick := Trek.sickness(Expedition.session, String(spec["mate"].get("person", "")))
+	if int(sick.get("stage", 0)) <= 0:
+		return ""
+	return " %s is unwell (%s): %s will need to stop for breath more often." % [mate_name(), Trek.describe(String(sick.get("kind", "")), int(sick["stage"])), spec["mate"].get("they", "they")]
 
 
 func decide_panel() -> void:
@@ -541,7 +708,7 @@ func decide_panel() -> void:
 		"Halfway up",
 		copy["decideHelped"] if mate_state == "helped" else (copy["decideLeft"] if not _no_lena() else "On your own. Now what?"),
 		"%s %s Stamina %d%%." % [line, copy["decideBody"], int(stamina.fraction() * 100)],
-		[["continue", "Keep climbing"], ["regroup", "Regroup here (half an hour, full stamina)"], ["retreat", spec["copy"]["backOff"]]])
+		[["continue", "Keep climbing"], ["regroup", "Regroup here (about an hour: full stamina, +2 energy at camp)"], ["retreat", spec["copy"]["backOff"]]])
 
 
 func pause_menu() -> void:
@@ -553,15 +720,21 @@ func pause_menu() -> void:
 		[
 			["resume", "Resume"],
 			["retreat", spec["copy"]["backOff"]],
-			["quality", "Graphics: %s" % ["Full", "Reduced", "Low power"][Settings.quality]],
-			["motion", "Reduced motion: %s" % ("On" if Settings.reduced_motion else "Off")],
-			["touch", "Touch controls: %s" % ("On" if Settings.touch_enabled() else "Off")],
-			["fps", "Show FPS: %s" % ("On" if Settings.show_fps else "Off")],
+			["settings", "Settings"],
 			["quit", "Save and go to the menu"],
 		])
 
 
+## Settings, a page of their own so the pause menu stays short on a phone.
+func settings_menu() -> void:
+	climber.lock(true)
+	panel.show_panel("Settings", spec["hud"], "", SettingsMenu.choices() + [["paused", "Back"]])
+
+
 func _on_choice(id: String) -> void:
+	if SettingsMenu.apply(id, self):
+		settings_menu()
+		return
 	match id:
 		"start":
 			briefed = true
@@ -598,24 +771,16 @@ func _on_choice(id: String) -> void:
 			regrouped = true
 			stamina.refill(1.0)
 			climber.clock += REGROUP_SECONDS
-			hud.flash("The party catches up. Half an hour passes.")
+			# Time passed: the stones of that hour are long gone.
+			hazards.skip_to(climber.clock)
+			hud.flash("The party catches up. About an hour passes.")
 			_remember()
 			climber.lock(false)
 		"retreat":
 			finish("retreat")
-		"quality":
-			Settings.set_quality((Settings.quality + 1) % 3)
-			Scenery.apply_quality(self)
-			pause_menu()
-		"motion":
-			Settings.set_reduced_motion(not Settings.reduced_motion)
-			pause_menu()
-		"fps":
-			Settings.set_show_fps(not Settings.show_fps)
-			pause_menu()
-		"touch":
-			Settings.set_touch_controls(not Settings.touch_enabled())
-			TouchControls.attach(self)
+		"settings":
+			settings_menu()
+		"paused":
 			pause_menu()
 		"quit":
 			_remember()
@@ -640,11 +805,17 @@ func _on_slipped(saved: bool, reason: String) -> void:
 	if saved:
 		hud.flash("%s grabs your pack. That slip doesn't count." % mate_name())
 		return
-	var line := "Slipped. Back to the last cairn."
-	if reason == "wind":
+	_hole = reason == "hole"
+	var line: String = {"rock": "A falling stone knocks you off. Back to the last cairn.", "fall": "Fell too far. Back to the last cairn.",
+		"arms": "Your arms gave out on the rock. Back to the last cairn: rest before the next face."}.get(reason, "Slipped. Back to the last cairn.")
+	if _hole:
+		line = "You fell into a hole. Back to the start of the climb."
+	elif reason == "wind":
 		line = "The gust takes your balance."
 	elif reason == "hurt":
 		line = "Too hurt to go on: you collapse. Back to the last cairn."
+	if climber.slips >= max_slips:
+		line = "Slip %d of %d: the climb is over." % [climber.slips, max_slips]
 	var lost := hazards.drop_flowers()
 	if lost > 0:
 		# Picked flowers are this attempt's: forget them in the save too.
@@ -660,6 +831,10 @@ func _on_slip_finished() -> void:
 	if climber.slips >= max_slips:
 		finish("fail")
 		return
+	if _hole:
+		# A hole is the worst fall there is: you start the climb again.
+		_hole = false
+		checkpoint = 0
 	climber.respawn(cairns[checkpoint])
 	if mate and mate_state == "helped":
 		mate.catch_up(cairns[checkpoint])
@@ -839,7 +1014,7 @@ func finish(kind: String) -> void:
 	await get_tree().create_timer(1.2 if is_inside_tree() else 0.0).timeout
 	panel.show_panel("Climb over", head, "\n".join(lines), [["camp", "Back to camp"]])
 	# Lands by itself if nobody taps.
-	await get_tree().create_timer(15.0 if is_inside_tree() else 0.0).timeout
+	await get_tree().create_timer(45.0 if is_inside_tree() else 0.0).timeout
 	land()
 
 

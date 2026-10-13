@@ -9,6 +9,9 @@ var target: Climber
 var bounds := Rect2()
 ## [{at: Vector2, radius: float, zoom: float, lift: float}]
 var reveals: Array = []
+## When set, the camera looks here instead of at the climber (reading a
+## route before climbing it). Vector2.INF: follow the climber.
+var look := Vector2.INF
 
 const LEAD_X := 56.0
 const LOOK_UP := 46.0
@@ -17,6 +20,12 @@ const FOLLOW := 3.2
 var _lead := Vector2.ZERO
 var _shake := 0.0
 var _zoom_target := 1.0
+
+
+func _init() -> void:
+	# Physics interpolation is on: the camera follows in the physics step
+	# (Godot would switch it anyway, with a warning).
+	process_callback = Camera2D.CAMERA2D_PROCESS_PHYSICS
 
 
 func _ready() -> void:
@@ -59,6 +68,10 @@ func _wanted_lead() -> Vector2:
 
 
 func _physics_process(delta: float) -> void:
+	if look != Vector2.INF:
+		global_position = global_position.lerp(look, 1.0 if Settings.reduced_motion else clampf(4.0 * delta, 0.0, 1.0))
+		offset = Vector2.ZERO
+		return
 	if target == null:
 		return
 	var want_lead := _wanted_lead()

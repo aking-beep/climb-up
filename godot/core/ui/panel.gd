@@ -17,7 +17,15 @@ var _title: Label
 var _body: Label
 var _buttons: VBoxContainer
 var _kicker: Label
+## Under the body: rows of effects (a coloured chip and a line each), then a
+## footer line. Empty unless show_rows is called after show_panel.
+var _rows: VBoxContainer
+var _foot: Label
+var _scroll: ScrollContainer
+var _v: VBoxContainer
 var open := false
+## Taller than this share of the screen and the panel scrolls.
+const MAX_SHARE := 0.94
 
 
 func _ready() -> void:
@@ -46,20 +54,38 @@ func _ready() -> void:
 	style.content_margin_bottom = 8
 	_box.add_theme_stylebox_override("panel", style)
 	root.add_child(_box)
+	# A long brief on a short phone scrolls instead of running off the top.
+	# The choices stay pinned under it, always on screen.
+	var outer := VBoxContainer.new()
+	outer.add_theme_constant_override("separation", 5)
+	_box.add_child(outer)
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer.add_child(_scroll)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 3)
-	_box.add_child(v)
-	_kicker = _label(7, MUTED, UiFont.body())
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.add_child(v)
+	_v = v
+	_kicker = _label(8, MUTED, UiFont.body())
 	v.add_child(_kicker)
 	_title = _label(12, INK, UiFont.display())
 	v.add_child(_title)
 	_body = _label(8, INK, UiFont.body())
 	_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_body.custom_minimum_size = Vector2(240, 0)
+	_body.add_theme_constant_override("line_spacing", -2)
 	v.add_child(_body)
+	_rows = VBoxContainer.new()
+	_rows.add_theme_constant_override("separation", 2)
+	v.add_child(_rows)
+	_foot = _label(8, MUTED, UiFont.body())
+	_foot.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_foot.add_theme_constant_override("line_spacing", -2)
+	v.add_child(_foot)
 	_buttons = VBoxContainer.new()
-	_buttons.add_theme_constant_override("separation", 2)
-	v.add_child(_buttons)
+	_buttons.add_theme_constant_override("separation", 4)
+	outer.add_child(_buttons)
 	visible = false
 
 
@@ -74,25 +100,35 @@ func _label(size: int, color: Color, font: Font) -> Label:
 
 ## choices: Array of [id, label] (or [id, label, disabled]).
 func show_panel(kicker: String, title: String, body: String, choices: Array) -> void:
+	choice_ids = choices.map(func(c: Array) -> String: return c[0])
 	_kicker.text = kicker.to_upper()
 	_kicker.visible = not kicker.is_empty()
-	_title.text = title
+	_title.text = Plain.say(title)
 	_title.visible = not title.is_empty()
-	_body.text = body
+	_body.text = Plain.say(body)
 	_body.visible = not body.is_empty()
+	for c in _rows.get_children():
+		_rows.remove_child(c)
+		c.queue_free()
+	_rows.visible = false
+	_foot.text = ""
+	_foot.visible = false
 	for c in _buttons.get_children():
+		# Out of the layout now, so the new panel is measured without them.
+		_buttons.remove_child(c)
 		c.queue_free()
 	var first: Button = null
 	for choice in choices:
 		var b := Button.new()
-		b.text = choice[1]
+		b.text = Plain.say(choice[1])
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.add_theme_font_size_override("font_size", 9)
 		if UiFont.display():
 			b.add_theme_font_override("font", UiFont.display())
 		b.disabled = choice.size() > 2 and choice[2] == true
 		UiStyle.paper_button(b)
-		b.custom_minimum_size = Vector2(0, 18)
+		# About 36 CSS px on a phone: big enough for a thumb.
+		b.custom_minimum_size = Vector2(0, 24)
 		var id: String = choice[0]
 		b.pressed.connect(func() -> void: _choose(id))
 		_buttons.add_child(b)
@@ -100,8 +136,72 @@ func show_panel(kicker: String, title: String, body: String, choices: Array) -> 
 			first = b
 	visible = true
 	open = true
+	_fit.call_deferred()
 	if first:
 		first.call_deferred("grab_focus")
+
+
+## Rows under the body, each {tone: good/bad/info, icon, title, text}: a
+## chip in the tone's colour with the title, and the line beside it. Then
+## `foot`, a smaller line. Call after show_panel.
+func show_rows(header: String, rows: Array, foot: String = "") -> void:
+	_rows.visible = not rows.is_empty()
+	if header != "":
+		_rows.add_child(_label(7, MUTED, UiFont.body()))
+		_rows.get_child(-1).text = header.to_upper()
+	for r in rows:
+		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", 4)
+		var fill: Color = {"good": CampWidgets.GOOD, "bad": CampWidgets.BAD}.get(r.get("tone", "info"), Color(0.45, 0.47, 0.5))
+		var mark: String = {"good": "+ ", "bad": "- "}.get(r.get("tone", "info"), "")
+		var chip := CampWidgets.chip(mark + Plain.say(String(r["title"])), fill, Color.WHITE, String(r.get("icon", "")), 8)
+		chip.custom_minimum_size = Vector2(70, 0)
+		chip.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		line.add_child(chip)
+		var l := _label(8, INK, UiFont.body())
+		l.text = Plain.say(String(r["text"]))
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.add_theme_constant_override("line_spacing", -2)
+		line.add_child(l)
+		_rows.add_child(line)
+	_foot.text = Plain.say(foot)
+	_foot.visible = foot != ""
+	_fit.call_deferred()
+
+
+## Every line the panel shows (body, rows and footer), for tests.
+func all_text() -> String:
+	var out := _body.text
+	var stack: Array = [_rows]
+	while not stack.is_empty():
+		var n: Node = stack.pop_front()
+		if n is Label:
+			out += "\n" + n.text
+		stack.append_array(n.get_children())
+	return out + "\n" + _foot.text
+
+
+func _fit() -> void:
+	if not is_inside_tree():
+		return
+	_size_box()
+	# Open at the top (the title first), after focus has had its say; and
+	# measure again once the labels have wrapped.
+	await get_tree().process_frame
+	if is_inside_tree():
+		_size_box()
+		_scroll.scroll_vertical = 0
+
+
+func _size_box() -> void:
+	var want := _v.get_combined_minimum_size().y
+	var room := get_viewport().get_visible_rect().size.y * MAX_SHARE - 16.0 - _buttons.get_combined_minimum_size().y - 5.0
+	_scroll.custom_minimum_size = Vector2(0, minf(want, room))
+	# Shrink to this panel's content (it grows from the bottom edge, and
+	# would otherwise keep the height of a taller panel before it).
+	_box.offset_bottom = -10
+	_box.offset_top = _box.offset_bottom - _box.get_combined_minimum_size().y
 
 
 func _choose(id: String) -> void:
@@ -112,6 +212,26 @@ func _choose(id: String) -> void:
 func hide_panel() -> void:
 	visible = false
 	open = false
+
+
+## The ids of the choices showing (or last shown).
+var choice_ids: Array = []
+
+
+func has_choice(id: String) -> bool:
+	return open and choice_ids.has(id)
+
+
+func kicker_text() -> String:
+	return _kicker.text
+
+
+func body_text() -> String:
+	return _body.text
+
+
+func title_text() -> String:
+	return _title.text
 
 
 ## Picks a choice by id, as a tap or key press would. For tests and replays.

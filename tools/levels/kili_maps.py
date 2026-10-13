@@ -1,6 +1,6 @@
 """
-The Godot Lava Tower and summit night levels, stamped as ASCII maps with the
-same legend as barranco_map.py, plus:
+The Godot Lava Tower, summit night and descent levels, stamped as ASCII maps
+with the same legend as barranco_map.py, plus:
   m  Marco at camp (not the teammate who needs help)
 
 Writes godot/modes/expedition/levels/kilimanjaro/<level>/<level>.txt.
@@ -275,6 +275,83 @@ def summit_night():
     return m
 
 
+def descent():
+    """
+    The way down, played: from Stella Point at sunrise along the rim, down
+    the long scree slopes, one short rock step to climb down, an icy bench,
+    a rest halfway, and Barafu's tents at the bottom right. Quieter than the
+    climbs up: fewer obstacles, more room between them. Jun sits on the rim,
+    spent; you can short-rope him down beside you or leave him with Lena.
+    The level reads left to right and top to bottom.
+    """
+    W, H = 150, 66
+    m = Map(W, H)
+    # The ground's top row in each column: rock from there down, air above.
+    top = [0] * W
+    for x in range(W):
+        if x < 4:
+            top[x] = 4                       # the crater wall, west end
+        elif x <= 40:
+            top[x] = 14                      # the rim
+        elif x <= 52:
+            top[x] = 14 + (x - 40)           # scree slope down to 26
+        elif x <= 62:
+            top[x] = 26                      # bench 1
+        elif x <= 74:
+            top[x] = 26 + (x - 62)           # scree slope down to 38
+        elif x <= 86:
+            top[x] = 38                      # the icy bench
+        elif x <= 100:
+            top[x] = 46                      # below the rock step
+        elif x <= 112:
+            top[x] = 46 + (x - 100)          # the last scree, down to 58
+        else:
+            top[x] = 58                      # Barafu
+    for x in range(W):
+        m.fill(x, top[x], x, H - 1, "#")
+    # Slopes walk as ramps: a '\\' on each step of the long scree.
+    for x0, y0, n in ((41, 14, 12), (63, 26, 12), (101, 46, 12)):
+        for i in range(n):
+            m.put(x0 + i, y0 + i, "\\")
+    # The rock step: a short face to climb down from the icy bench.
+    m.fill(87, 38, 89, 45, "C")
+    m.fill(90, 38, 100, 45, ".")
+    # Ice on the bench above it.
+    for x in range(77, 84):
+        m.put(x, 38, "i")
+    # The rim: open to the wind.
+    for x in range(20, 40):
+        m.put(x, 13, "E")
+    # Stella Point at the start: the sign, the sunrise, Jun and Lena.
+    m.put(6, 13, "P")
+    m.put(8, 13, "S")                        # sign 0: Stella Point
+    m.put(10, 13, "V")
+    m.put(13, 13, "l")                       # Lena
+    m.put(16, 13, "M")                       # Jun, spent
+    # Cairns: the end of the rim, bench 1, the icy bench, below the step,
+    # and the last slope's foot.
+    m.put(38, 13, "K")
+    m.put(56, 25, "K")
+    m.put(76, 37, "K")
+    m.put(95, 45, "K")
+    m.put(116, 57, "K")
+    # Rests and the quiet beats.
+    m.put(58, 25, "R")
+    m.put(60, 25, "S")                       # sign 1: halfway
+    m.put(92, 45, "R")
+    m.put(94, 45, "S")                       # sign 2: thicker air
+    # One stone down the middle slope's gully.
+    m.put(68, 18, "r")
+    # Barafu: tents, the fire, Marco waiting, the end.
+    for x in (124, 132):
+        m.put(x, 57, "T")
+    m.put(128, 57, "F")
+    m.put(130, 57, "m")
+    m.put(120, 57, "S")                      # sign 3: Barafu
+    m.put(140, 57, "X")
+    return m
+
+
 def preview(m, path):
     from PIL import Image
     colours = {
@@ -295,9 +372,20 @@ def preview(m, path):
 def main():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from flowers import sprinkle
-    from gauntlet import gauntlet, wildlife
-    for name, build in (("lava_tower", lava_tower), ("summit_night", summit_night)):
+    from gauntlet import gauntlet, wildlife, spread
+    for name, build in (("lava_tower", lava_tower), ("summit_night", summit_night), ("descent", descent)):
         m = build()
+        if name == "descent":
+            # The way down is its own: no gauntlet, no flowers. Written
+            # after the others so they stay byte-identical.
+            out = LEVELS / name / f"{name}.txt"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(m.text())
+            print("wrote", out, f"{m.w}x{m.h}")
+            if "--preview" in sys.argv:
+                d = Path(sys.argv[sys.argv.index("--preview") + 1])
+                preview(m, d / f"{name}.png")
+            continue
         # The tower has thistles, ants and ravens; up on the summit night
         # only the ravens live that high.
         kinds = (("hop", "plant", "pit", "raven", "slabs", "ants", "ice") if name == "lava_tower"
@@ -306,6 +394,7 @@ def main():
         if name == "lava_tower":
             print(name, "wildlife:", wildlife(m.g, every=4, kinds=("ants", "plant")))
         print(name, "everlastings:", sprinkle(m.g, spacing=9 if name == "summit_night" else 5))
+        print(name, "wildlife spread:", spread(m.g, name))
         out = LEVELS / name / f"{name}.txt"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(m.text())

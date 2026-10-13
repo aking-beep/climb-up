@@ -10,6 +10,10 @@ extends CanvasLayer
 ## TALK, READ, HELP), BRACE (hold) and REST. Top right: pause.
 ## Everything presses the same input actions as keys, so gameplay never
 ## knows the difference. Shown automatically on touch devices (Settings).
+##
+## The player can make the controls bigger or smaller (Settings.touch_scale)
+## and swap the sides for the left hand (Settings.left_handed). Everything
+## keeps clear of notches and rounded corners (Settings.safe_insets()).
 
 const STICK_RADIUS := 30.0
 const DEAD_ZONE := 0.18
@@ -23,11 +27,17 @@ var _stick_at := Vector2.ZERO
 var _stick: Node2D
 var _act: TouchScreenButton
 var _act_label: Label
+## Where the screen is safe to put things (view units), and the button scale.
+var safe := {"left": 0.0, "right": 0.0, "top": 0.0, "bottom": 0.0}
+var scale_k := 1.0
+var buttons: Dictionary = {}
 
 
 static func attach(lvl: Node) -> void:
 	var existing := lvl.get_node_or_null("TouchControls")
 	if existing:
+		# Out of the tree now, so the new overlay takes the name at once.
+		lvl.remove_child(existing)
 		existing.queue_free()
 	GameInput.touch_move = Vector2.ZERO
 	if not Settings.touch_enabled():
@@ -41,22 +51,28 @@ static func attach(lvl: Node) -> void:
 func _ready() -> void:
 	layer = 15
 	var vp := get_viewport().get_visible_rect().size
+	safe = Settings.safe_insets()
+	scale_k = Settings.touch_scale
 	_stick = Node2D.new()
 	_stick.set_script(load("res://core/input/touch_stick.gd"))
 	_stick.set("controls", self)
 	add_child(_stick)
-	var r := Vector2(vp.x - 16, vp.y - 14)
-	_button("jump", "JUMP", r + Vector2(-50, -52), 50.0)
+	# Laid out for the right thumb from the bottom-right corner (inside the
+	# safe area), each offset scaled with the buttons; mirrored for the left.
+	var r := Vector2(vp.x - 16 - safe["right"], vp.y - 14 - safe["bottom"])
+	var k := scale_k
+	_button("jump", "JUMP", r + Vector2(-50, -52) * k, 50.0 * k)
 	if level and level.get("touch_layout") == "crag":
 		# The crag is all tapping: one big button for CLIP and GRIP, by the
 		# thumb, and nothing to brace or sit for.
-		_act = _button("interact", "CLIMB", r + Vector2(-122, -60), 58.0)
+		_act = _button("interact", "CLIMB", r + Vector2(-122, -60) * k, 58.0 * k)
 	else:
-		_act = _button("interact", "CLIMB", r + Vector2(-46, -104), 42.0)
-		_button("brace", "BRACE", r + Vector2(-100, -42), 40.0)
-		_button("rest", "REST", r + Vector2(-96, -92), 34.0)
+		_act = _button("interact", "CLIMB", r + Vector2(-46, -104) * k, 42.0 * k)
+		_button("brace", "BRACE", r + Vector2(-100, -42) * k, 40.0 * k)
+		_button("rest", "REST", r + Vector2(-96, -92) * k, 34.0 * k)
 	_act_label = _act.get_child(0)
-	_button("pause", "II", Vector2(vp.x - 34, 6), 26.0)
+	# Pause stays top right for both hands: clear of the stats, top left.
+	_button("pause", "II", Vector2(vp.x - 38 - safe["right"], 4 + safe["top"]), 32.0)
 	# Rotating or resizing rebuilds the overlay against the new edges.
 	get_viewport().size_changed.connect(func() -> void: TouchControls.attach.call_deferred(level), CONNECT_ONE_SHOT)
 
@@ -72,6 +88,11 @@ func _button(action: String, word: String, at: Vector2, size: float) -> TouchScr
 	b.action = action
 	b.passby_press = false
 	b.position = at
+	if Settings.left_handed and action != "pause":
+		# Mirrored across the screen, keeping clear of the left cutout.
+		var vp := get_viewport().get_visible_rect().size
+		b.position.x = vp.x - at.x - size - safe["right"] + safe["left"]
+	buttons[action] = b
 	add_child(b)
 	var l := Label.new()
 	l.text = word
@@ -89,19 +110,31 @@ func _button(action: String, word: String, at: Vector2, size: float) -> TouchScr
 	return b
 
 
-## A filled disc with a thin rim, drawn once at the button's size.
+## A filled disc with a thin rim, drawn once at four times the button's
+## size with soft (anti-aliased) edges and a gentle top-lit gradient, and
+## shown at the button's size, so it stays round on a phone's screen.
 static func _disc(size: float, fill: Color, rim: Color) -> ImageTexture:
-	var n := int(size)
+	var k := Art.HD
+	var n := int(size) * k
 	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
-	var c := Vector2(size / 2.0, size / 2.0)
+	var c := Vector2(n / 2.0, n / 2.0)
+	var outer := n / 2.0 - 0.5
+	var inner := outer - 1.5 * k
 	for y in n:
 		for x in n:
 			var d := Vector2(x + 0.5, y + 0.5).distance_to(c)
-			if d < size / 2.0 - 1.5:
-				img.set_pixel(x, y, fill)
-			elif d < size / 2.0:
-				img.set_pixel(x, y, rim)
-	return ImageTexture.create_from_image(img)
+			var cover := clampf(outer - d + 0.5, 0.0, 1.0)
+			if cover <= 0.0:
+				continue
+			var lit := 1.0 + 0.18 * (0.5 - float(y) / n)
+			var body := Color(fill.r * lit, fill.g * lit, fill.b * lit, fill.a)
+			var col := body.lerp(rim, clampf(d - inner + 0.5, 0.0, 1.0))
+			col.a *= cover
+			img.set_pixel(x, y, col)
+	img.generate_mipmaps()
+	var tex := ImageTexture.create_from_image(img)
+	tex.set_size_override(Vector2i(int(size), int(size)))
+	return tex
 
 
 func _blocked() -> bool:
@@ -112,7 +145,8 @@ func _blocked() -> bool:
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var vp := get_viewport().get_visible_rect().size
-		if event.pressed and _stick_index < 0 and event.position.x < vp.x * STICK_AREA and event.position.y > 40 and not _blocked():
+		var on_stick_side: bool = event.position.x > vp.x * (1.0 - STICK_AREA) if Settings.left_handed else event.position.x < vp.x * STICK_AREA
+		if event.pressed and _stick_index < 0 and on_stick_side and event.position.y > 40 and not _blocked():
 			_stick_index = event.index
 			_stick_origin = event.position
 			_stick_at = event.position
@@ -124,8 +158,8 @@ func _input(event: InputEvent) -> void:
 		_stick_at = event.position
 		# The base follows a thumb that runs past the rim, so reversing is instant.
 		var off: Vector2 = _stick_at - _stick_origin
-		if off.length() > STICK_RADIUS:
-			_stick_origin = _stick_at - off.normalized() * STICK_RADIUS
+		if off.length() > radius():
+			_stick_origin = _stick_at - off.normalized() * radius()
 		_update()
 
 
@@ -133,7 +167,7 @@ func _update() -> void:
 	if _stick_index < 0 or _blocked():
 		GameInput.touch_move = Vector2.ZERO
 	else:
-		var off := (_stick_at - _stick_origin) / STICK_RADIUS
+		var off := (_stick_at - _stick_origin) / radius()
 		var v := Vector2(off.x, -off.y)
 		var m := v.length()
 		if m < DEAD_ZONE:
@@ -142,6 +176,11 @@ func _update() -> void:
 			v = v.normalized() * clampf((m - DEAD_ZONE) / (1.0 - DEAD_ZONE), 0.0, 1.0)
 		GameInput.touch_move = v
 	_stick.queue_redraw()
+
+
+## The stick's radius at the player's chosen control size.
+func radius() -> float:
+	return STICK_RADIUS * scale_k
 
 
 func stick_state() -> Dictionary:

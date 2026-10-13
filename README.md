@@ -48,6 +48,13 @@ npm run lint
 
 [docs/playtest-checklist.md](docs/playtest-checklist.md) is a one-page
 checklist for playing the Android build on a phone with touch only.
+[docs/playtest-plan.md](docs/playtest-plan.md) is the plan for an outside
+test with 30–50 people, with the measures (tutorial completion, replay,
+day 1 and day 7 retention, completion and retreat rates) defined against
+the game's local usage log ([docs/analytics.md](docs/analytics.md)).
+The latest sprint is in [docs/sprint-report-9-5.md](docs/sprint-report-9-5.md);
+what a professional artist or sound designer would replace is in
+[docs/art-brief.md](docs/art-brief.md).
 
 Design and architecture notes are in [`docs/`](docs/): start with
 [hybrid-architecture.md](docs/hybrid-architecture.md) and

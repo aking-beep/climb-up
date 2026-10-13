@@ -39,21 +39,24 @@ def paint(rows, palette):
 
 
 CRIMPS = [
+    # Small chalked edges, two to a cell: a dab of chalk, the lit top of
+    # the edge, the shadow under it. Narrow, so they read as tiny next to
+    # the jugs.
     "................",
-    "..ooooo.........",
-    "..wwwww.........",
-    "...www..........",
     "................",
-    ".........oooo...",
-    ".........wwww...",
-    "..........ww....",
+    "...w.w..........",
+    "..hhhh..........",
+    "..oooo..........",
     "................",
-    "...oooo.........",
-    "...wwww.........",
-    "....w...........",
     "................",
-    "..........oooo..",
-    "..........wwww..",
+    "................",
+    "................",
+    "..........w.....",
+    ".........hhh....",
+    ".........ooo....",
+    "................",
+    "................",
+    "................",
     "................",
 ]
 
@@ -141,8 +144,8 @@ BIG_JUG = [
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     pal = {
-        "o": rgb("#2a1d16"), "w": rgb("#f4f1ea", 230),
-        "H": rgb("#8a5a3e"), "h": rgb("#b98762"),
+        "o": rgb("#1e120f"), "w": rgb("#f4f1ea", 170),
+        "H": rgb("#8a5a3e"), "h": rgb("#e4b88c"),
         "M": rgb("#c9ccd2"), "B": rgb("#3b6fa8"), "R": rgb("#e0663c"),
     }
     holds = Image.new("RGBA", (32, 16))

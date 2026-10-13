@@ -18,6 +18,9 @@ signal wind_struck
 signal jumped
 signal dynoed
 signal hurt_taken(amount: float, reason: String)
+## A hand moved to the next hold on the rock (every MOVE_LENGTH climbed):
+## what kind of hold it took.
+signal moved(hold: int)
 
 enum State { GROUND, AIR, CLIMB, MANTLE, REST, BRACE, SLIP, HELP, LOCKED, DONE }
 
@@ -36,6 +39,15 @@ const CLIMB_UP := 34.0
 const CLIMB_SIDE := 27.0
 ## Multiplies climbing speed on the rock: the shoes (crag mode).
 var pace := 1.0
+## Seconds the arms hang on once stamina runs out on a face, before they
+## let go (0: at once, as at the crag, where running out is the pump fall).
+## While hanging on you can only go down or sideways, slowly.
+var arms_grace := 0.0
+## The cold: multiplies how fast you walk and climb (Climate.pace).
+var chill := 1.0
+var _arms_out := 0.0
+## True while hanging on with nothing left (for the HUD and the level).
+var arms_failing := false
 const SCRAMBLE_SPEED := 48.0
 const FATIGUE_SLOW := 0.7
 ## A drop longer than this (4 tiles) is a slip, not a step down.
@@ -99,12 +111,19 @@ var can_dyno := false
 ## Resting on the rope after a clip (the crag): holding still costs nothing.
 var on_rope := false
 var dynos := 0
+## Hand moves made on the rock this climb.
+var moves := 0
 var _dyno_from := INF
 
 var _timer := 0.0
 var _mantle_from := Vector2.ZERO
 var _mantle_to := Vector2.ZERO
 var _step_distance := 0.0
+var _move_distance := 0.0
+## Each kind of hold has its own sound as a hand takes it.
+const HOLD_SOUND := {Terrain.Kind.SLOPER: "sloper", Terrain.Kind.POCKET: "pocket", Terrain.Kind.JUG: "jug"}
+## How far the hands travel between holds.
+const MOVE_LENGTH := 9.0
 var _breath := 0.0
 var _rest_stone := false
 var sprite: AnimatedSprite2D
@@ -124,6 +143,12 @@ func _ready() -> void:
 	shape.position = Vector2(0, -SIZE.y / 2.0)
 	add_child(shape)
 	sprite = Sheet.sprite(sheet_path)
+	# A dark outline so people read against rock of any colour (the HD
+	# sheets draw their own).
+	if not Sheet.is_hd(Sheet.best(sprite.sprite_frames.get_frame_texture("idle", 0).atlas.resource_path)):
+		var outline := ShaderMaterial.new()
+		outline.shader = preload("res://core/world/outline.gdshader")
+		sprite.material = outline
 	add_child(sprite)
 	floor_max_angle = deg_to_rad(50)
 	floor_snap_length = 6.0
@@ -174,6 +199,8 @@ var _before_lock: int = State.GROUND
 
 ## Back at a cairn after a slip. A caught slip leaves more in the arms.
 func respawn(feet: Vector2) -> void:
+	arms_failing = false
+	_arms_out = 0.0
 	global_position = feet
 	reset_physics_interpolation()
 	velocity = Vector2.ZERO
@@ -252,7 +279,7 @@ func _ground(delta: float, input: Vector2) -> void:
 	if GameInput.pressed_now("jump") and cramp <= 0.0 and _jump():
 		return
 	on_ice = _on_kind(Terrain.Kind.ICE)
-	var limit := EXPOSED_WALK if exposed else (TIRED_WALK if stamina.is_tired() else WALK)
+	var limit := (EXPOSED_WALK if exposed else (TIRED_WALK if stamina.is_tired() else WALK)) * chill
 	var target := input.x * limit
 	if cramp > 0.0:
 		target = 0.0
@@ -333,7 +360,8 @@ func _air(delta: float, input: Vector2) -> void:
 			_grab()
 			return
 	# Catching the rock on the way down: only from a short fall.
-	if input.y > 0.5 and terrain.touches_climbable(body_rect()) and global_position.y - fall_from < SAFE_FALL * 0.5 and not stamina.is_empty():
+	_no_regrab = maxf(0.0, _no_regrab - delta)
+	if _no_regrab <= 0.0 and input.y > 0.5 and terrain.touches_climbable(body_rect()) and global_position.y - fall_from < SAFE_FALL * 0.5 and not stamina.is_empty():
 		_grab()
 		return
 	move_and_slide()
@@ -372,6 +400,22 @@ func _supported(at: Vector2i) -> bool:
 
 
 ## The climbable column under the hands nearest the body's centre, or -1.
+## The rock above the hands in this column: rows to the top of the face,
+## and how many of them are loose.
+func face_above() -> Vector2i:
+	var col := _hold_column()
+	if col < 0:
+		col = Terrain.cell_of(global_position).x
+	var row := Terrain.cell_of(global_position + Vector2(0, -SIZE.y * 0.75)).y
+	var rows := 0
+	var loose := 0
+	while row - rows >= 0 and terrain.is_climbable(Vector2i(col, row - rows)):
+		if terrain.kind(Vector2i(col, row - rows)) == Terrain.Kind.LOOSE:
+			loose += 1
+		rows += 1
+	return Vector2i(rows, loose)
+
+
 func _hold_column() -> int:
 	var hands := global_position + Vector2(0, -SIZE.y * 0.75)
 	var here := Terrain.cell_of(hands)
@@ -469,10 +513,17 @@ func _climb(delta: float, input: Vector2) -> void:
 	if stamina.is_tired():
 		speed_up *= FATIGUE_SLOW
 		speed_side *= FATIGUE_SLOW
+	speed_up *= chill
+	speed_side *= chill
 	if can_dyno and GameInput.pressed_now("jump") and stamina.value >= DYNO_COST:
 		_dyno(input)
 		return
+	if arms_failing:
+		# Nothing left: no pulling up; down, or slowly along.
+		speed_side *= 0.5
 	var want := Vector2(input.x * speed_side, -input.y * speed_up)
+	if arms_failing and want.y < 0.0:
+		want.y = 0.0
 	# Hands must stay on rock: no climbing up past the top of the face.
 	if want.y < 0.0:
 		var next := body_rect(global_position + Vector2(0, want.y * delta))
@@ -494,6 +545,15 @@ func _climb(delta: float, input: Vector2) -> void:
 			var mid := col * T + T / 2.0
 			global_position.x = move_toward(global_position.x, mid, CLIMB_SIDE * delta)
 	var moving := global_position.distance_to(before) > 0.05
+	# Hold to hold: each reach is a move, with its own sound by the hold.
+	_move_distance += global_position.distance_to(before)
+	if _move_distance >= MOVE_LENGTH:
+		_move_distance = 0.0
+		moves += 1
+		if not scrambling:
+			var vol := {Terrain.Kind.CRIMP: -13.0, Terrain.Kind.JUG: -10.0, Terrain.Kind.SLOPER: -12.0, Terrain.Kind.POCKET: -12.0}.get(hold, -16.0) as float
+			Audio.play(HOLD_SOUND.get(hold, "grip"), vol, 0.15)
+		moved.emit(hold)
 	var loose := terrain.kinds_in(body_rect()).has(Terrain.Kind.LOOSE)
 	if loose:
 		loose_seconds += delta
@@ -503,6 +563,10 @@ func _climb(delta: float, input: Vector2) -> void:
 		last_activity = "scramble" if moving else "hang"
 	elif hold == Terrain.Kind.CRIMP:
 		last_activity = "crimp" if moving else "crimp_hang"
+	elif hold == Terrain.Kind.SLOPER:
+		last_activity = "sloper" if moving else "sloper_hang"
+	elif hold == Terrain.Kind.POCKET and not moving:
+		last_activity = "pocket"
 	elif hold == Terrain.Kind.JUG and not moving:
 		last_activity = "jug"
 	elif moving and absf(want.x) > absf(want.y):
@@ -514,8 +578,21 @@ func _climb(delta: float, input: Vector2) -> void:
 		stamina.tick(delta, last_activity, loose)
 	_breathing(delta)
 	if stamina.is_empty() and not on_rope:
-		_let_go()
-		return
+		_arms_out += delta
+		arms_failing = true
+		if _arms_out >= arms_grace:
+			arms_failing = false
+			_arms_out = 0.0
+			if arms_grace > 0.0 and not on_ground_cell():
+				# The arms gave out: that is the fall, and it says why.
+				_let_go()
+				slip("arms")
+				return
+			_let_go()
+			return
+	else:
+		_arms_out = 0.0
+		arms_failing = false
 	if not terrain.touches_climbable(body_rect()):
 		_let_go()
 		return
@@ -534,13 +611,19 @@ func _dyno(input: Vector2) -> void:
 	dynoed.emit()
 
 
-## Hands off the rock (the crag: grip gone, or a dyno not stuck).
+## Hands off the rock (the crag: grip gone, or a dyno not stuck). They
+## cannot snatch the rock again for a moment: a peel is a fall.
 func peel_off() -> void:
 	if is_climbing():
 		_dyno_from = INF
 		state = State.AIR
 		fall_from = global_position.y
 		velocity = Vector2.ZERO
+		_no_regrab = PEEL_GUARD
+
+
+const PEEL_GUARD := 0.35
+var _no_regrab := 0.0
 
 
 ## Hanging on the rope at a bolt after a fall (the crag): back on the rock
@@ -710,7 +793,8 @@ func hurt(amount: float, reason: String) -> bool:
 func slip(reason: String) -> void:
 	if state == State.SLIP or state == State.DONE:
 		return
-	var saved := spotter
+	# Nobody can grab you out of a hole.
+	var saved := spotter and reason != "hole"
 	if saved:
 		spotter = false
 		caught += 1
