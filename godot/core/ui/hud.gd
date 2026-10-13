@@ -126,6 +126,11 @@ func flash(text: String, seconds: float = 2.6) -> void:
 	_flash_time = seconds
 
 
+## The message showing now (or the last one), for tests.
+func flash_text() -> String:
+	return _flash.text
+
+
 func update_from(level: Node) -> void:
 	var c: Climber = level.climber
 	var pct := int(round(c.stamina.fraction() * 100.0))

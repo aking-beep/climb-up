@@ -212,7 +212,7 @@ static func paint_hd(terrain: Terrain, ground: TileMapLayer, back: TileMapLayer,
 					hd.set_cell(cell, HD_EDGES, Vector2i(v2, 2))
 				Terrain.Kind.SLOPE_L:
 					hd.set_cell(cell, HD_EDGES, Vector2i(2 + v2, 2))
-				Terrain.Kind.FACE, Terrain.Kind.CRIMP, Terrain.Kind.JUG:
+				Terrain.Kind.FACE, Terrain.Kind.CRIMP, Terrain.Kind.JUG, Terrain.Kind.SLOPER, Terrain.Kind.POCKET:
 					hd.set_cell(cell, HD_FACE, _cliff(cell))
 					if terrain.kind(cell) == Terrain.Kind.FACE and not crag and _variant(cell, 3) != 0:
 						edges.set_cell(cell, HD_EDGES, Vector2i(4 + v4, 2))
@@ -304,7 +304,7 @@ static func paint(terrain: Terrain, ground: TileMapLayer, back: TileMapLayer, th
 						ground.set_cell(cell, EDGE_SOURCE, Vector2i(2 + _variant(cell, 2), 2))
 					else:
 						at = Vector2i(2 + _variant(cell, 2), 2)
-				Terrain.Kind.FACE, Terrain.Kind.CRIMP, Terrain.Kind.JUG:
+				Terrain.Kind.FACE, Terrain.Kind.CRIMP, Terrain.Kind.JUG, Terrain.Kind.SLOPER, Terrain.Kind.POCKET:
 					# Crimps and jugs get their holds drawn on top (the crag),
 					# on plain faces.
 					if has_face and has_edges:

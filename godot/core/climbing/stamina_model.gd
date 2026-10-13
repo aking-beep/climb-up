@@ -25,6 +25,9 @@ const RATES := {
 	"crimp": 16.0,      # moving on small holds (the crag)
 	"crimp_hang": 12.0, # holding still on them: don't
 	"jug": -8.0,        # hanging off a big hold: a shake-out
+	"sloper": 7.0,      # moving on rounded holds: steady, not fast
+	"sloper_hang": 4.0, # holding a sloper costs a little, but lets the grip settle
+	"pocket": 0.0,      # a good two-finger pocket: hang there for free
 }
 const LOOSE_FACTOR := 1.6
 
@@ -41,7 +44,7 @@ var thin_air: float = 1.0
 var grip: float = 1.0
 ## Multiplies what being on rock costs: the shoes (crag mode).
 var shoes: float = 1.0
-const ON_ROCK := ["climb", "hang", "traverse", "crimp", "crimp_hang"]
+const ON_ROCK := ["climb", "hang", "traverse", "crimp", "crimp_hang", "sloper", "sloper_hang"]
 const WALKING := ["walk", "walk_up", "ice"]
 
 

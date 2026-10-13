@@ -50,6 +50,7 @@ func _line_goes_up(dir: int) -> float:
 func lead(seconds: float = 300.0) -> bool:
 	var t: Terrain = level.terrain
 	var resting := false
+	var settling := false
 	var target := NAN
 	for i in int(seconds * 60.0):
 		if level._ended:
@@ -99,8 +100,15 @@ func lead(seconds: float = 300.0) -> bool:
 		# GRIP only when the meter drops below half, as a player would.
 		if (level.action_word == "CLIP" or level.catching > 0.0) and i % 4 < 2:
 			held["interact"] = true
-		elif level.action_word == "GRIP" and level.grip < 0.5 and i % 4 < 2:
+		elif level.action_word == "GRIP" and level.on_crimps and level.grip < 0.5 and i % 4 < 2:
 			held["interact"] = true
+		# On slopers: move, and stop to let the grip settle when it drops.
+		if level.on_slopers and (settling or level.grip < 0.45):
+			settling = level.grip < 0.95
+			for k in ["climb_up", "move_left", "move_right", "jump"]:
+				held.erase(k)
+		else:
+			settling = false
 		# Just clipped and getting tired: rest on the rope, and keep still
 		# while the stamina comes back.
 		if level.resting_rope:
@@ -157,7 +165,9 @@ func test_every_route_is_led_to_the_anchor() -> void:
 		check(sent, "%s (%s) sent; stopped at %s, %s" % [r["name"], r["grade"], where(), level.stats_line(int(c.stamina.fraction() * 100))])
 		eq(level.checkpoint, level.clips.size(), "%s: every bolt clipped" % r["name"])
 		if r.get("tutorial", false):
-			eq(level.lessons_seen.size(), CragLevel.LESSONS.size(), "the lesson explains everything: %s" % [level.lessons_seen])
+			# Every lesson but the one for a fall, which shows only after one.
+			for key in CragLevel.LESSONS:
+				check(level.lessons_seen.has(key) == (key != "fall" or c.slips > 0), "the lesson explains %s (seen: %s)" % [key, level.lessons_seen])
 		if r["id"] in ["leap-of-faith", "lions-roof", "thunderhead"]:
 			check(c.dynos >= (2 if r["id"] == "thunderhead" else 1), "%s needs its dynos (%d)" % [r["name"], c.dynos])
 		print("      %s %s: %s, %d falls, %d s, %d moves, %d dynos, %d rope rests, %d%% stamina left, taps %s" % [r["grade"], r["name"], level.outcome.get("style", "-"), c.slips, int(c.clock), c.moves, c.dynos, level.rope_rests, int(c.stamina.fraction() * 100), level.taps])
@@ -274,10 +284,11 @@ func test_a_dyno_crosses_blank_rock() -> void:
 	var after := c.stamina.value
 	await tree.physics_frame
 	check(level.catching > 0.0 and level.action_word == "GRIP", "and has to stick it (catching %.2f, button %s, state %d)" % [level.catching, level.action_word, c.state])
-	for i in 12:
-		GameInput.scripted = {"interact": i % 4 < 2}
-		await tree.physics_frame
-	eq(level.catching, 0.0, "three fast taps stick it")
+	GameInput.scripted = {"interact": true}
+	await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	await tree.physics_frame
+	eq(level.catching, 0.0, "one tap on the contact sticks it")
 	var higher := before - c.global_position.y
 	# Tiny holds above the blank: keep tapping GRIP to stay on.
 	for i in 70:

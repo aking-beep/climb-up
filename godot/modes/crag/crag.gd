@@ -25,26 +25,32 @@ const MAX_FALLS := 5
 ## `gripDrain` how fast the grip fades on tiny holds.
 const ROUTES := [
 	{"id": "first-climb", "name": "First Climb", "grade": "Lesson", "level": "how to play", "falls": 9,
-		"tutorial": true, "gripDrain": 0.25,
-		"text": "A short climb that shows you everything, one thing at a time. The game stops each time there is something new, and explains it. Take your time.",
+		"tutorial": true, "gripDrain": 0.25, "skill": "The basics",
+		"text": "A short climb that shows you everything, one thing at a time. Take your time.",
 		"crux": "Nothing hard: this one is for learning."},
 	{"id": "warm-up", "name": "Warm-up Wall", "grade": "4", "level": "easy", "falls": 5, "gripDrain": 0.35,
-		"text": "Climb straight up good rock, with two short bits of tiny holds and one big hold (a jug) halfway: stop there to get your stamina back. Tap CLIP at each bolt.",
-		"crux": "Learning to clip in and to rest."},
+		"skill": "Clip, rest, repeat",
+		"text": "Good rock with pockets (dark holes: hang on them for free) and one big hold halfway. Clip each bolt from a good hold and rest before you need to.",
+		"crux": "Two short bits of tiny holds."},
 	{"id": "sundown", "name": "Sundown Traverse", "grade": "5b", "level": "moderate", "falls": 5, "gripDrain": 0.45,
-		"text": "Up, then a long move sideways to the right across tiny holds (crimps): squeeze GRIP when the grip meter drops, and keep moving. Two big holds. Easy moves, but few bolts and a high first one.",
-		"crux": "The tiny holds on the sideways part, a long way above the last bolt."},
+		"skill": "Slow and steady",
+		"text": "Up, then a long move sideways across slopers: round holds you hold by friction. Move slowly and pause to let your grip settle. Easy moves, but few bolts and a high first one.",
+		"crux": "The slopers on the traverse, a long way above the last bolt."},
 	{"id": "the-pinch", "name": "The Pinch", "grade": "6a", "level": "hard", "falls": 4, "gripDrain": 0.6,
-		"text": "Four stretches of tiny holds, the longest at the top, and only two big holds to rest on. Hard moves, but bolts close together all the way: clip from good holds where you can.",
+		"skill": "Squeeze timing",
+		"text": "Four stretches of tiny holds, the longest at the top. Squeeze GRIP once when the meter drops below half: not before, not a flurry. Bolts close together all the way.",
 		"crux": "The last stretch of tiny holds. Stopping on them drains you."},
 	{"id": "leap-of-faith", "name": "Leap of Faith", "grade": "6b", "level": "harder", "falls": 4, "gripDrain": 0.7,
-		"text": "Above a big hold the rock is blank: press JUMP on the rock to leap for the holds above (a dyno), then tap GRIP 3 times fast to stick it. Five stretches of tiny holds; the top bolts are far apart.",
-		"crux": "A leap across blank rock, then tiny holds."},
+		"skill": "The timed catch",
+		"text": "Above a big hold the rock is blank: press JUMP to leap for the holds above (a dyno). A ring closes on the hold: tap GRIP once as it closes. Slopers and tiny holds above; the top bolts are far apart.",
+		"crux": "The catch, then tiny holds."},
 	{"id": "lions-roof", "name": "Lion's Roof", "grade": "6c", "level": "very hard", "falls": 3, "gripDrain": 0.85,
-		"text": "Tiny holds off the ground, then sideways under a roof of rock on tiny holds, a big hold, a leap, and long tiny holds to the top. The roof is well bolted.",
+		"skill": "Steep ground",
+		"text": "Tiny holds off the ground, then sideways under a roof of rock on pockets: clip from them, they are free to hang on. A big hold, a leap, and long tiny holds to the top. The roof is well bolted.",
 		"crux": "The roof, then six rows of tiny holds."},
 	{"id": "thunderhead", "name": "Thunderhead", "grade": "7a", "level": "hardest", "falls": 3, "gripDrain": 1.0,
-		"text": "The big one. Two leaps across blank rock, a roof, seven stretches of tiny holds and only three big holds, far apart. Few bolts, the top ones very far apart: a fall up there is a big one.",
+		"skill": "All of it, run-out",
+		"text": "The big one. Two leaps across blank rock, a roof, slopers, long stretches of tiny holds and only three big holds, far apart. Few bolts, the top ones very far apart: a fall up there is a big one.",
 		"crux": "Two leaps and long tiny holds: plan your rests."},
 ]
 
@@ -69,8 +75,13 @@ const ROW_M := 0.5
 
 ## Per route: {attempts, sends, best (style), bestFalls, bestSeconds,
 ## highpoint (most bolts clipped on a go that did not reach the top), beta
-## (tips taken: a first-go send is then a flash, not an onsight)}.
+## (tips taken: a first-go send is then a flash, not an onsight), falls (all
+## falls on it, every go), fellBefore (a go has had a fall: a clean send
+## after it is a redpoint), challenge (its Logbook challenge done),
+## highRows (the highest you have been on it, rows)}.
 var progress: Dictionary = {}
+## Achievements held: id → the UTC date it was earned (Logbook.ACHIEVEMENTS).
+var achievements: Dictionary = {}
 ## The route being climbed.
 var current := "warm-up"
 ## The shoes picked last (offered first next time).
@@ -101,7 +112,32 @@ func map_path(id: String) -> String:
 
 
 func record(id: String) -> Dictionary:
-	return progress.get(id, {"attempts": 0, "sends": 0, "best": "", "bestFalls": -1, "bestSeconds": -1, "highpoint": 0, "beta": false})
+	return progress.get(id, {"attempts": 0, "sends": 0, "best": "", "bestFalls": -1, "bestSeconds": -1, "highpoint": 0, "beta": false,
+		"falls": 0, "challenge": false, "highRows": 0})
+
+
+## Mastery stars on a route, 0 to 3 (Logbook.stars).
+func stars(id: String) -> int:
+	return Logbook.stars(record(id))
+
+
+func total_stars() -> int:
+	var n := 0
+	for r in ROUTES:
+		n += stars(r["id"])
+	return n
+
+
+## The route to climb next: the first open route not yet sent, else the
+## first without all three stars, else "".
+func next_route() -> String:
+	for r in ROUTES:
+		if unlocked(r["id"]) and int(record(r["id"])["sends"]) == 0:
+			return r["id"]
+	for r in ROUTES:
+		if stars(r["id"]) < 3:
+			return r["id"]
+	return ""
 
 
 var _facts := {}
@@ -211,11 +247,18 @@ static func style_for(falls: int, attempts: int, beta: bool = false) -> String:
 	return "redpoint"
 
 
-## A finished attempt. Returns {style, better, unlocked (next route's id or
-## "")} for the results card.
-func finish(id: String, sent: bool, falls: int, seconds: int, bolts: int = 0) -> Dictionary:
+## A finished attempt. `stats` is the go's (CragLevel.go_stats()). Returns
+## {style, better, unlocked (next route's id or ""), highpoint, fasterBy
+## (seconds off the best time, 0 if not), challenge (done on this go),
+## firstChallenge (done for the first time), stars, starsBefore,
+## achievements (new ids)} for the results card.
+func finish(id: String, sent: bool, falls: int, seconds: int, bolts: int = 0, stats: Dictionary = {}) -> Dictionary:
 	var r := record(id)
-	var out := {"style": "", "better": false, "unlocked": "", "highpoint": false}
+	var stars_before := Logbook.stars(r)
+	var out := {"style": "", "better": false, "unlocked": "", "highpoint": false, "fasterBy": 0, "challenge": false,
+		"firstChallenge": false, "achievements": [], "starsBefore": stars_before}
+	r["falls"] = int(r.get("falls", 0)) + falls
+	r["highRows"] = maxi(int(r.get("highRows", 0)), int(stats.get("high_rows", 0)))
 	if not sent and bolts > int(r.get("highpoint", 0)):
 		r["highpoint"] = bolts
 		out["highpoint"] = true
@@ -229,26 +272,50 @@ func finish(id: String, sent: bool, falls: int, seconds: int, bolts: int = 0) ->
 			out["better"] = true
 		if int(r["bestFalls"]) < 0 or falls < int(r["bestFalls"]):
 			r["bestFalls"] = falls
+		if int(r["bestSeconds"]) > 0 and seconds < int(r["bestSeconds"]):
+			out["fasterBy"] = int(r["bestSeconds"]) - seconds
 		if int(r["bestSeconds"]) < 0 or seconds < int(r["bestSeconds"]):
 			r["bestSeconds"] = seconds
 		var i := index_of(id)
 		if not was_sent and i + 1 < ROUTES.size():
 			out["unlocked"] = ROUTES[i + 1]["id"]
+	var s := stats.duplicate()
+	s["sent"] = sent
+	s["falls"] = falls
+	s["style"] = out["style"]
+	if Logbook.challenge_done(id, s):
+		out["challenge"] = true
+		out["firstChallenge"] = not bool(r.get("challenge", false))
+		r["challenge"] = true
 	progress[id] = r
+	out["stars"] = Logbook.stars(r)
+	out["achievements"] = earn(Logbook.earned(id, s, progress, achievements, ROUTES))
 	save_progress()
 	return out
 
 
+## Records new achievements (with today's UTC date). Returns them.
+func earn(ids: Array) -> Array:
+	for a in ids:
+		achievements[a] = Time.get_date_string_from_system(true)
+	return ids
+
+
 func save_progress() -> bool:
-	return SaveGame.write({"progress": progress, "shoes": shoes}, SAVE)
+	return SaveGame.write({"progress": progress, "shoes": shoes, "achievements": achievements, "version": 2}, SAVE)
 
 
 func load_progress() -> void:
 	progress = {}
+	achievements = {}
 	shoes = "neutral"
 	var data: Variant = SaveGame.read(SAVE)
-	if data == null or typeof(data.get("progress")) != TYPE_DICTIONARY:
+	if typeof(data) != TYPE_DICTIONARY or typeof(data.get("progress")) != TYPE_DICTIONARY:
 		return
+	if typeof(data.get("achievements")) == TYPE_DICTIONARY:
+		for a in data["achievements"]:
+			if Logbook.ACHIEVEMENTS.has(a):
+				achievements[a] = str(data["achievements"][a])
 	if SHOES.has(String(data.get("shoes", ""))):
 		shoes = String(data["shoes"])
 	for r in ROUTES:
@@ -264,11 +331,15 @@ func load_progress() -> void:
 			"bestSeconds": _num(d.get("bestSeconds"), -1),
 			"highpoint": clampi(_num(d.get("highpoint"), 0), 0, 99),
 			"beta": typeof(d.get("beta")) == TYPE_BOOL and d["beta"],
+			"falls": maxi(0, _num(d.get("falls"), 0)),
+			"challenge": typeof(d.get("challenge")) == TYPE_BOOL and d["challenge"],
+			"highRows": clampi(_num(d.get("highRows"), 0), 0, 999),
 		}
 
 
 func reset() -> void:
 	progress = {}
+	achievements = {}
 	shoes = "neutral"
 	SaveGame.erase(SAVE)
 

@@ -1,0 +1,442 @@
+{
+ "first-climb": {
+  "segments": [
+   [
+    "up",
+    5
+   ],
+   [
+    "up",
+    3
+   ],
+   [
+    "crimps",
+    2
+   ],
+   [
+    "up",
+    2
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "blank",
+    2
+   ],
+   [
+    "up",
+    4
+   ]
+  ],
+  "x0": 14,
+  "bolts": 3,
+  "spread": 0.0,
+  "first": 3
+ },
+ "warm-up": {
+  "segments": [
+   [
+    "up",
+    6
+   ],
+   [
+    "pockets",
+    2
+   ],
+   [
+    "up",
+    4
+   ],
+   [
+    "crimps",
+    2
+   ],
+   [
+    "up",
+    2
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "up",
+    4
+   ],
+   [
+    "pockets",
+    2
+   ],
+   [
+    "up",
+    2
+   ],
+   [
+    "crimps",
+    2
+   ],
+   [
+    "up",
+    3
+   ]
+  ],
+  "x0": 14,
+  "bolts": 6,
+  "spread": 0.0,
+  "first": 3
+ },
+ "sundown": {
+  "segments": [
+   [
+    "up",
+    5
+   ],
+   [
+    "slopers",
+    2
+   ],
+   [
+    "up",
+    4
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "up",
+    3
+   ],
+   [
+    "traverse",
+    9,
+    5,
+    false,
+    "z"
+   ],
+   [
+    "up",
+    4
+   ],
+   [
+    "crimps",
+    3
+   ],
+   [
+    "up",
+    5
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "up",
+    5
+   ]
+  ],
+  "x0": 12,
+  "bolts": 4,
+  "spread": 0.5,
+  "first": 6
+ },
+ "the-pinch": {
+  "segments": [
+   [
+    "up",
+    4
+   ],
+   [
+    "crimps",
+    3
+   ],
+   [
+    "up",
+    4
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "up",
+    3
+   ],
+   [
+    "crimps",
+    4
+   ],
+   [
+    "pockets",
+    2
+   ],
+   [
+    "up",
+    2
+   ],
+   [
+    "crimps",
+    3
+   ],
+   [
+    "up",
+    3
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "crimps",
+    5
+   ],
+   [
+    "up",
+    3
+   ]
+  ],
+  "x0": 15,
+  "bolts": 8,
+  "spread": 0.0,
+  "first": 3
+ },
+ "leap-of-faith": {
+  "segments": [
+   [
+    "up",
+    4
+   ],
+   [
+    "crimps",
+    3
+   ],
+   [
+    "up",
+    3
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "crimps",
+    4
+   ],
+   [
+    "up",
+    3
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "blank",
+    2
+   ],
+   [
+    "crimps",
+    3
+   ],
+   [
+    "up",
+    4
+   ],
+   [
+    "slopers",
+    3
+   ],
+   [
+    "up",
+    3
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "up",
+    2
+   ],
+   [
+    "crimps",
+    5
+   ],
+   [
+    "up",
+    3
+   ]
+  ],
+  "x0": 15,
+  "bolts": 6,
+  "spread": 0.45,
+  "first": 4
+ },
+ "lions-roof": {
+  "segments": [
+   [
+    "up",
+    3
+   ],
+   [
+    "crimps",
+    4
+   ],
+   [
+    "up",
+    3
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "crimps",
+    4
+   ],
+   [
+    "up",
+    2
+   ],
+   [
+    "traverse",
+    8,
+    5,
+    true,
+    "u"
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "blank",
+    2
+   ],
+   [
+    "crimps",
+    4
+   ],
+   [
+    "up",
+    3
+   ],
+   [
+    "crimps",
+    4
+   ],
+   [
+    "up",
+    2
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "crimps",
+    6
+   ],
+   [
+    "up",
+    3
+   ]
+  ],
+  "x0": 13,
+  "bolts": 8,
+  "spread": 0.1,
+  "first": 3
+ },
+ "thunderhead": {
+  "segments": [
+   [
+    "up",
+    3
+   ],
+   [
+    "crimps",
+    5
+   ],
+   [
+    "up",
+    2
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "crimps",
+    4
+   ],
+   [
+    "up",
+    2
+   ],
+   [
+    "blank",
+    2
+   ],
+   [
+    "crimps",
+    5
+   ],
+   [
+    "up",
+    2
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "traverse",
+    7,
+    3,
+    true
+   ],
+   [
+    "up",
+    2
+   ],
+   [
+    "slopers",
+    2
+   ],
+   [
+    "up",
+    2
+   ],
+   [
+    "jug",
+    2
+   ],
+   [
+    "blank",
+    2
+   ],
+   [
+    "crimps",
+    5
+   ],
+   [
+    "up",
+    2
+   ],
+   [
+    "crimps",
+    5
+   ],
+   [
+    "up",
+    3
+   ]
+  ],
+  "x0": 13,
+  "bolts": 5,
+  "spread": 0.5,
+  "first": 5
+ }
+}

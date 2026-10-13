@@ -11,6 +11,10 @@ filtering. Sizes below are world px.
   godot/assets/crag/jug-hd.png        18 x 11: a big incut hold, chalk on the
       lip, deep shadow under it
   godot/assets/crag/anchor-hd.png     18 x 16: two bolts, chains, a ring
+  godot/assets/crag/sloper-hd.png     16 x 16: a smooth round dome of rock,
+      cooler than the wall, chalk smeared over its top (hold it by friction)
+  godot/assets/crag/pocket-hd.png     16 x 16: a deep two-finger hole with a
+      lit rim and chalk round it
 
     python3 tools/art/crag_hd.py
 """
@@ -137,6 +141,35 @@ def jug():
     return pen.done()
 
 
+SLOPE = (c("#c9b7a6"), c("#9c8a7c"), c("#6c5c52"), c("#3c302a"))
+
+
+def sloper():
+    pen = Pen(16, 16)
+    # A low dome standing off the wall: shadow under it, a soft round body
+    # lit from the upper left, chalk smeared over the top.
+    pen.ellipse(1.6, 6.0, 14.6, 14.4, SLOPE[3], outline=False)
+    pen.ellipse(1.2, 3.4, 14.4, 12.6, SLOPE[1])
+    pen.ellipse(2.4, 4.0, 11.6, 9.4, SLOPE[0], outline=False)
+    pen.ellipse(9.0, 7.4, 13.8, 12.0, SLOPE[2], outline=False)
+    pen.ellipse(3.6, 4.4, 9.6, 6.6, c("#fbf8f2", 170), outline=False)
+    pen.ellipse(4.2, 4.8, 6.4, 5.8, c("#ffffff", 200), outline=False)
+    return pen.done()
+
+
+def pocket():
+    pen = Pen(16, 16)
+    # A hole in the rock: a lit rim, then dark inside, deepest at the top
+    # where the fingers go in; chalk around the lip.
+    pen.ellipse(3.0, 4.0, 13.0, 12.0, STONE[0])
+    pen.ellipse(4.4, 5.0, 11.8, 10.8, STONE[3], outline=False)
+    pen.ellipse(5.0, 5.2, 11.0, 9.2, c("#140a06"), outline=False)
+    pen.ellipse(4.0, 10.2, 12.0, 12.4, STONE[1], outline=False)
+    for x, y in ((3.6, 3.4), (6.0, 2.8), (8.6, 2.9), (11.0, 3.6)):
+        pen.ellipse(x, y, x + 1.4, y + 0.9, c("#fbf8f2", 210), outline=False)
+    return pen.done()
+
+
 def anchor():
     pen = Pen(18, 16)
     for x in (2.0, 11.0):
@@ -161,7 +194,9 @@ def main():
     crimp().save(OUT / "crimp-hd.png")
     jug().save(OUT / "jug-hd.png")
     anchor().save(OUT / "anchor-hd.png")
-    print("wrote quickdraw-hd, crimp-hd, jug-hd, anchor-hd")
+    sloper().save(OUT / "sloper-hd.png")
+    pocket().save(OUT / "pocket-hd.png")
+    print("wrote quickdraw-hd, crimp-hd, jug-hd, anchor-hd, sloper-hd, pocket-hd")
 
 
 if __name__ == "__main__":

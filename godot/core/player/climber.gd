@@ -111,6 +111,8 @@ var _mantle_from := Vector2.ZERO
 var _mantle_to := Vector2.ZERO
 var _step_distance := 0.0
 var _move_distance := 0.0
+## Each kind of hold has its own sound as a hand takes it.
+const HOLD_SOUND := {Terrain.Kind.SLOPER: "sloper", Terrain.Kind.POCKET: "pocket", Terrain.Kind.JUG: "jug"}
 ## How far the hands travel between holds.
 const MOVE_LENGTH := 9.0
 var _breath := 0.0
@@ -347,7 +349,8 @@ func _air(delta: float, input: Vector2) -> void:
 			_grab()
 			return
 	# Catching the rock on the way down: only from a short fall.
-	if input.y > 0.5 and terrain.touches_climbable(body_rect()) and global_position.y - fall_from < SAFE_FALL * 0.5 and not stamina.is_empty():
+	_no_regrab = maxf(0.0, _no_regrab - delta)
+	if _no_regrab <= 0.0 and input.y > 0.5 and terrain.touches_climbable(body_rect()) and global_position.y - fall_from < SAFE_FALL * 0.5 and not stamina.is_empty():
 		_grab()
 		return
 	move_and_slide()
@@ -514,8 +517,8 @@ func _climb(delta: float, input: Vector2) -> void:
 		_move_distance = 0.0
 		moves += 1
 		if not scrambling:
-			var vol := {Terrain.Kind.CRIMP: -13.0, Terrain.Kind.JUG: -10.0}.get(hold, -16.0) as float
-			Audio.play("grip", vol, 0.15)
+			var vol := {Terrain.Kind.CRIMP: -13.0, Terrain.Kind.JUG: -10.0, Terrain.Kind.SLOPER: -12.0, Terrain.Kind.POCKET: -12.0}.get(hold, -16.0) as float
+			Audio.play(HOLD_SOUND.get(hold, "grip"), vol, 0.15)
 		moved.emit(hold)
 	var loose := terrain.kinds_in(body_rect()).has(Terrain.Kind.LOOSE)
 	if loose:
@@ -526,6 +529,10 @@ func _climb(delta: float, input: Vector2) -> void:
 		last_activity = "scramble" if moving else "hang"
 	elif hold == Terrain.Kind.CRIMP:
 		last_activity = "crimp" if moving else "crimp_hang"
+	elif hold == Terrain.Kind.SLOPER:
+		last_activity = "sloper" if moving else "sloper_hang"
+	elif hold == Terrain.Kind.POCKET and not moving:
+		last_activity = "pocket"
 	elif hold == Terrain.Kind.JUG and not moving:
 		last_activity = "jug"
 	elif moving and absf(want.x) > absf(want.y):
@@ -557,13 +564,19 @@ func _dyno(input: Vector2) -> void:
 	dynoed.emit()
 
 
-## Hands off the rock (the crag: grip gone, or a dyno not stuck).
+## Hands off the rock (the crag: grip gone, or a dyno not stuck). They
+## cannot snatch the rock again for a moment: a peel is a fall.
 func peel_off() -> void:
 	if is_climbing():
 		_dyno_from = INF
 		state = State.AIR
 		fall_from = global_position.y
 		velocity = Vector2.ZERO
+		_no_regrab = PEEL_GUARD
+
+
+const PEEL_GUARD := 0.35
+var _no_regrab := 0.0
 
 
 ## Hanging on the rope at a bolt after a fall (the crag): back on the rock

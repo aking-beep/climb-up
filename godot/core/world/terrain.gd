@@ -7,7 +7,7 @@ extends RefCounted
 
 const TILE := 16
 
-enum Kind { AIR, ROCK, SLOPE_R, SLOPE_L, FACE, LOOSE, SCRAMBLE, EXPOSED, REST, ICE, CRUMBLE, CRIMP, JUG }
+enum Kind { AIR, ROCK, SLOPE_R, SLOPE_L, FACE, LOOSE, SCRAMBLE, EXPOSED, REST, ICE, CRUMBLE, CRIMP, JUG, SLOPER, POCKET }
 
 const SOLID_CHARS := "#/\\"
 const KIND_OF := {
@@ -18,7 +18,12 @@ const KIND_OF := {
 	# Crag rock: small holds that wear the arms out (k), big ones to hang on
 	# and shake out (J).
 	"k": Kind.CRIMP, "J": Kind.JUG,
+	# Slopers (z): rounded holds you hold by friction; move slowly on them.
+	# Pockets (u): holes for two fingers; you can hang on them for free.
+	"z": Kind.SLOPER, "u": Kind.POCKET,
 }
+## The holds of a crag line, any of which you can climb on.
+const HOLDS := [Kind.FACE, Kind.LOOSE, Kind.SCRAMBLE, Kind.CRIMP, Kind.JUG, Kind.SLOPER, Kind.POCKET]
 ## Markers stand on air. r: rockfall comes down this column (the marker is
 ## where rocks start); w: a water cache; *: lost gear to find; b / d: a
 ## stone rolls from here along the ground, leftward (b) or rightward (d);
@@ -84,7 +89,7 @@ func set_kind(cell: Vector2i, k: int) -> void:
 
 func is_climbable(cell: Vector2i) -> bool:
 	var k := kind(cell)
-	return k == Kind.FACE or k == Kind.LOOSE or k == Kind.SCRAMBLE or k == Kind.CRIMP or k == Kind.JUG
+	return k in HOLDS
 
 
 static func cell_of(p: Vector2) -> Vector2i:
@@ -141,8 +146,10 @@ func kinds_in(rect: Rect2) -> Array[int]:
 
 
 func touches_climbable(rect: Rect2) -> bool:
-	var ks := kinds_in(rect)
-	return ks.has(Kind.FACE) or ks.has(Kind.LOOSE) or ks.has(Kind.SCRAMBLE) or ks.has(Kind.CRIMP) or ks.has(Kind.JUG)
+	for k in kinds_in(rect):
+		if k in HOLDS:
+			return true
+	return false
 
 
 ## The climbable kind under the hands (the top quarter of the body), or AIR.
@@ -150,7 +157,7 @@ func touches_climbable(rect: Rect2) -> bool:
 func hold_at(rect: Rect2) -> int:
 	var hands := Rect2(rect.position, Vector2(rect.size.x, rect.size.y * 0.35))
 	var ks := kinds_in(hands)
-	for k in [Kind.CRIMP, Kind.FACE, Kind.LOOSE, Kind.SCRAMBLE, Kind.JUG]:
+	for k in [Kind.CRIMP, Kind.SLOPER, Kind.FACE, Kind.LOOSE, Kind.SCRAMBLE, Kind.POCKET, Kind.JUG]:
 		if ks.has(k):
 			return k
 	return Kind.AIR

@@ -1,6 +1,17 @@
 """
-The crag's routes: one cliff, six lines up it, easiest first. Writes
-godot/modes/crag/routes/<id>.txt for the Godot Crag mode.
+The crag's routes: one cliff, seven lines up it, easiest first. Writes
+godot/modes/crag/routes/<id>.txt for the Godot Crag mode, and specs.json
+(the segments of each) so the game's own builder (modes/crag/
+route_builder.gd, which makes the daily route) can be checked against it.
+
+Each route teaches or tests one skill:
+  first-climb   the lesson: one of everything, gently
+  warm-up       clip, rest, repeat (pockets and a jug to clip from)
+  sundown       slow and steady: a traverse on slopers, sporty bolts
+  the-pinch     squeeze timing on long crimps, a clip-up
+  leap-of-faith the timed catch of a dyno
+  lions-roof    steep ground: clip from pockets under the roof
+  thunderhead   everything at once, run-out: plan the rests
 
 The grade is how hard the moves are: each route is taller than the one
 before, with more stretches of tiny holds (crimps) and fewer big holds
@@ -17,6 +28,8 @@ Legend (as the expedition maps, plus the crag's own):
   .  air; below the ledge it is the blank wall of the cliff, unclimbable
   C  the line: rock you can climb
   k  crimps: small holds, they wear the arms out fast, keep moving
+  z  slopers: rounded holds held by friction, move slowly on them
+  u  pockets: two-finger holes, hang on them for free
   J  a jug: a big hold to hang on and shake the arms out
   Q  a bolt with a quickdraw beside the line (clip it as you pass)
   P  where you start, at the foot of the cliff
@@ -27,14 +40,19 @@ A gap of two rows in a line is blank rock: the only way past is a dyno.
 A route is written bottom to top as segments:
   ("up", n)                 n rows of ordinary rock
   ("crimps", n)             n rows of crimps
+  ("slopers", n)            n rows of slopers
+  ("pockets", n)            n rows of pockets
   ("jug", n)                n rows of jug (2 is one big hold)
   ("blank", n)              n rows of blank rock: dyno across
-  ("traverse", dx, k, roof) a two-row band sideways by dx columns, its
-                            middle k columns crimps, rock overhead if roof
+  ("traverse", dx, k, roof[, hold])
+                            a two-row band sideways by dx columns, its
+                            middle k columns crimps (or `hold`), rock
+                            overhead if roof
 
     python3 tools/levels/crag_maps.py
 """
 
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -74,6 +92,7 @@ class Route:
             kind = seg[0]
             if kind == "traverse":
                 dx, k, roof = seg[1], seg[2], seg[3]
+                hold = seg[4] if len(seg) > 4 else "k"
                 lo, hi = min(x, x + dx), max(x, x + dx) + WIDTH - 1
                 for yy in (y, y - 1):
                     for xx in range(lo, hi + 1):
@@ -81,7 +100,7 @@ class Route:
                 mid = (lo + hi) // 2
                 for yy in (y, y - 1):
                     for xx in range(mid - k // 2, mid - k // 2 + k):
-                        self.g[yy][xx] = "k"
+                        self.g[yy][xx] = hold
                 if roof:
                     # Rock right over the band, one row of air above it so
                     # a head fits, except where the line goes on up.
@@ -93,12 +112,12 @@ class Route:
                 y -= 2
                 continue
             n = seg[1]
-            ch = {"up": "C", "crimps": "k", "jug": "J", "blank": "."}[kind]
+            ch = {"up": "C", "crimps": "k", "slopers": "z", "pockets": "u", "jug": "J", "blank": "."}[kind]
             for i in range(n):
                 for xx in range(x, x + WIDTH):
                     self.g[y][xx] = ch
                 self.line_x[y] = x
-                if kind in ("up", "crimps", "jug"):
+                if kind != "blank":
                     self.boltable.add(y)
                 y -= 1
         assert y == LEDGE + 1, (y, LEDGE + 1)
@@ -151,43 +170,49 @@ ROUTES = {
     "first-climb": ([
         ("up", 5), ("up", 3), ("crimps", 2), ("up", 2), ("jug", 2), ("blank", 2), ("up", 4),
     ], 14, 3, 0.0, 3),
-    # Grade 4: good rock, a short bit of crimps, one big hold. 6 bolts, close and even. Well bolted.
+    # Grade 4. Skill: clip, rest, repeat. Good rock, pockets to hang on and
+    # clip from, one big hold, two short bits of crimps. 6 bolts, close and
+    # even. Well bolted.
     "warm-up": ([
-        ("up", 6), ("crimps", 2), ("up", 4), ("jug", 2), ("up", 6), ("crimps", 2), ("up", 5),
+        ("up", 6), ("pockets", 2), ("up", 4), ("crimps", 2), ("up", 2), ("jug", 2), ("up", 4),
+        ("pockets", 2), ("up", 2), ("crimps", 2), ("up", 3),
     ], 14, 6, 0.0, 3),
-    # 5b: up, crimps, a big hold, the long traverse right, crimps, a big
-    # hold near the top. Easy moves but sporty: 4 bolts,
-    # the first one high, the gaps long up top.
+    # 5b. Skill: slow and steady. Up, slopers, a big hold, the long traverse
+    # right with slopers in its middle, crimps, a big hold near the top.
+    # Easy moves but sporty: 4 bolts, the first one high, the gaps long up
+    # top.
     "sundown": ([
-        ("up", 5), ("crimps", 2), ("up", 4), ("jug", 2), ("up", 3), ("traverse", 9, 3, False),
+        ("up", 5), ("slopers", 2), ("up", 4), ("jug", 2), ("up", 3), ("traverse", 9, 5, False, "z"),
         ("up", 4), ("crimps", 3), ("up", 5), ("jug", 2), ("up", 5),
     ], 12, 4, 0.5, 6),
-    # 6a: four stretches of crimps, the longest last; two big holds. Hard moves, well bolted: 8 bolts, close
-    # and even (a clip-up).
+    # 6a. Skill: squeeze timing. Four stretches of crimps, the longest last;
+    # two big holds and a pocket row. Hard moves, well bolted: 8 bolts,
+    # close and even (a clip-up).
     "the-pinch": ([
-        ("up", 4), ("crimps", 3), ("up", 4), ("jug", 2), ("up", 3), ("crimps", 4), ("up", 4),
+        ("up", 4), ("crimps", 3), ("up", 4), ("jug", 2), ("up", 3), ("crimps", 4), ("pockets", 2), ("up", 2),
         ("crimps", 3), ("up", 3), ("jug", 2), ("crimps", 5), ("up", 3),
     ], 15, 8, 0.0, 3),
-    # 6b: a leap from a big hold across blank rock, five stretches of crimps.
-    # 6 bolts, the top ones far apart: sporty.
+    # 6b. Skill: the timed catch. A leap from a big hold across blank rock,
+    # crimps and slopers above it. 6 bolts, the top ones far apart: sporty.
     "leap-of-faith": ([
         ("up", 4), ("crimps", 3), ("up", 3), ("jug", 2), ("crimps", 4), ("up", 3), ("jug", 2),
-        ("blank", 2), ("crimps", 3), ("up", 4), ("crimps", 4), ("up", 3), ("jug", 2), ("up", 2),
+        ("blank", 2), ("crimps", 3), ("up", 4), ("slopers", 3), ("up", 3), ("jug", 2), ("up", 2),
         ("crimps", 5), ("up", 3),
     ], 15, 6, 0.45, 4),
-    # 6c: crimps, a traverse on crimps under a roof, a big hold, a leap,
-    # long crimps to the top. 8 bolts, close: the roof is well bolted.
+    # 6c. Skill: steep ground. Crimps, a traverse under a roof with pockets
+    # to clip from, a big hold, a leap, long crimps to the top. 8 bolts,
+    # close: the roof is well bolted.
     "lions-roof": ([
         ("up", 3), ("crimps", 4), ("up", 3), ("jug", 2), ("crimps", 4), ("up", 2),
-        ("traverse", 8, 3, True), ("jug", 2), ("blank", 2), ("crimps", 4), ("up", 3),
+        ("traverse", 8, 5, True, "u"), ("jug", 2), ("blank", 2), ("crimps", 4), ("up", 3),
         ("crimps", 4), ("up", 2), ("jug", 2), ("crimps", 6), ("up", 3),
     ], 13, 8, 0.1, 3),
-    # 7a: the big one. Two leaps, a roof on crimps, seven stretches of
-    # crimps, three big holds a long way apart. 5 bolts, the
-    # first one high and the last gaps very long: run-out.
+    # 7a. Skill: all of it, run-out. Two leaps, a roof on crimps, slopers,
+    # long crimps, three big holds a long way apart. 5 bolts, the first one
+    # high and the last gaps very long: run-out.
     "thunderhead": ([
         ("up", 3), ("crimps", 5), ("up", 2), ("jug", 2), ("crimps", 4), ("up", 2), ("blank", 2),
-        ("crimps", 5), ("up", 2), ("jug", 2), ("traverse", 7, 3, True), ("up", 2), ("crimps", 2), ("up", 2),
+        ("crimps", 5), ("up", 2), ("jug", 2), ("traverse", 7, 3, True), ("up", 2), ("slopers", 2), ("up", 2),
         ("jug", 2), ("blank", 2), ("crimps", 5), ("up", 2), ("crimps", 5), ("up", 3),
     ], 13, 5, 0.5, 5),
 }
@@ -195,6 +220,9 @@ ROUTES = {
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
+    specs = {name: {"segments": [list(s) for s in seg], "x0": x0, "bolts": b, "spread": sp, "first": fi}
+             for name, (seg, x0, b, sp, fi) in ROUTES.items()}
+    (OUT / "specs.json").write_text(json.dumps(specs, indent=1) + "\n")
     for name, (segments, x0, bolts, spread, first) in ROUTES.items():
         r = Route(segments, x0, bolts, spread, first)
         path = OUT / f"{name}.txt"

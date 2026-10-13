@@ -23,6 +23,18 @@ var master_volume := 0.8
 var show_fps := false
 ## Short buzzes on phones (grabs, clips, falls). Apart from reduced motion.
 var haptics := true
+## Sound effects and music, each 0 … 1, under master_volume.
+var effects_volume := 1.0
+var music_volume := 0.6
+## The touch buttons and stick: 0.85 … 1.3 of their size, and the buttons
+## on the left (the stick on the right) for left-handed play.
+var touch_scale := 1.0
+var left_handed := false
+## Usage events written on this device (Analytics); and whether they may
+## be sent anywhere. Nothing sends them yet: share_usage stays off until a
+## consent screen and a provider exist (docs/analytics.md).
+var log_usage := true
+var share_usage := false
 
 
 func _ready() -> void:
@@ -119,8 +131,15 @@ func set_touch_controls(value: Variant) -> void:
 	changed.emit()
 
 
+func set_value(key: String, value: Variant) -> void:
+	set(key, value)
+	save_settings()
+	changed.emit()
+
+
 func to_dict() -> Dictionary:
-	return {"quality": quality, "reducedMotion": reduced_motion, "touchControls": touch_controls, "volume": master_volume, "showFps": show_fps, "haptics": haptics}
+	return {"quality": quality, "reducedMotion": reduced_motion, "touchControls": touch_controls, "volume": master_volume, "showFps": show_fps, "haptics": haptics,
+		"effects": effects_volume, "music": music_volume, "touchScale": touch_scale, "leftHanded": left_handed, "logUsage": log_usage}
 
 
 func apply_dict(d: Variant) -> void:
@@ -135,6 +154,16 @@ func apply_dict(d: Variant) -> void:
 	master_volume = clampf(float(v), 0.0, 1.0) if typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT else 0.8
 	show_fps = _flag(d.get("showFps"), false)
 	haptics = _flag(d.get("haptics"), true)
+	effects_volume = _level(d.get("effects"), 1.0, 0.0, 1.0)
+	music_volume = _level(d.get("music"), 0.6, 0.0, 1.0)
+	touch_scale = _level(d.get("touchScale"), 1.0, 0.85, 1.3)
+	left_handed = _flag(d.get("leftHanded"), false)
+	log_usage = _flag(d.get("logUsage"), true)
+
+
+## A number from a saved file, kept in [lo, hi], or `default`.
+static func _level(v: Variant, default: float, lo: float, hi: float) -> float:
+	return clampf(float(v), lo, hi) if typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT else default
 
 
 ## A yes/no from a saved file, or `default` when it is anything else.
