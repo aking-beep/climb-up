@@ -256,3 +256,87 @@ func test_the_results_show_new_records_and_rank() -> void:
 			eq(Records.pending()[-1]["payload"]["events"][0][1], "tie_in", "the go's event log goes with it")
 		await _done()
 	_done_all()
+
+
+## Real submissions from real climbs (a send, a fall short, a daily go and
+## a finished expedition), as the server will get them. With
+## RECORDS_FIXTURE set they are written there for the server's tests
+## (server/records_service/tests).
+func test_real_submissions_have_what_the_server_checks() -> void:
+	_fresh()
+	Crag.clock_override = Time.get_unix_time_from_datetime_string("2026-10-13T12:00:00")
+	Crag.tie_in("first-climb")
+	Crag.finish("first-climb", true, 0, 60)
+	Crag.climb("warm-up")
+	await _load("warm-up", "neutral")
+	check(await lead(), "the bot sends the Warm-up Wall")
+	level._skip_celebration = true
+	await physics_frames(5)
+	await _done()
+	Crag.climb("warm-up")
+	await _load("warm-up", "neutral")
+	await physics_frames(200)
+	level._skip_celebration = true
+	level.finish(false)
+	await physics_frames(5)
+	await _done()
+	Crag.current = "daily"
+	await _load("daily", "neutral")
+	check(await lead(), "and today's daily route")
+	await physics_frames(5)
+	await _done()
+	var s := TestSessions.at("summit-night")
+	s["state"]["summitReached"] = true
+	s["state"]["highestAltitude"] = 5895
+	s["state"]["returnedSafely"] = true
+	Records.expedition_finished(s)
+	var q: Array = Records.pending()
+	eq(q.size(), 4, "four submissions queued")
+	for e in q.slice(0, 3):
+		var ev: Array = e["payload"]["events"]
+		eq(ev[0][1], "tie_in", "each log starts at the tie-in")
+		eq(ev[-1][1], "end", "and ends")
+		eq(e["payload"]["mapHash"], Records.map_hash(e["payload"]["route"]), "with the map's hash")
+	var clips: Array = q[0]["payload"]["events"].filter(func(x: Array) -> bool: return x[1] == "clip")
+	eq(clips.size(), 6, "the send clipped all six bolts, in the log")
+	var out := OS.get_environment("RECORDS_FIXTURE")
+	if out != "":
+		var f := FileAccess.open(out, FileAccess.WRITE)
+		f.store_string(JSON.stringify(q, "  "))
+		f.close()
+		print("      wrote ", out)
+	_done_all()
+
+
+## Against a running reference server (server/records_service), when
+## RECORDS_SERVER is set (e.g. http://127.0.0.1:8080): make an account,
+## climb, sync, and read the board back. Skipped without one: there is no
+## deployed service.
+func test_sync_with_the_reference_server() -> void:
+	var server := OS.get_environment("RECORDS_SERVER")
+	if server == "":
+		print("      skipped: RECORDS_SERVER not set (no service to sync with)")
+		return
+	_fresh()
+	Crag.clock_override = -1
+	var o := Online.new()
+	o.host = Records
+	Records.online = o
+	var name := "Godot %d" % (randi() % 100000)
+	eq(await o.register(server, 30, name), "", "an account on the service")
+	Crag.tie_in("first-climb")
+	Crag.finish("first-climb", true, 0, 60)
+	Crag.climb("warm-up")
+	await _load("warm-up", "neutral")
+	check(await lead(), "a real send of the Warm-up Wall")
+	await physics_frames(5)
+	await _done()
+	var sent := await Records.sync()
+	eq(sent, 1, "the server accepted the go")
+	check(Records.data["queue"][-1]["serverTime"] > 0, "with the server's time")
+	var board: Dictionary = await o.request("GET", "/v1/leaderboards/crag/warm-up")
+	var names: Array = board["body"].get("entries", []).map(func(e: Dictionary) -> String: return e["player"])
+	check(names.has(name), "and the global board shows it: %s" % [names])
+	eq(await Records.sync(), 0, "nothing sent twice")
+	o.forget()
+	_done_all()

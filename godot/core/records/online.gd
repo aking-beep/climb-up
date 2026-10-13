@@ -23,6 +23,9 @@ const MIN_PUBLIC_AGE := 13
 
 var endpoint := ""
 var token := ""
+var player_id := ""
+## The node HTTP requests run under (Records).
+var host: Node
 ## For tests: a Callable(entry: Dictionary) -> Dictionary standing in for
 ## the network.
 var transport: Callable
@@ -33,6 +36,7 @@ func _init() -> void:
 	if typeof(d) == TYPE_DICTIONARY:
 		endpoint = String(d.get("endpoint", ""))
 		token = String(d.get("token", ""))
+		player_id = String(d.get("playerId", ""))
 
 
 ## True only with a service address and a signed-in player (or a test
@@ -47,8 +51,58 @@ func configured() -> bool:
 func submit(entry: Dictionary) -> Dictionary:
 	if transport.is_valid():
 		return transport.call(entry)
-	# The HTTP client goes here once a service is deployed (docs).
-	return {"ok": false, "retry": true}
+	var r := await request("POST", "/v1/submissions", {"id": entry["id"], "kind": entry["kind"], "clientTime": entry["clientTime"], "payload": entry["payload"]})
+	if r["code"] == 200:
+		return r["body"]
+	# No answer, a server error or "too many": keep it and try later.
+	if r["code"] == 0 or r["code"] == 429 or r["code"] >= 500:
+		return {"ok": false, "retry": true}
+	return {"ok": false, "reason": String(r["body"].get("error", r["body"].get("reason", "refused")))}
+
+
+## Makes an account on the service (age first, for privacy); saves the
+## token. "" on success, else why not.
+func register(base: String, age: int, display_name: String = "") -> String:
+	endpoint = base
+	var body := {"age": age}
+	if display_name != "":
+		body["displayName"] = display_name
+	var r := await request("POST", "/v1/players", body)
+	if r["code"] != 201:
+		endpoint = ""
+		return String(r["body"].get("error", "could not reach the service"))
+	token = String(r["body"]["token"])
+	player_id = String(r["body"]["playerId"])
+	SaveGame.write({"endpoint": endpoint, "token": token, "playerId": player_id}, CONFIG)
+	return ""
+
+
+## Signs out on this device (the account stays on the server).
+func forget() -> void:
+	endpoint = ""
+	token = ""
+	player_id = ""
+	SaveGame.erase(CONFIG)
+
+
+## One JSON request: {code (0 if no answer), body}.
+func request(method: String, path: String, body: Dictionary = {}) -> Dictionary:
+	if host == null or not host.is_inside_tree() or endpoint == "":
+		return {"code": 0, "body": {}}
+	var http := HTTPRequest.new()
+	http.timeout = 10.0
+	host.add_child(http)
+	var headers := PackedStringArray(["Content-Type: application/json"])
+	if token != "":
+		headers.append("Authorization: Bearer " + token)
+	var verb: int = {"GET": HTTPClient.METHOD_GET, "POST": HTTPClient.METHOD_POST, "PATCH": HTTPClient.METHOD_PATCH, "DELETE": HTTPClient.METHOD_DELETE}[method]
+	if http.request(endpoint + path, headers, verb, JSON.stringify(body) if method != "GET" else "") != OK:
+		http.queue_free()
+		return {"code": 0, "body": {}}
+	var res: Array = await http.request_completed
+	http.queue_free()
+	var parsed: Variant = JSON.parse_string((res[3] as PackedByteArray).get_string_from_utf8()) if (res[3] as PackedByteArray).size() > 0 else {}
+	return {"code": int(res[1]) if int(res[0]) == HTTPRequest.RESULT_SUCCESS else 0, "body": parsed if typeof(parsed) == TYPE_DICTIONARY else {}}
 
 
 ## "" when `name` can be a public display name, else why not.

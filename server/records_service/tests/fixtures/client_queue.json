@@ -1,0 +1,908 @@
+[
+  {
+    "clientTime": 1791892800,
+    "id": "e48daee97245e40e0d08ab67",
+    "kind": "crag",
+    "payload": {
+      "beta": false,
+      "date": "",
+      "events": [
+        [
+          0.0,
+          "tie_in",
+          "neutral"
+        ],
+        [
+          1.0,
+          "h",
+          0
+        ],
+        [
+          2.02,
+          "h",
+          0
+        ],
+        [
+          3.02,
+          "h",
+          0
+        ],
+        [
+          3.22,
+          "clip",
+          [
+            0,
+            1
+          ]
+        ],
+        [
+          4.02,
+          "h",
+          2
+        ],
+        [
+          5.02,
+          "h",
+          4
+        ],
+        [
+          5.22,
+          "rest",
+          1
+        ],
+        [
+          6.02,
+          "h",
+          4
+        ],
+        [
+          7.02,
+          "h",
+          5
+        ],
+        [
+          7.42,
+          "clip",
+          [
+            1,
+            6
+          ]
+        ],
+        [
+          8.02,
+          "h",
+          7
+        ],
+        [
+          9.0,
+          "h",
+          8
+        ],
+        [
+          9.62,
+          "rest",
+          2
+        ],
+        [
+          10.0,
+          "h",
+          9
+        ],
+        [
+          11.0,
+          "h",
+          10
+        ],
+        [
+          11.62,
+          "clip",
+          [
+            2,
+            11
+          ]
+        ],
+        [
+          12.0,
+          "h",
+          11
+        ],
+        [
+          12.68,
+          "rest",
+          3
+        ],
+        [
+          13.0,
+          "h",
+          12
+        ],
+        [
+          14.0,
+          "h",
+          13
+        ],
+        [
+          15.0,
+          "h",
+          14
+        ],
+        [
+          15.95,
+          "clip",
+          [
+            3,
+            16
+          ]
+        ],
+        [
+          16.0,
+          "h",
+          16
+        ],
+        [
+          16.95,
+          "rest",
+          4
+        ],
+        [
+          17.0,
+          "h",
+          17
+        ],
+        [
+          18.0,
+          "h",
+          17
+        ],
+        [
+          19.0,
+          "h",
+          19
+        ],
+        [
+          20.0,
+          "h",
+          21
+        ],
+        [
+          20.15,
+          "clip",
+          [
+            4,
+            21
+          ]
+        ],
+        [
+          21.0,
+          "h",
+          22
+        ],
+        [
+          21.35,
+          "rest",
+          5
+        ],
+        [
+          22.0,
+          "h",
+          23
+        ],
+        [
+          23.02,
+          "h",
+          24
+        ],
+        [
+          24.02,
+          "h",
+          25
+        ],
+        [
+          24.35,
+          "clip",
+          [
+            5,
+            26
+          ]
+        ],
+        [
+          24.75,
+          "rest",
+          6
+        ],
+        [
+          25.02,
+          "h",
+          26
+        ],
+        [
+          26.02,
+          "h",
+          27
+        ],
+        [
+          27.02,
+          "h",
+          28
+        ],
+        [
+          28.02,
+          "h",
+          29
+        ],
+        [
+          29.02,
+          "h",
+          31
+        ],
+        [
+          29.83,
+          "end",
+          [
+            "top",
+            31,
+            0
+          ]
+        ]
+      ],
+      "go": {
+        "falls": 0,
+        "rows": 31,
+        "seconds": 29,
+        "sent": true,
+        "shoes": "neutral",
+        "style": "onsight",
+        "t": 1791892800,
+        "verified": false
+      },
+      "mapHash": 878098442,
+      "route": "warm-up"
+    },
+    "player": "b5967960cbb17cc8",
+    "status": "pending"
+  },
+  {
+    "clientTime": 1791892800,
+    "id": "59e538d730069dcb662e3f14",
+    "kind": "crag",
+    "payload": {
+      "beta": false,
+      "date": "",
+      "events": [
+        [
+          0.0,
+          "tie_in",
+          "neutral"
+        ],
+        [
+          1.0,
+          "h",
+          0
+        ],
+        [
+          2.02,
+          "h",
+          0
+        ],
+        [
+          3.02,
+          "h",
+          0
+        ],
+        [
+          3.35,
+          "end",
+          [
+            "lowered",
+            0,
+            0
+          ]
+        ]
+      ],
+      "go": {
+        "falls": 0,
+        "rows": 0,
+        "seconds": 3,
+        "sent": false,
+        "shoes": "neutral",
+        "style": "",
+        "t": 1791892800,
+        "verified": false
+      },
+      "mapHash": 878098442,
+      "route": "warm-up"
+    },
+    "player": "b5967960cbb17cc8",
+    "status": "pending"
+  },
+  {
+    "clientTime": 1791892800,
+    "id": "18cb1d80963a041a97b6981d",
+    "kind": "crag",
+    "payload": {
+      "beta": false,
+      "date": "2026-10-13",
+      "events": [
+        [
+          0.0,
+          "tie_in",
+          "neutral"
+        ],
+        [
+          1.0,
+          "h",
+          0
+        ],
+        [
+          2.02,
+          "h",
+          0
+        ],
+        [
+          3.02,
+          "h",
+          0
+        ],
+        [
+          3.88,
+          "clip",
+          [
+            0,
+            2
+          ]
+        ],
+        [
+          4.02,
+          "h",
+          2
+        ],
+        [
+          5.02,
+          "h",
+          4
+        ],
+        [
+          5.1,
+          "rest",
+          1
+        ],
+        [
+          6.02,
+          "h",
+          4
+        ],
+        [
+          7.02,
+          "h",
+          4
+        ],
+        [
+          8.02,
+          "h",
+          5
+        ],
+        [
+          9.0,
+          "h",
+          6
+        ],
+        [
+          9.88,
+          "clip",
+          [
+            1,
+            7
+          ]
+        ],
+        [
+          9.95,
+          "rest",
+          2
+        ],
+        [
+          10.0,
+          "h",
+          7
+        ],
+        [
+          11.0,
+          "h",
+          7
+        ],
+        [
+          12.0,
+          "h",
+          8
+        ],
+        [
+          13.0,
+          "h",
+          10
+        ],
+        [
+          13.55,
+          "clip",
+          [
+            2,
+            11
+          ]
+        ],
+        [
+          14.0,
+          "h",
+          12
+        ],
+        [
+          15.0,
+          "h",
+          13
+        ],
+        [
+          16.0,
+          "h",
+          15
+        ],
+        [
+          16.48,
+          "rest",
+          3
+        ],
+        [
+          17.0,
+          "h",
+          15
+        ],
+        [
+          18.0,
+          "h",
+          15
+        ],
+        [
+          19.0,
+          "h",
+          15
+        ],
+        [
+          19.82,
+          "clip",
+          [
+            3,
+            16
+          ]
+        ],
+        [
+          20.0,
+          "h",
+          16
+        ],
+        [
+          21.0,
+          "h",
+          18
+        ],
+        [
+          22.0,
+          "h",
+          18
+        ],
+        [
+          23.02,
+          "h",
+          20
+        ],
+        [
+          23.55,
+          "clip",
+          [
+            4,
+            21
+          ]
+        ],
+        [
+          23.95,
+          "rest",
+          5
+        ],
+        [
+          24.02,
+          "h",
+          21
+        ],
+        [
+          25.02,
+          "h",
+          21
+        ],
+        [
+          26.02,
+          "h",
+          23
+        ],
+        [
+          27.02,
+          "h",
+          24
+        ],
+        [
+          28.02,
+          "h",
+          26
+        ],
+        [
+          28.02,
+          "clip",
+          [
+            5,
+            26
+          ]
+        ],
+        [
+          28.43,
+          "rest",
+          6
+        ],
+        [
+          29.02,
+          "h",
+          26
+        ],
+        [
+          30.02,
+          "h",
+          26
+        ],
+        [
+          31.02,
+          "h",
+          26
+        ],
+        [
+          32.02,
+          "h",
+          28
+        ],
+        [
+          33.02,
+          "h",
+          29
+        ],
+        [
+          34.02,
+          "h",
+          30
+        ],
+        [
+          35.02,
+          "h",
+          30
+        ],
+        [
+          36.02,
+          "h",
+          30
+        ],
+        [
+          37.02,
+          "h",
+          30
+        ],
+        [
+          38.02,
+          "h",
+          30
+        ],
+        [
+          39.02,
+          "h",
+          30
+        ],
+        [
+          39.68,
+          "clip",
+          [
+            6,
+            30
+          ]
+        ],
+        [
+          39.75,
+          "rest",
+          7
+        ],
+        [
+          40.02,
+          "h",
+          30
+        ],
+        [
+          41.02,
+          "h",
+          30
+        ],
+        [
+          42.02,
+          "h",
+          30
+        ],
+        [
+          43.02,
+          "h",
+          30
+        ],
+        [
+          44.02,
+          "h",
+          31
+        ],
+        [
+          45.02,
+          "h",
+          33
+        ],
+        [
+          46.02,
+          "h",
+          35
+        ],
+        [
+          46.17,
+          "clip",
+          [
+            7,
+            35
+          ]
+        ],
+        [
+          46.62,
+          "rest",
+          8
+        ],
+        [
+          47.02,
+          "h",
+          35
+        ],
+        [
+          48.02,
+          "h",
+          36
+        ],
+        [
+          49.02,
+          "h",
+          37
+        ],
+        [
+          50.02,
+          "h",
+          39
+        ],
+        [
+          51.02,
+          "h",
+          40
+        ],
+        [
+          51.55,
+          "end",
+          [
+            "top",
+            40,
+            0
+          ]
+        ]
+      ],
+      "go": {
+        "falls": 0,
+        "rows": 40,
+        "seconds": 51,
+        "sent": true,
+        "shoes": "neutral",
+        "style": "onsight",
+        "t": 1791892800,
+        "verified": false
+      },
+      "mapHash": 544962256,
+      "route": "daily"
+    },
+    "player": "b5967960cbb17cc8",
+    "status": "pending"
+  },
+  {
+    "clientTime": 1791892800,
+    "id": "47d706675329b169eeb4eedd",
+    "kind": "expedition",
+    "payload": {
+      "history": [
+        "Walk the forest and set camp",
+        "Sleep under the trees",
+        "Break camp and keep a patient pace",
+        "Stake the tents and sleep",
+        "Cross the plateau and pitch at Shira 2",
+        "Sleep before the tower",
+        "Tag the tower, then sleep low",
+        "Sleep and leave the wall for morning",
+        "Climb the wall and camp at Karanga",
+        "Lie down in the valley",
+        "Take the extra day",
+        "Break camp for Barafu",
+        "Lie down on the ridge",
+        "Rest the day"
+      ],
+      "route": "lemosho",
+      "run": {
+        "assisted": false,
+        "complete": true,
+        "days": 7,
+        "difficulty": "standard",
+        "firstCompletion": true,
+        "health": 92,
+        "judgment": 100,
+        "newBest": true,
+        "preparation": 64,
+        "returned": true,
+        "risk": 78,
+        "route": "lemosho",
+        "score": 100,
+        "seed": 7,
+        "sentDown": 0,
+        "summit": true,
+        "supplies": 25,
+        "t": 1791892800,
+        "teamCondition": 100,
+        "teamHome": 4,
+        "teamwork": 83,
+        "verified": false
+      },
+      "state": {
+        "elapsedHours": 183.0,
+        "energy": 72,
+        "health": 92,
+        "highestAltitude": 5895,
+        "ledger": {
+          "judgment": [
+            {
+              "delta": 6.0,
+              "label": "You gave the ten days their first night",
+              "mark": "day1-pace"
+            },
+            {
+              "delta": 6.0,
+              "label": "You gave the forest its night",
+              "mark": "night-forest"
+            },
+            {
+              "delta": 6.0,
+              "label": "You let the moorland take a whole day",
+              "mark": "shira1-pace"
+            },
+            {
+              "delta": 6.0,
+              "label": "You let the plateau wind be a night in camp",
+              "mark": "night-shira"
+            },
+            {
+              "delta": 8.0,
+              "label": "You walked above Shira 2 and slept lower",
+              "mark": "shira-high"
+            },
+            {
+              "delta": 6.0,
+              "label": "You saved the tower for daylight",
+              "mark": "night-shira2"
+            },
+            {
+              "delta": 10.0,
+              "label": "You climbed high and slept low",
+              "mark": "lava-low"
+            },
+            {
+              "delta": 8.0,
+              "label": "You left the wall for daylight",
+              "mark": "night-wall"
+            },
+            {
+              "delta": 6.0,
+              "label": "You kept the wall day short",
+              "mark": "wall-short"
+            },
+            {
+              "delta": 6.0,
+              "label": "You slept before the extra day",
+              "mark": "night-karanga"
+            },
+            {
+              "delta": 10.0,
+              "label": "You used the extra day at Karanga",
+              "mark": "karanga-day"
+            },
+            {
+              "delta": 8.0,
+              "label": "You slept at Barafu instead of starting up",
+              "mark": "night-barafu"
+            },
+            {
+              "delta": 12.0,
+              "label": "You rested at Barafu before the midnight start",
+              "mark": "barafu-day"
+            }
+          ],
+          "preparation": [
+            {
+              "delta": 4.0,
+              "label": "Camp was up before the forest went dark",
+              "mark": "day1-camp"
+            },
+            {
+              "delta": 4.0,
+              "label": "The camp was pitched before the extra walk",
+              "mark": "shira2-camp"
+            },
+            {
+              "delta": 6.0,
+              "label": "Barafu was a camp, not a starting line",
+              "mark": "barafu-camp"
+            }
+          ],
+          "riskManagement": [
+            {
+              "delta": 6.0,
+              "label": "The tower was a visit, not a bed",
+              "mark": "lava-visit"
+            },
+            {
+              "delta": 4.0,
+              "label": "A night on the wall was never the plan",
+              "mark": "night-wall-risk"
+            },
+            {
+              "delta": 6.0,
+              "label": "Barafu waited while the team caught up",
+              "mark": "karanga-risk"
+            },
+            {
+              "delta": 4.0,
+              "label": "Arrival night was not the bid",
+              "mark": "night-barafu-risk"
+            },
+            {
+              "delta": 8.0,
+              "label": "The summit bid was not the arrival",
+              "mark": "barafu-risk"
+            }
+          ],
+          "teamwork": [
+            {
+              "delta": 3.0,
+              "label": "The team stayed in camp",
+              "mark": "night-forest-team"
+            },
+            {
+              "delta": 4.0,
+              "label": "You kept the team inside one pace",
+              "mark": "shira1-team"
+            },
+            {
+              "delta": 4.0,
+              "label": "The team came off the wall together",
+              "mark": "wall-team"
+            },
+            {
+              "delta": 6,
+              "label": "You stopped for Marco on the Barranco Wall",
+              "mark": "wall-assist"
+            }
+          ]
+        },
+        "oxygen": 72,
+        "returnedSafely": true,
+        "seed": 7,
+        "summitReached": true,
+        "supplies": 25,
+        "teamCondition": 100
+      }
+    },
+    "player": "b5967960cbb17cc8",
+    "status": "pending"
+  }
+]

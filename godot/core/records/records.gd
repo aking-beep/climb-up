@@ -52,6 +52,7 @@ var online: Online
 
 func _ready() -> void:
 	online = Online.new()
+	online.host = self
 	load_records()
 
 
@@ -201,7 +202,8 @@ func crag_attempt(route: Dictionary, outcome: Dictionary, level: Node) -> String
 		news = _daily_go(go)
 	else:
 		news = _route_go(id, go)
-	_enqueue("crag", {"route": id, "date": route.get("date", ""), "mapHash": int(route.get("hash", 0)) if id == "daily" else _map_hash(id),
+	_enqueue("crag", {"route": id, "date": route.get("date", ""), "mapHash": map_hash(id),
+		"beta": bool(Crag.record(id).get("beta", false)) if id != "daily" else false,
 		"go": go, "events": level.get("attempt_log") if level and level.get("attempt_log") != null else []})
 	save()
 	for n in news:
@@ -216,8 +218,11 @@ func crag_attempt(route: Dictionary, outcome: Dictionary, level: Node) -> String
 	return line
 
 
-func _map_hash(id: String) -> int:
-	return hash(Crag.map_text(id))
+## The route's map as the server knows it (FNV-1a of the map text, the
+## same function as the daily route's seed): a client on other maps is
+## refused rather than ranked against them.
+static func map_hash(id: String) -> int:
+	return Daily.fnv1a(Crag.map_text(id))
 
 
 func _route_go(id: String, go: Dictionary) -> Array:
@@ -324,7 +329,11 @@ func expedition_finished(session: Dictionary) -> Dictionary:
 	runs.append(run)
 	while runs.size() > KEEP_RUNS:
 		runs.pop_front()
-	_enqueue("expedition", {"run": run, "history": s.get("history", []).map(func(h: Dictionary) -> String: return String(h.get("choice", "")))})
+	var keep := {}
+	for k in ["ledger", "health", "energy", "teamCondition", "supplies", "oxygen", "summitReached", "returnedSafely", "highestAltitude", "elapsedHours", "seed"]:
+		keep[k] = s.get(k)
+	_enqueue("expedition", {"run": run, "state": keep, "route": run["route"],
+		"history": s.get("history", []).map(func(h: Dictionary) -> String: return String(h.get("choice", "")))})
 	save()
 	if run["newBest"]:
 		Analytics.event("record_set", {"route": "expedition", "kind": "score"})

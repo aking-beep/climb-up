@@ -349,6 +349,23 @@ checks it makes the seven maps byte for byte.
   on a sloper, 50 s on ordinary rock; jugs and pockets stop the clock. The
   stamina line shows it ("Stamina 85% (5 s here)", or "(resting)" on a
   hold that gives it back).
+- **Retry and the high point.** After a go the results put **Retry**
+  first after a fall short: one tap straight back onto the route in the
+  same shoes, no menu, no brief. After the top they put the **next route**
+  first and Replay second. Any tap skips the beat before them. The best
+  height (half a metre a row) is marked in chalk either side of the line,
+  off the holds, and **NEW HIGH POINT** shows only above an earlier one,
+  also as you pass it. A short message says when a go ended just short of
+  your best or near the anchor, only when that is true. On a replay of
+  the lesson, tips seen before become short reminders.
+- **Records.** Records and leaderboards, from the crag and expedition
+  menus: per route best time, fastest clean ascent, high point, styles,
+  first ascent on this device; the daily day's goes ranked; expeditions
+  by score with completion meaning the summit and the way down, split by
+  route; the World Passport. Friends and Global say they are not
+  connected: the online service is designed and has a tested reference
+  server (docs/records-backend.md) but is not deployed. Nothing is called
+  verified on the device.
 - **The grade curve.** Each route has a `pump` (how much every move costs)
   set so the grades ask steadily more: a careful player's lowest point
   goes 79, 71, 69, 57, 50, 45, 31% from the lesson to Thunderhead, and a
