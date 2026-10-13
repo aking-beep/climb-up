@@ -28,8 +28,8 @@ const GRIP_TAP := 0.45
 const GRIP_COOLDOWN := 0.2
 const GRIP_MOVING := 0.35
 const GRIP_STILL := 1.3
-const GRIP_SAVE := 0.4
-const GRIP_BURN := 1.6
+const GRIP_SAVE := 0.5
+const GRIP_BURN := 1.35
 ## A lead fall: twice as far as you were above the last clipped bolt, plus
 ## the slack in the system. Land below the ground and you hit it.
 const FALL_SLACK := 1.0 * Terrain.TILE
@@ -184,7 +184,9 @@ var _draw_tex: Texture2D
 func _ready() -> void:
 	route = Crag.route(Crag.current)
 	terrain = Terrain.from_text(Crag.map_text(route["id"]))
-	stamina = StaminaModel.new(100.0, 1.0, 1.0)
+	# `pump`: how much every move on this route costs, so the grades climb
+	# in steady steps (Crag.ROUTES).
+	stamina = StaminaModel.new(100.0, 1.0, float(route.get("pump", 1.0)))
 	wind = WindSchedule.new(0.0, 1, -60.0)
 	var theme := {
 		"far": "res://assets/scenery/barranco-kibo.png", "farScale": 0.7,
@@ -813,7 +815,7 @@ const LESSONS := {
 	"rock": ["The rock", "Walk to the pale rock and push UP (or tap CLIMB) to grab it. Climbing uses stamina: the bar at the top left."],
 	"bolt": ["Clip in", "Tap CLIP to clip your rope to this bolt. If you fall now, it catches you."],
 	"rest": ["Rest on the rope", "The green bar over your head is a rest: tap REST to sit back and get stamina back. Every bolt you clip refills it."],
-	"crimps": ["Tiny holds", "Tiny holds drain you fast. Keep moving, and tap GRIP once when the meter over your head drops below half."],
+	"crimps": ["Tiny holds", "Tiny holds drain you fast: the seconds beside your stamina are how long your arms last here. Keep moving, and tap GRIP once when the meter over your head drops below half."],
 	"jug": ["A big hold", "Stay on big holds to shake out and get your stamina back."],
 	"dyno": ["Jump for it", "No holds above: press JUMP to leap. Tap GRIP once as the ring closes on the hold. Mashing misses."],
 	"fall": ["You fell. That's fine.", "The rope caught you at your last bolt. Climb on from here: falls are how you learn a route."],
@@ -1157,7 +1159,16 @@ func lead_fall_landing(top_y: float) -> Vector2:
 # --- Words for the HUD ---------------------------------------------------------------
 
 func stats_line(pct: int) -> String:
-	return "Stamina %d%% · Falls %d/%d · Clipped %d/%d" % [pct, climber.slips, max_slips, _clipped(), clips.size()]
+	# The hold's clock beside the bar: how long the arms last here, or that
+	# this hold gives them back.
+	var here := ""
+	if climber.state == Climber.State.CLIMB:
+		var secs := arms_seconds()
+		if not is_inf(secs) and secs <= 45.0:
+			here = " (%d s here)" % maxi(1, int(secs))
+		elif stamina.rate(climber.last_activity) < 0.0 and stamina.fraction() < 0.99:
+			here = " (resting)"
+	return "Stamina %d%%%s · Falls %d/%d · Clipped %d/%d" % [pct, here, climber.slips, max_slips, _clipped(), clips.size()]
 
 
 func _clipped() -> int:
@@ -1183,11 +1194,11 @@ func hint_now() -> String:
 	if on_slopers:
 		if grip < 0.4:
 			return "Sliding! Stop and let your grip settle (%d%%)." % int(grip * 100.0)
-		return "Slopers: move slowly, pause to settle. Squeezing does not help here."
+		return "Slopers: move slowly, pause to settle. Squeezing does not help here.%s" % arms_words()
 	if on_crimps:
 		if grip < 0.5:
-			return "Grip fading: tap %s to squeeze (grip %d%%), and keep moving." % [_key("GRIP"), int(grip * 100.0)]
-		return "Tiny holds: keep moving. Squeeze with %s when the grip drops below half." % _key("GRIP")
+			return "Grip fading: tap %s to squeeze (grip %d%%), and keep moving.%s" % [_key("GRIP"), int(grip * 100.0), arms_words()]
+		return "Tiny holds: keep moving. Squeeze with %s when the grip drops below half.%s" % [_key("GRIP"), arms_words()]
 	var key := "JUMP" if Settings.touch_enabled() else "SPACE"
 	var hold := terrain.hold_at(climber.body_rect())
 	if dyno_above():
@@ -1197,11 +1208,27 @@ func hint_now() -> String:
 	if hold == Terrain.Kind.POCKET and stamina.fraction() < 0.9:
 		return "A pocket: hanging here costs nothing. Wait, clip, plan the next bit."
 	if can_rest() and stamina.fraction() < 0.9:
-		return "Tired? Tap %s to rest on the rope (the green bar)." % _key("REST")
+		return "Tired? Tap %s to rest on the rope (the green bar).%s" % [_key("REST"), arms_words()]
 	var side := traverse_dir()
 	if side != 0:
 		return "The line goes sideways here: move %s along the band." % ("right" if side > 0 else "left")
 	return ""
+
+
+## How long the arms last on the hold you are on, doing what you are doing:
+## each kind of hold costs its own amount a second (StaminaModel.RATES),
+## so a stretch of tiny holds is a clock and a jug or a pocket stops it.
+func arms_seconds() -> float:
+	if climber.state != Climber.State.CLIMB:
+		return INF
+	return stamina.seconds_left(climber.last_activity)
+
+
+func arms_words() -> String:
+	var secs := arms_seconds()
+	if is_inf(secs) or secs > 45.0:
+		return ""
+	return " Arms last about %d s here." % maxi(1, int(secs))
 
 
 ## When the hands are at the top of the rock but the line carries on along

@@ -330,37 +330,38 @@ func brief() -> void:
 	climber.lock(true)
 	var copy: Dictionary = spec["copy"]
 	var d: Dictionary = spec["difficulty"]
-	var facts := "%s\nFall %d times and you turn back · Wind: %s" % [
-		Condition.explain(condition, float(Expedition.state()["energy"]), stamina.max_value), max_slips, wind.describe()]
-	if d["recovery"] < 0.8:
-		facts += " · the cold makes stamina come back slower"
-	facts += " · up here (%s m) even walking tires you" % ExpeditionEngine.format_meters(float(spec.get("meters", 4000)))
-	for line in condition["lines"]:
-		facts += "\n" + line
+	var st: Dictionary = Expedition.state()
+	# What camp did to the body, row by row, with the numbers the climb uses.
+	var rows := Condition.report(condition, stamina, float(st["energy"]), float(spec.get("meters", 4000)), float(st["acclimatization"]), float(d["recovery"]))
+	# The climb itself, in one smaller paragraph.
+	var facts: Array = ["Fall %d times and you turn back." % max_slips, "Wind: %s." % wind.describe()]
+	if float(d["drain"]) > 1.0:
+		facts.append("Up here every move costs %d%% more." % int(round((float(d["drain"]) - 1.0) * 100.0)))
 	if trek_factor["steep"] > 1.0:
-		facts += "\nYour route is steep: more wind, and the stones come faster."
+		facts.append("Your route is steep: more wind, and the stones come faster.")
 	var missing: Array = []
 	for id in Expedition.trek()["gone"]:
 		if id != "you":
 			missing.append(Trek.NAMES[id])
 	if not missing.is_empty():
-		facts += "\nWithout %s: the rope team is smaller than it was." % " and ".join(missing)
+		facts.append("Without %s: the rope team is smaller than it was." % " and ".join(missing))
 	var dangers: Array = spec.get("dangers", [])
 	if not dangers.is_empty():
-		facts += "\nWatch for: " + ", ".join(dangers) + "."
+		facts.append("Watch for: " + ", ".join(dangers) + ".")
 	if hazards.gear_total() > 0:
-		facts += " Lost gear found here: %d of %d." % [hazards.gear_count, hazards.gear_total()]
+		facts.append("Lost gear found here: %d of %d." % [hazards.gear_count, hazards.gear_total()])
 	# What the climb costs back at camp, before you start it.
 	var stakes: Dictionary = Coordinator.CLIMBS.get(spec["id"], {}).get("stakes", {})
 	if not stakes.is_empty():
-		facts += "\nAfter: each slip costs the party %d health at camp (up to %d); topping out under 25%% stamina costs 4 energy." % [int(stakes["slip"]), int(stakes["slipMax"])]
+		facts.append("After: each slip costs the party %d health at camp (up to %d); topping out under 25%% stamina costs 4 energy." % [int(stakes["slip"]), int(stakes["slipMax"])])
 	var choices: Array = [["start", "Start the climb"]]
 	if not dosed and Condition.medicine_helps(Expedition.session):
 		var what: String = {"ams": "Take a painkiller first (like Tylenol)", "stomach": "Take stomach pills first", "cold": "Hand warmers first"}.get(String(condition["sick"]), "Take medicine first")
 		choices.append(["medicine", "%s · %d left in the kit" % [what, condition["medicine"]]])
 	if String(copy["backOff"]) != "":
 		choices.append(["backoff", copy["backOff"]])
-	panel.show_panel(copy["kicker"], copy["title"], "%s\n%s" % [_brief_words(), facts], choices)
+	panel.show_panel(copy["kicker"], copy["title"], _brief_words(), choices)
+	panel.show_rows("Your climber, from your camp choices", rows, " ".join(facts))
 
 
 ## The level's brief, without the line about a teammate who has gone down.

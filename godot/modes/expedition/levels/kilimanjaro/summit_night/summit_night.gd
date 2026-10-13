@@ -1,7 +1,7 @@
 extends ClimbLevel
 ## Summit night: the last and hardest climb. Headlamps on at Barafu, frozen
 ## switchbacks of scree and rock to the crater rim, then Stella Point at
-## first light. The cold halves recovery, every move costs more, the rim
+## first light. The cold slows recovery, every move costs more, the rim
 ## wind comes often, two slips end it, and Jun is heavier to help.
 ## Geometry is summit_night.txt (tools/levels/kili_maps.py). Game fiction.
 
@@ -11,7 +11,7 @@ func _init() -> void:
 		"id": "summit-night",
 		"map": "res://modes/expedition/levels/kilimanjaro/summit_night/summit_night.txt",
 		"hud": "Summit night",
-		"difficulty": {"recovery": 0.55, "drain": 1.25, "wind": 30.0, "maxSlips": 2, "helpCost": 22.0, "rockPeriod": 4.8},
+		"difficulty": {"recovery": 0.65, "drain": 1.15, "wind": 30.0, "maxSlips": 2, "helpCost": 22.0, "rockPeriod": 4.8},
 		"meters": 5700,
 		"dangers": ["ice on the switchbacks", "a crevasse", "stones on the rock steps", "cracked slabs on the rim"],
 		"gear": [

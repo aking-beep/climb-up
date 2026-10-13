@@ -6,6 +6,15 @@ extends ClimbBot
 ## on crimps and squeeze when the meter drops, pause on slopers, dyno the
 ## blank and tap once on the catch, clip, rest on the rope, top out).
 
+## A casual player instead of a careful one: squeezes late (grip under a
+## third), shakes out on a jug only when tired and not to full, sits on the
+## rope only when half empty, and lets a sloper slide further before
+## pausing. What a first-timer does, to check the routes are not too hard.
+var casual := false
+## The emptiest the arms got on the last lead (a share of the bar).
+var lowest := 1.0
+
+
 func _load(id: String, start: String = "start") -> void:
 	Crag.navigate = false
 	Settings.touch_controls = false
@@ -14,6 +23,7 @@ func _load(id: String, start: String = "start") -> void:
 	root.add_child(level)
 	await physics_frames(2)
 	c = level.climber
+	lowest = 1.0
 	check(level.panel.open, "the brief is shown first")
 	if start != "":
 		level.panel.choose(start)
@@ -71,9 +81,9 @@ func lead(seconds: float = 300.0) -> bool:
 			held["climb_up"] = true
 		elif c.state == Climber.State.CLIMB:
 			var hold := t.hold_at(c.body_rect())
-			if hold == Terrain.Kind.JUG and (resting or c.stamina.fraction() < 0.9):
+			if hold == Terrain.Kind.JUG and (resting or c.stamina.fraction() < (0.6 if casual else 0.9)):
 				# Shake out on the jug until the arms are full.
-				resting = c.stamina.fraction() < 0.97
+				resting = c.stamina.fraction() < (0.8 if casual else 0.97)
 			elif not is_nan(target):
 				if absf(target - c.global_position.x) < 1.5:
 					target = NAN
@@ -101,11 +111,11 @@ func lead(seconds: float = 300.0) -> bool:
 		# GRIP only when the meter drops below half, as a player would.
 		if (level.action_word == "CLIP" or level.catching > 0.0) and i % 4 < 2:
 			held["interact"] = true
-		elif level.action_word == "GRIP" and level.on_crimps and level.grip < 0.5 and i % 4 < 2:
+		elif level.action_word == "GRIP" and level.on_crimps and level.grip < (0.3 if casual else 0.5) and i % 4 < 2:
 			held["interact"] = true
 		# On slopers: move, and stop to let the grip settle when it drops.
-		if level.on_slopers and (settling or level.grip < 0.45):
-			settling = level.grip < 0.95
+		if level.on_slopers and (settling or level.grip < (0.3 if casual else 0.45)):
+			settling = level.grip < (0.8 if casual else 0.95)
 			for k in ["climb_up", "move_left", "move_right", "jump"]:
 				held.erase(k)
 		else:
@@ -114,9 +124,11 @@ func lead(seconds: float = 300.0) -> bool:
 		# while the stamina comes back.
 		if level.resting_rope:
 			held = {"_": false}
-		elif level.can_rest() and level.action_word == "REST" and c.stamina.fraction() < 0.85:
+		elif level.can_rest() and level.action_word == "REST" and c.stamina.fraction() < (0.5 if casual else 0.85):
 			held = {"interact": i % 4 < 2}
 		GameInput.scripted = held
+		if c.state == Climber.State.CLIMB:
+			lowest = minf(lowest, c.stamina.fraction())
 		if OS.get_environment("CRAG_DEBUG") != "" and i % 30 == 0:
 			print("CRAGDBG ", where(), " held=", held.keys(), " target=", target, " resting=", resting)
 		await tree.physics_frame

@@ -595,3 +595,42 @@ func test_styles_unlocks_and_saves() -> void:
 	check(Crag.SAVE != SaveGame.PATH, "the crag keeps its own save file, apart from the expedition")
 	_fresh_progress()
 	await tree.process_frame
+
+
+## The grades as a curve: a careful player and a casual one lead every
+## route. Easy routes stay easy for both; each grade from 6a up asks a bit
+## more of the arms (the careful player's lowest point steps down); the
+## hardest is a fight for the casual player, down to the last of the bar,
+## but not out of reach. Neither too easy nor too hard: a near thing.
+func test_the_grades_climb_in_steady_steps() -> void:
+	var low := {"expert": {}, "casual": {}}
+	for mode in ["expert", "casual"]:
+		casual = mode == "casual"
+		for r in Crag.ROUTES:
+			_fresh_progress()
+			Crag.climb(r["id"])
+			await _load(r["id"])
+			var sent := await lead()
+			check(sent, "%s: %s sent (%s)" % [mode, r["name"], level.stats_line(int(c.stamina.fraction() * 100))])
+			if mode == "expert" or r["grade"] in ["Lesson", "4", "5b", "6a"]:
+				eq(c.slips, 0, "%s: %s without a fall" % [mode, r["name"]])
+			low[mode][r["grade"]] = lowest * 100.0
+			await _done()
+	casual = false
+	failures = failures.filter(func(f: String) -> bool: return not f.begins_with("gave up"))
+	print("      lowest stamina, careful: %s" % [low["expert"]])
+	print("      lowest stamina, casual:  %s" % [low["casual"]])
+	var e: Dictionary = low["expert"]
+	var k: Dictionary = low["casual"]
+	for g in ["Lesson", "4", "5b"]:
+		check(e[g] >= 40.0, "%s is easy for a careful player (lowest %d%%)" % [g, e[g]])
+		check(k[g] >= 25.0, "and fine for a casual one (lowest %d%%)" % k[g])
+	var steps := ["6a", "6b", "6c", "7a"]
+	for i in steps.size() - 1:
+		check(e[steps[i + 1]] <= e[steps[i]] + 3.0, "%s asks more than %s (%d%% vs %d%%)" % [steps[i + 1], steps[i], e[steps[i + 1]], e[steps[i]]])
+	check(e["7a"] >= 15.0 and e["7a"] <= 45.0, "the hardest leaves a careful player some, not much (%d%%)" % e["7a"])
+	check(k["7a"] < 20.0, "and is a real fight for a casual one (%d%%)" % k["7a"])
+	var easy: float = (k["Lesson"] + k["4"] + k["5b"]) / 3.0
+	var hard: float = (k["6b"] + k["6c"] + k["7a"]) / 3.0
+	check(easy - hard >= 15.0, "the curve is felt: casual lowest %d%% on the easy routes, %d%% on the hard ones" % [easy, hard])
+	_fresh_progress()

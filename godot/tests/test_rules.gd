@@ -169,3 +169,73 @@ func test_saves_round_trip_and_refuse_bad_files() -> void:
 	eq(repaired["assisted"], null, "assisted must be a bool")
 	check(Coordinator.sanitize({"result": "won", "attemptId": "a"}).is_empty(), "unknown result refused")
 	SaveGame.erase(path)
+
+
+## Seconds of walking uphill on a full bar (team energy 70) at `meters`
+## with the climb's `drain`.
+func _uphill_seconds(meters: float, acclimatization: float, drain: float) -> float:
+	var m := StaminaModel.new(70, 1.0, drain)
+	m.thin_air = StaminaModel.thin_air_for(meters, acclimatization)
+	return m.max_value / (StaminaModel.RATES["walk_up"] * m.thin_air * m.drain)
+
+
+func test_the_thin_air_is_spaced_out_up_the_mountain() -> void:
+	# The four played climbs, for a party that rested well enough.
+	var climbs := {"barranco-wall": [4200.0, 1.0], "lava-tower": [4600.0, 0.85], "descent": [5300.0, 1.1], "summit-night": [5700.0, 1.15]}
+	var secs := {}
+	for id in climbs:
+		secs[id] = _uphill_seconds(climbs[id][0], 100.0, climbs[id][1])
+		check(secs[id] >= 30.0, "%s: a full bar lasts %.0f s of walking uphill (at least 30)" % [id, secs[id]])
+	check(secs["summit-night"] < secs["barranco-wall"], "the top is still the hardest breathing")
+	check(secs["summit-night"] > secs["barranco-wall"] * 0.5, "but not a wall: %.0f s against %.0f s low down" % [secs["summit-night"], secs["barranco-wall"]])
+	# Each step up costs a little more, not all at once.
+	var last := 0.0
+	for m in [4000.0, 4500.0, 5000.0, 5500.0, 6000.0]:
+		var f := StaminaModel.height_factor(m)
+		check(f > last and f - last <= 0.15 + 0.001 or last == 0.0, "%d m: %.2f, a small step from %.2f" % [m, f, last])
+		last = f
+	# The camp's choices still count: a party not used to the height pays.
+	var raw := _uphill_seconds(5700.0, 10.0, 1.15)
+	check(raw < secs["summit-night"] * 0.7, "not used to the height: %.0f s instead of %.0f s" % [raw, secs["summit-night"]])
+	check(raw >= 15.0, "hard, but still playable (%.0f s)" % raw)
+
+
+func test_the_brief_shows_what_camp_did_to_the_climber() -> void:
+	var session := TestSessions.at("summit-night")
+	var good := Condition.of(session)
+	var st := StaminaModel.new(70, 0.65, 1.15)
+	st.thin_air = StaminaModel.thin_air_for(5700, 100)
+	var rows := Condition.report(good, st, 70, 5700, 100, 0.65)
+	var titles := rows.map(func(r: Dictionary) -> String: return r["title"])
+	check(titles.size() >= 3, "stamina, breath and rest rows: %s" % [titles])
+	eq(rows[1]["tone"], "good", "used to the height: breath is a good row")
+	# A rushed, badly slept, hungry, sick party: the same rows turn red and say why.
+	var t := Trek.ensure(session)
+	t["sleep"] = "badly"
+	t["sick"]["you"] = {"kind": "ams", "stage": 2}
+	session["state"]["supplies"] = 10
+	var bad := Condition.of(session)
+	st = StaminaModel.new(70, 0.65 * bad["recovery"], 1.15)
+	st.max_value = roundf(st.max_value * bad["stamina"])
+	st.thin_air = StaminaModel.thin_air_for(5700, 20) * bad["thinAir"]
+	rows = Condition.report(bad, st, 70, 5700, 20, 0.65)
+	var text := ""
+	for r in rows:
+		text += r["title"] + ": " + r["text"] + "\n"
+		if r["title"] in ["Breath", "Rest"] or String(r["title"]).begins_with("Stamina"):
+			eq(r["tone"], "bad", "%s is a warning now" % r["title"])
+	for words in ["slept badly", "hungry", "Not used to this height", "dizzy", "in the kit"]:
+		check(words in text, "the brief says '%s':\n%s" % [words, text])
+
+
+func test_each_hold_has_its_own_hang_time() -> void:
+	var m := StaminaModel.new(100)
+	var t := {}
+	for a in ["crimp_hang", "sloper_hang", "hang", "jug", "pocket"]:
+		t[a] = m.seconds_left(a)
+	print("      seconds on a full bar: %s" % [t])
+	check(t["crimp_hang"] < t["sloper_hang"] and t["sloper_hang"] < t["hang"], "tiny holds go first, then slopers, then ordinary rock")
+	check(t["crimp_hang"] >= 5.0, "even tiny holds give you a few seconds to decide (%.0f)" % t["crimp_hang"])
+	check(is_inf(t["jug"]) and is_inf(t["pocket"]), "big holds and pockets stop the clock")
+	m.grip = 0.5
+	check(m.seconds_left("crimp_hang") > t["crimp_hang"], "a tight grip buys time on tiny holds")

@@ -142,7 +142,7 @@ func test_the_way_down_played() -> void:
 		eq(outcome.result, "complete", "down")
 		eq(outcome.assisted, true, "with Jun")
 		eq(outcome.challenge_id, "descent", "the descent")
-		print("      the way down took %d s of game time, %d%% stamina left, %d slips, %d wind strikes" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.wind_strikes])
+		print("      the way down took %d s of game time, %d%% stamina left, %d slips, %d wind strikes, %.0f s resting" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.wind_strikes, outcome.rest_seconds])
 	await drive([], func() -> bool: return level.panel.open, 5.0, "panel")
 	level.panel.choose("camp")
 	await physics_frames(2)

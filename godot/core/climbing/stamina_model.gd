@@ -22,7 +22,7 @@ const RATES := {
 	"rest": -18.0,     # sitting down on ordinary ground
 	"rest_stone": -26.0,
 	"helping": 0.0,
-	"crimp": 16.0,      # moving on small holds (the crag)
+	"crimp": 14.0,      # moving on small holds (the crag)
 	"crimp_hang": 12.0, # holding still on them: don't
 	"jug": -8.0,        # hanging off a big hold: a shake-out
 	"sloper": 7.0,      # moving on rounded holds: steady, not fast
@@ -60,26 +60,49 @@ func _init(energy: float = 80.0, recovery_factor: float = 1.0, drain_factor: flo
 
 
 ## How hard walking is at `meters` for a party with `acclimatization` (the
-## expedition stat): 1 at 4,000 m for an acclimatized party, rising with
-## height, and up to twice that again for a party that has not adapted.
+## expedition stat). The height part rises gently, a little for every
+## few hundred metres: 1 at 4,000 m, about 1.5 at the crater rim, never
+## more than 1.6, so the top of the mountain is harder breathing, not a
+## wall. Not being used to the height adds up to two thirds again: the
+## camp's choices (rest days, climb high and sleep low) are what keep it
+## off.
 static func thin_air_for(meters: float, acclimatization: float) -> float:
-	var height := clampf(1.0 + (meters - 4000.0) / 2000.0, 0.6, 2.0)
+	return snappedf(height_factor(meters) * gap_factor(meters, acclimatization), 0.01)
+
+
+static func height_factor(meters: float) -> float:
+	return clampf(1.0 + (meters - 4000.0) / 3500.0, 0.7, 1.6)
+
+
+static func gap_factor(meters: float, acclimatization: float) -> float:
 	var gap := maxf(0.0, ExpeditionEngine.acclimatization_need(meters) - acclimatization)
-	return snappedf(height * (1.0 + minf(gap, 40.0) / 40.0), 0.01)
+	return 1.0 + minf(gap, 40.0) / 60.0
+
+
+## What `activity` costs a second right now (negative: it gives back), with
+## everything that scales it: thin air, grip, shoes, the climb's drain or
+## recovery.
+func rate(activity: String, loose: bool = false) -> float:
+	var r: float = RATES.get(activity, 0.0)
+	if activity in WALKING:
+		r *= thin_air
+	elif activity in ON_ROCK:
+		r *= grip * shoes
+	if r > 0.0:
+		return r * drain * (LOOSE_FACTOR if loose else 1.0)
+	return r * recovery
+
+
+## Seconds until the bar is empty doing `activity`, or INF if it does not
+## drain.
+func seconds_left(activity: String) -> float:
+	var r := rate(activity)
+	return value / r if r > 0.0 else INF
 
 
 ## Advances `dt` seconds of `activity`. Returns the new value.
 func tick(dt: float, activity: String, loose: bool = false) -> float:
-	var rate: float = RATES.get(activity, 0.0)
-	if activity in WALKING:
-		rate *= thin_air
-	elif activity in ON_ROCK:
-		rate *= grip * shoes
-	if rate > 0.0:
-		value -= rate * drain * (LOOSE_FACTOR if loose else 1.0) * dt
-	else:
-		value -= rate * recovery * dt
-	value = clampf(value, 0.0, max_value)
+	value = clampf(value - rate(activity, loose) * dt, 0.0, max_value)
 	return value
 
 

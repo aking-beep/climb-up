@@ -68,7 +68,7 @@ leaves their camp, easiest first:
 | --- | --- | --- | --- |
 | Lava Tower | Shira 2 | scramble, a loose scree face, a windy ledge, a chimney; 4 slips allowed | none |
 | Barranco Wall | Barranco | the full wall below; 3 slips | Marco |
-| Summit night | Barafu, by headlamp | five frozen switchbacks, the cold halves recovery, a long windy rim, Stella Point at dawn; 2 slips | Jun |
+| Summit night | Barafu, by headlamp | five frozen switchbacks, the cold slows recovery, a long windy rim, Stella Point at dawn; 2 slips | Jun |
 
 Each starts with a brief; backing off there (or turning back later) is a
 retreat that costs the day, not the expedition. The outcome lands once.
@@ -138,6 +138,21 @@ exactly (the parity test still holds); a trek layer on top
   | A dose of medicine before the climb | none of those symptoms |
   | A teammate sent down | not on the climb |
   | A steep route | more wind, faster stonefall |
+
+  Before each climb the brief shows this as rows, each a green or red
+  chip with the numbers the climb will use (`Condition.report`): the bar
+  (what the team's energy gives and what took a share of it), breath
+  (how much more walking costs at this height, and whether the party is
+  used to it), rest (how fast sitting down refills it: the cold, sleep,
+  food) and any illness with the medicine for it. The choices stay pinned
+  under the brief, so Start is always on screen.
+
+  The thin air rises gently with height (`StaminaModel.height_factor`:
+  about +15% for every 500 m above 4,000 m, never more than +60%), and a
+  party not yet used to the height pays up to two thirds more on top. A
+  full bar lasts at least 30 s of walking uphill on every climb for a
+  rested party; the summit is still the hardest breathing, about half as
+  long again as low down for a party that rushed (`test_rules`).
 
   It also goes back the other way: stamina lost to thorns, ants and ravens
   on the climb costs the party energy at camp (a fifth of it, up to 12),
@@ -305,6 +320,17 @@ checks it makes the seven maps byte for byte.
   longer also counts as a squeeze, and a catch tap no longer clips).
 - **Rest on the rope.** Each clip fills a green rest bar; tap REST to sit
   back and get stamina back from it.
+- **How long the arms last.** Every hold has its own cost a second, so
+  each one is a clock: on a full bar about 8 s hanging on tiny holds, 25 s
+  on a sloper, 50 s on ordinary rock; jugs and pockets stop the clock. The
+  stamina line shows it ("Stamina 85% (5 s here)", or "(resting)" on a
+  hold that gives it back).
+- **The grade curve.** Each route has a `pump` (how much every move costs)
+  set so the grades ask steadily more: a careful player's lowest point
+  goes 79, 71, 69, 57, 50, 45, 31% from the lesson to Thunderhead, and a
+  casual player (squeezes late, rests only when half empty) sends every
+  route but gets down to the last 5-8% on the two hardest
+  (`test_the_grades_climb_in_steady_steps`).
 - **Lead falls.** Twice the height above the last clipped bolt plus slack;
   low down, or far above a low bolt, you hit the ground (25 stamina).
 - **Style**, honestly: onsight (first go, no falls, no beta), flash (first

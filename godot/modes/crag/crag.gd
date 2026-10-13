@@ -26,7 +26,9 @@ const MAX_FALLS := 5
 
 ## Easiest first. Each one unlocks the next when sent. `level` is the grade
 ## in words; `falls` how many falls before you have to come down;
-## `gripDrain` how fast the grip fades on tiny holds.
+## `gripDrain` how fast the grip fades on tiny holds; `pump` how much every
+## move costs (1 if not given), set so each grade asks a little more of the
+## arms than the one before (test_crag's difficulty curve).
 const ROUTES := [
 	{"id": "first-climb", "name": "First Climb", "grade": "Lesson", "level": "how to play", "falls": 9,
 		"tutorial": true, "gripDrain": 0.25, "skill": "The basics",
@@ -36,7 +38,7 @@ const ROUTES := [
 		"skill": "Clip, rest, repeat",
 		"text": "Good rock with pockets (dark holes: hang on them for free) and one big hold halfway. Clip each bolt from a good hold and rest before you need to.",
 		"crux": "Two short bits of tiny holds."},
-	{"id": "sundown", "name": "Sundown Traverse", "grade": "5b", "level": "moderate", "falls": 5, "gripDrain": 0.45,
+	{"id": "sundown", "name": "Sundown Traverse", "grade": "5b", "level": "moderate", "falls": 5, "pump": 0.6, "gripDrain": 0.45,
 		"skill": "Slow and steady",
 		"text": "Up, then a long move sideways across slopers: round holds you hold by friction. Move slowly and pause to let your grip settle. Easy moves, but few bolts and a high first one.",
 		"crux": "The slopers on the traverse, a long way above the last bolt."},
@@ -44,11 +46,11 @@ const ROUTES := [
 		"skill": "Squeeze timing",
 		"text": "Four stretches of tiny holds, the longest at the top. Squeeze GRIP once when the meter drops below half: not before, not a flurry. Bolts close together all the way.",
 		"crux": "The last stretch of tiny holds. Stopping on them drains you."},
-	{"id": "leap-of-faith", "name": "Leap of Faith", "grade": "6b", "level": "harder", "falls": 4, "gripDrain": 0.7,
+	{"id": "leap-of-faith", "name": "Leap of Faith", "grade": "6b", "level": "harder", "falls": 4, "pump": 1.2, "gripDrain": 0.7,
 		"skill": "The timed catch",
 		"text": "Above a big hold the rock is blank: press JUMP to leap for the holds above (a dyno). A ring closes on the hold: tap GRIP once as it closes. Slopers and tiny holds above; the top bolts are far apart.",
 		"crux": "The catch, then tiny holds."},
-	{"id": "lions-roof", "name": "Lion's Roof", "grade": "6c", "level": "very hard", "falls": 3, "gripDrain": 0.85,
+	{"id": "lions-roof", "name": "Lion's Roof", "grade": "6c", "level": "very hard", "falls": 3, "pump": 1.2, "gripDrain": 0.85,
 		"skill": "Steep ground",
 		"text": "Tiny holds off the ground, then sideways under a roof of rock on pockets: clip from them, they are free to hang on. A big hold, a leap, and long tiny holds to the top. The roof is well bolted.",
 		"crux": "The roof, then six rows of tiny holds."},

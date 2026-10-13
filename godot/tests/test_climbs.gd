@@ -58,7 +58,7 @@ func test_the_lava_tower_climbed() -> void:
 		check(outcome.stars >= 2, "a clean ascent earns at least two stars, got %d" % outcome.stars)
 		check(outcome.flowers > 0 and outcome.flowers_total > outcome.flowers - 1, "everlastings were picked on the way (%d of %d)" % [outcome.flowers, outcome.flowers_total])
 		check_pacing("Lava Tower")
-		print("      Lava Tower took %d s of game time, %d%% stamina left, %d slips" % [outcome.seconds, outcome.stamina_left, outcome.slips])
+		print("      Lava Tower took %d s of game time, %d%% stamina left, %d slips, %.0f s resting" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.rest_seconds])
 	await _results()
 	eq(Expedition.state()["checkpoint"], "camp2", "the outcome landed: the party sleeps at Barranco")
 	check(Expedition.pending() == null, "the climb is closed")
@@ -102,6 +102,8 @@ func test_the_summit_night_climbed_helping_jun() -> void:
 	await _switchback(50, false, "step 4")
 	await _switchback(41, true, "step 5, under stonefall")
 	await _switchback(32, false, "the rim step, under stonefall")
+	# Out of the stones' line: sit at the cairn, as the brief says.
+	await drive(["move_right"], func() -> bool: return tx() >= 19.5, 10.0, "to the rim cairn")
 	await rest_up(0.99)
 	await cross(108.5)
 	# The long rim in thin air takes it out of you: sit before the last step.
@@ -113,7 +115,7 @@ func test_the_summit_night_climbed_helping_jun() -> void:
 		eq(outcome.result, "complete", "result")
 		eq(outcome.assisted, true, "assisted")
 		check_pacing("summit night")
-		print("      summit night took %d s of game time, %d%% stamina left, %d slips, %d caught, %d wind strikes" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.caught, outcome.wind_strikes])
+		print("      summit night took %d s of game time, %d%% stamina left, %d slips, %d caught, %d wind strikes, %.0f s resting" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.caught, outcome.wind_strikes, outcome.rest_seconds])
 	await _results()
 	check(Expedition.state()["summitReached"], "the summit is recorded on the expedition")
 	await _done()

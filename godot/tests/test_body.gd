@@ -153,7 +153,7 @@ func test_the_camp_reaches_into_the_climb() -> void:
 		Expedition.state()["supplies"] = 20)
 	check(c.stamina.max_value < fresh, "a bad night and sickness shrink the bar (%.0f vs %.0f)" % [c.stamina.max_value, fresh])
 	check(c.stamina.recovery < fresh_recovery, "hunger and a bad night slow recovery")
-	var brief: String = level.panel._body.text
+	var brief: String = level.panel.all_text()
 	check("slept badly" in brief and "hungry" in brief and "dizzy" in brief, "the brief says why: " + brief)
 	var med := false
 	for b in level.panel._buttons.get_children():
@@ -191,7 +191,7 @@ func test_poor_party_health_is_a_smaller_bar() -> void:
 	await _done()
 	await _load("lava-tower", func() -> void: Expedition.state()["health"] = 30)
 	check(c.stamina.max_value < fresh * 0.9, "health 30 at camp: a smaller bar (%.0f vs %.0f)" % [c.stamina.max_value, fresh])
-	check("health is low (30)" in level.panel._body.text, "and the brief says so")
+	check("health is low (30)" in level.panel.all_text(), "and the brief says so")
 	await _done()
 
 

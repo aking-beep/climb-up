@@ -72,7 +72,7 @@ func test_no_stone_starts_on_the_climber() -> void:
 
 func test_the_brief_says_what_the_climb_costs_at_camp() -> void:
 	var level: Node = await _level("barranco-wall")
-	var body: String = level.panel._body.text
+	var body: String = level.panel.all_text()
 	check("each slip costs the party" in body, "the brief names the cost of a slip: " + body.substr(0, 400))
 	check("Marco is somewhere above you" in body, "Marco is on the wall")
 	await _done(level)
@@ -80,7 +80,7 @@ func test_the_brief_says_what_the_climb_costs_at_camp() -> void:
 
 func test_a_teammate_who_went_down_is_not_in_the_brief() -> void:
 	var level: Node = await _level("barranco-wall", func() -> void: Trek._depart(Expedition.session, "marco"))
-	var body: String = level.panel._body.text
+	var body: String = level.panel.all_text()
 	check(level.mate == null, "Marco has gone down")
 	check(not "Marco is somewhere" in body, "so the brief does not send you looking for him")
 	for p in level.people:
