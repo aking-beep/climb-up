@@ -11,7 +11,10 @@ func _init() -> void:
 		"id": "summit-night",
 		"map": "res://modes/expedition/levels/kilimanjaro/summit_night/summit_night.txt",
 		"hud": "Summit night",
-		"difficulty": {"recovery": 0.65, "drain": 1.15, "wind": 30.0, "maxSlips": 2, "helpCost": 22.0, "rockPeriod": 4.8},
+		"difficulty": {"recovery": 0.8, "drain": 1.15, "wind": 30.0, "maxSlips": 2, "helpCost": 22.0, "rockPeriod": 4.8},
+		# Midnight cold, colder before dawn, then the sun at Stella Point.
+		"climate": {"temps": [[0.0, -7.0], [0.7, -16.0], [1.0, -10.0]], "drift": -1.0,
+			"light": [[0.0, "#9aa4d8"], [0.7, "#8e98cc"], [0.9, "#d8a8b8"], [1.0, "#ffd4b8"]]},
 		"meters": 5700,
 		"dangers": ["ice on the switchbacks", "a crevasse", "stones on the rock steps", "cracked slabs on the rim"],
 		"gear": [

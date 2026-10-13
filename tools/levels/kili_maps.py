@@ -372,7 +372,7 @@ def preview(m, path):
 def main():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from flowers import sprinkle
-    from gauntlet import gauntlet, wildlife
+    from gauntlet import gauntlet, wildlife, spread
     for name, build in (("lava_tower", lava_tower), ("summit_night", summit_night), ("descent", descent)):
         m = build()
         if name == "descent":
@@ -394,6 +394,7 @@ def main():
         if name == "lava_tower":
             print(name, "wildlife:", wildlife(m.g, every=4, kinds=("ants", "plant")))
         print(name, "everlastings:", sprinkle(m.g, spacing=9 if name == "summit_night" else 5))
+        print(name, "wildlife spread:", spread(m.g, name))
         out = LEVELS / name / f"{name}.txt"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(m.text())

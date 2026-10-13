@@ -14,7 +14,8 @@ func test_climbing_drains_and_resting_recovers() -> void:
 	s.tick(1.0, "climb")
 	near(s.value, full - 6.0, 0.001, "climbing costs 6/s")
 	s.tick(1.0, "climb", true)
-	near(s.value, full - 6.0 - 9.6, 0.001, "loose rock costs 1.6x")
+	near(s.value, full - 6.0 - 6.0 * StaminaModel.LOOSE_FACTOR, 0.001, "loose rock costs more")
+	check(StaminaModel.LOOSE_FACTOR > 1.0 and StaminaModel.LOOSE_FACTOR <= 1.4, "about a third more, not half again (%.2f)" % StaminaModel.LOOSE_FACTOR)
 	s.value = 20.0
 	var before := s.value
 	s.tick(1.0, "rest_stone")

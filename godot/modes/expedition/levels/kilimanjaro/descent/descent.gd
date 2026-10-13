@@ -20,6 +20,9 @@ func _init() -> void:
 		"map": "res://modes/expedition/levels/kilimanjaro/descent/descent.txt",
 		"hud": "The descent",
 		"difficulty": {"recovery": 0.75, "drain": 1.1, "wind": 34.0, "maxSlips": 3, "helpCost": 18.0, "rockPeriod": 6.0},
+		# Frost at the top, then down into the heat of the lower slopes.
+		"climate": {"temps": [[0.0, -6.0], [0.5, 8.0], [1.0, 26.0]], "drift": 1.0,
+			"light": [[0.0, "#ffe2d0"], [0.4, "#fff6ea"], [1.0, "#fff0d6"]]},
 		"meters": 5300,
 		"dangers": ["the wind on the rim", "loose scree", "ice above the rock step"],
 		"gear": [],

@@ -14,6 +14,7 @@ var title := "Climb"
 var _route: ProgressBar
 var _route_label: Label
 var _fps: Label
+var _temp: Label
 
 
 func _ready() -> void:
@@ -54,6 +55,9 @@ func _ready() -> void:
 	v.add_child(_stats)
 	_wind = _label(9, Color(1.0, 0.85, 0.55))
 	v.add_child(_wind)
+	_temp = _label(8, Color(0.75, 0.88, 1.0))
+	_temp.visible = false
+	v.add_child(_temp)
 	_hint = _label(9, Color(0.95, 0.94, 0.91))
 	_hint.position = Vector2(8, 66)
 	_backed(_hint)
@@ -179,6 +183,12 @@ func update_from(level: Node) -> void:
 		_wind.text = "Ice: small steps, it slides"
 	else:
 		_wind_line(c)
+	_wind.visible = _wind.text != ""
+	if level.has_method("climate_line"):
+		_temp.visible = true
+		_temp.text = level.climate_line()
+		var deg: float = level.degrees
+		_temp.add_theme_color_override("font_color", Color(1.0, 0.72, 0.45) if deg >= Climate.WARM else (Color(0.95, 0.94, 0.91) if deg >= Climate.COOL else Color(0.68, 0.84, 1.0)))
 	_hint.text = _hint_for(level)
 	_hint.visible = _hint.text != ""
 	# On touch the context button says what it does; keys need the reminder.

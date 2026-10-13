@@ -203,3 +203,34 @@ def wildlife(g, every=6, kinds=("plant", "ants")):
             run = 0
             x += 3
     return placed
+
+
+# Where the wildlife ends up, by hand, after the passes above: those place
+# where the rules fit first, which bunched the animals on the long top
+# benches. These spread them one per stretch of the walk, start to finish.
+# (x, y, marker); `drop` are the cells the passes chose that are moved.
+SPREAD = {
+    "lava_tower": {"drop": [(82, 13), (95, 13), (102, 13)],
+                   "add": [(21, 55, "a"), (87, 13, "n"), (107, 13, "n")]},
+    "summit_night": {"drop": [(25, 46), (59, 37)],
+                     "add": [(55, 73, "v"), (45, 55, "v")]},
+    "barranco": {"drop": [(87, 25)],
+                 "add": [(18, 91, "n"), (74, 73, "a"), (71, 59, "n"), (47, 25, "a"), (172, 5, "v")]},
+}
+
+
+def spread(g, name):
+    """Moves the wildlife as SPREAD says. Each new cell must be open, and a
+    plant or ants must stand on rock."""
+    s = SPREAD.get(name)
+    if not s:
+        return 0
+    for x, y in s["drop"]:
+        assert g[y][x] in "nav", (name, x, y, g[y][x])
+        g[y][x] = "."
+    for x, y, k in s["add"]:
+        assert g[y][x] == ".", (name, x, y, g[y][x])
+        if k in "na":
+            assert g[y + 1][x] == "#", (name, x, y)
+        g[y][x] = k
+    return len(s["add"])

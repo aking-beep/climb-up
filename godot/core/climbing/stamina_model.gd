@@ -29,7 +29,8 @@ const RATES := {
 	"sloper_hang": 4.0, # holding a sloper costs a little, but lets the grip settle
 	"pocket": 0.0,      # a good two-finger pocket: hang there for free
 }
-const LOOSE_FACTOR := 1.6
+## Loose rock costs a third more: you test every hold.
+const LOOSE_FACTOR := 1.35
 
 var max_value: float
 var value: float

@@ -39,6 +39,15 @@ const CLIMB_UP := 34.0
 const CLIMB_SIDE := 27.0
 ## Multiplies climbing speed on the rock: the shoes (crag mode).
 var pace := 1.0
+## Seconds the arms hang on once stamina runs out on a face, before they
+## let go (0: at once, as at the crag, where running out is the pump fall).
+## While hanging on you can only go down or sideways, slowly.
+var arms_grace := 0.0
+## The cold: multiplies how fast you walk and climb (Climate.pace).
+var chill := 1.0
+var _arms_out := 0.0
+## True while hanging on with nothing left (for the HUD and the level).
+var arms_failing := false
 const SCRAMBLE_SPEED := 48.0
 const FATIGUE_SLOW := 0.7
 ## A drop longer than this (4 tiles) is a slip, not a step down.
@@ -190,6 +199,8 @@ var _before_lock: int = State.GROUND
 
 ## Back at a cairn after a slip. A caught slip leaves more in the arms.
 func respawn(feet: Vector2) -> void:
+	arms_failing = false
+	_arms_out = 0.0
 	global_position = feet
 	reset_physics_interpolation()
 	velocity = Vector2.ZERO
@@ -268,7 +279,7 @@ func _ground(delta: float, input: Vector2) -> void:
 	if GameInput.pressed_now("jump") and cramp <= 0.0 and _jump():
 		return
 	on_ice = _on_kind(Terrain.Kind.ICE)
-	var limit := EXPOSED_WALK if exposed else (TIRED_WALK if stamina.is_tired() else WALK)
+	var limit := (EXPOSED_WALK if exposed else (TIRED_WALK if stamina.is_tired() else WALK)) * chill
 	var target := input.x * limit
 	if cramp > 0.0:
 		target = 0.0
@@ -389,6 +400,22 @@ func _supported(at: Vector2i) -> bool:
 
 
 ## The climbable column under the hands nearest the body's centre, or -1.
+## The rock above the hands in this column: rows to the top of the face,
+## and how many of them are loose.
+func face_above() -> Vector2i:
+	var col := _hold_column()
+	if col < 0:
+		col = Terrain.cell_of(global_position).x
+	var row := Terrain.cell_of(global_position + Vector2(0, -SIZE.y * 0.75)).y
+	var rows := 0
+	var loose := 0
+	while row - rows >= 0 and terrain.is_climbable(Vector2i(col, row - rows)):
+		if terrain.kind(Vector2i(col, row - rows)) == Terrain.Kind.LOOSE:
+			loose += 1
+		rows += 1
+	return Vector2i(rows, loose)
+
+
 func _hold_column() -> int:
 	var hands := global_position + Vector2(0, -SIZE.y * 0.75)
 	var here := Terrain.cell_of(hands)
@@ -486,10 +513,17 @@ func _climb(delta: float, input: Vector2) -> void:
 	if stamina.is_tired():
 		speed_up *= FATIGUE_SLOW
 		speed_side *= FATIGUE_SLOW
+	speed_up *= chill
+	speed_side *= chill
 	if can_dyno and GameInput.pressed_now("jump") and stamina.value >= DYNO_COST:
 		_dyno(input)
 		return
+	if arms_failing:
+		# Nothing left: no pulling up; down, or slowly along.
+		speed_side *= 0.5
 	var want := Vector2(input.x * speed_side, -input.y * speed_up)
+	if arms_failing and want.y < 0.0:
+		want.y = 0.0
 	# Hands must stay on rock: no climbing up past the top of the face.
 	if want.y < 0.0:
 		var next := body_rect(global_position + Vector2(0, want.y * delta))
@@ -544,8 +578,21 @@ func _climb(delta: float, input: Vector2) -> void:
 		stamina.tick(delta, last_activity, loose)
 	_breathing(delta)
 	if stamina.is_empty() and not on_rope:
-		_let_go()
-		return
+		_arms_out += delta
+		arms_failing = true
+		if _arms_out >= arms_grace:
+			arms_failing = false
+			_arms_out = 0.0
+			if arms_grace > 0.0 and not on_ground_cell():
+				# The arms gave out: that is the fall, and it says why.
+				_let_go()
+				slip("arms")
+				return
+			_let_go()
+			return
+	else:
+		_arms_out = 0.0
+		arms_failing = false
 	if not terrain.touches_climbable(body_rect()):
 		_let_go()
 		return
@@ -746,7 +793,8 @@ func hurt(amount: float, reason: String) -> bool:
 func slip(reason: String) -> void:
 	if state == State.SLIP or state == State.DONE:
 		return
-	var saved := spotter
+	# Nobody can grab you out of a hole.
+	var saved := spotter and reason != "hole"
 	if saved:
 		spotter = false
 		caught += 1

@@ -177,12 +177,13 @@ func test_ice_slides() -> void:
 	await _load("summit-night")
 	await _put(Vector2i(90, 58))
 	check(c.terrain.kind(Vector2i(90, 59)) == Terrain.Kind.ICE, "on ice")
-	await drive(["move_right"], func() -> bool: return absf(c.velocity.x) >= Climber.WALK * 0.95, 5.0, "up to speed on ice")
+	# Full walking speed, as the cold allows (Climate.pace).
+	await drive(["move_right"], func() -> bool: return absf(c.velocity.x) >= Climber.WALK * c.chill * 0.95, 5.0, "up to speed on ice")
 	var from := c.global_position.x
 	await drive([], func() -> bool: return absf(c.velocity.x) < 1.0, 5.0, "sliding to a stop")
 	var ice_stop := c.global_position.x - from
 	await _put(Vector2i(20, 76))
-	await drive(["move_right"], func() -> bool: return absf(c.velocity.x) >= Climber.WALK * 0.95, 5.0, "up to speed on rock")
+	await drive(["move_right"], func() -> bool: return absf(c.velocity.x) >= Climber.WALK * c.chill * 0.95, 5.0, "up to speed on rock")
 	from = c.global_position.x
 	await drive([], func() -> bool: return absf(c.velocity.x) < 1.0, 5.0, "stopping on rock")
 	var rock_stop := c.global_position.x - from
@@ -211,11 +212,17 @@ func test_walking_costs_more_breath_on_the_summit_than_at_the_tower() -> void:
 	for id in ["lava-tower", "summit-night"]:
 		await _load(id)
 		await _put(Vector2i(5, 55) if id == "lava-tower" else Vector2i(16, 85))
-		var start := c.stamina.value
-		# Flat ground, a few seconds of walking, nothing to hop.
-		await drive(["move_right"], func() -> bool: return false, 2.0, "")
+		# Flat ground, a few seconds of walking, nothing to hop. Only what
+		# walking costs counts (an everlasting picked on the way gives a
+		# little back).
+		var spent := [0.0, c.stamina.value]
+		await drive(["move_right"], func() -> bool:
+			if c.last_activity == "walk" and c.stamina.value < spent[1]:
+				spent[0] += spent[1] - c.stamina.value
+			spent[1] = c.stamina.value
+			return false, 2.0, "")
 		failures.clear()
-		lost[id] = [start - c.stamina.value, c.stamina.thin_air]
+		lost[id] = [spent[0], c.stamina.thin_air]
 		await _done()
 	check(lost["lava-tower"][0] > 0.0, "walking costs breath at the tower (%.1f)" % lost["lava-tower"][0])
 	check(lost["summit-night"][0] > lost["lava-tower"][0], "and more on the summit night (%.1f vs %.1f)" % [lost["summit-night"][0], lost["lava-tower"][0]])
@@ -343,3 +350,132 @@ func test_a_fall_drops_every_everlasting_back_on_the_ground() -> void:
 	for cell in cells:
 		check(not taken.has("%d,%d" % [cell.x, cell.y]), "and the save forgets them")
 	await _done()
+
+
+func test_the_wildlife_is_spread_along_the_walk() -> void:
+	for id in ["lava-tower", "barranco-wall", "summit-night"]:
+		var lvl: ClimbLevel = load(Expedition.LEVELS[id]).instantiate()
+		var t := Terrain.load_file(lvl.spec["map"])
+		var all: Array = []
+		for ch in ["n", "a", "v"]:
+			all.append_array(t.markers.get(ch, []))
+		check(all.size() >= 4, "%s has wildlife (%d)" % [id, all.size()])
+		# Not bunched: nothing within 8 tiles of another on the same stretch.
+		for i in all.size():
+			for j in range(i + 1, all.size()):
+				var a: Vector2i = all[i]
+				var b: Vector2i = all[j]
+				check(absi(a.y - b.y) > 4 or absi(a.x - b.x) >= 8, "%s: %s and %s are apart" % [id, a, b])
+		# Spread from the bottom of the walk to the top, not all in one band.
+		var start: int = t.markers["P"][0].y
+		var exit: int = t.markers["X"][0].y
+		var lo := 0
+		var hi := 99999
+		for c in all:
+			lo = maxi(lo, c.y)
+			hi = mini(hi, c.y)
+		check(float(lo - hi) >= 0.4 * float(start - exit), "%s: from row %d to %d, of a climb from %d to %d" % [id, lo, hi, start, exit])
+		lvl.free()
+
+
+func test_falling_into_a_hole_starts_the_climb_again() -> void:
+	await _load("lava-tower")
+	var lvl: ClimbLevel = level
+	lvl.checkpoint = 2
+	# The stream cut: open to the bottom of the map.
+	c.global_position = Terrain.feet(Vector2i(37, 57))
+	c.reset_physics_interpolation()
+	c.state = Climber.State.AIR
+	c.fall_from = c.global_position.y
+	for i in 60 * 4:
+		GameInput.scripted = {"_": false}
+		await tree.physics_frame
+		if c.slips > 0 and c.state != Climber.State.SLIP:
+			break
+	eq(c.slips, 1, "a fall into a hole counts")
+	eq(lvl.checkpoint, 0, "and the climb starts again")
+	check(c.global_position.distance_to(lvl.cairns[0]) < 4.0, "back at the start (%s)" % c.global_position)
+	check("hole" in level.hud.flash_text(), "and it says so: " + level.hud.flash_text())
+	await _done()
+
+
+## Running out of stamina on a face is never a surprise: grabbing a face
+## you cannot afford says so, the arms hang on for a moment with a warning,
+## there is time to climb down, and if they do give out the slip says why.
+func test_empty_arms_warn_before_they_let_go() -> void:
+	await _load("summit-night")
+	var lvl: ClimbLevel = level
+	# The last rock step, from its foot, with almost nothing left.
+	await _put(Vector2i(103, 50))
+	c.stamina.value = 8.0
+	GameInput.scripted = {"_": false, "climb_up": true}
+	await physics_frames(3)
+	check(c.state == Climber.State.CLIMB, "on the rock")
+	check(lvl.face_cost() > 8.0, "the face costs more than that (%.0f)" % lvl.face_cost())
+	check("Climb down and rest first" in level.hud.flash_text(), "and grabbing it says so: " + level.hud.flash_text())
+	for i in 60 * 3:
+		GameInput.scripted = {"_": false, "climb_up": true}
+		await tree.physics_frame
+		if c.arms_failing:
+			break
+	await physics_frames(1)
+	check(c.arms_failing and c.slips == 0, "empty arms hang on first (slips %d)" % c.slips)
+	check("giving out" in level.hud.flash_text(), "with a warning: " + level.hud.flash_text())
+	# Climbing down in time: no fall.
+	for i in 60 * 3:
+		GameInput.scripted = {"_": false, "climb_down": true}
+		await tree.physics_frame
+		if c.state == Climber.State.GROUND:
+			break
+	eq(c.slips, 0, "climbed down in time, no slip")
+	await _done()
+	# Hanging there instead: the arms give out, and the slip says why.
+	await _load("summit-night")
+	await _put(Vector2i(103, 50))
+	GameInput.scripted = {"_": false, "climb_up": true}
+	await physics_frames(40)
+	c.stamina.value = 0.0
+	for i in 60 * 5:
+		GameInput.scripted = {"_": false}
+		await tree.physics_frame
+		if c.slips > 0:
+			break
+	eq(c.slips, 1, "the arms gave out")
+	check("arms gave out" in level.hud.flash_text(), "and it says so: " + level.hud.flash_text())
+	await _done()
+
+
+## Each climb has its own day: hot to cold up the tower, colder before
+## dawn on the summit, warmer on the way down. The cold slows you and
+## rest, the heat costs; the brief and the HUD say so, and the light
+## changes with it.
+func test_the_weather_changes_along_the_climb() -> void:
+	await _load("lava-tower")
+	var lvl: ClimbLevel = level
+	check("Weather" in level.panel.all_text() and "°C" in level.panel.all_text(), "the brief names the weather: " + level.panel.all_text().right(200))
+	check(lvl.degrees >= Climate.WARM, "hot sun at the foot of the tower (%d°C)" % lvl.degrees)
+	check(c.stamina.drain > lvl.spec["difficulty"]["drain"], "and the heat costs")
+	check("hot" in level.hud._temp.text, "the HUD says so: " + level.hud._temp.text)
+	var low_tint: Color = lvl._tint.color
+	# Up on the tower: the last cairn.
+	lvl.checkpoint = lvl.cairns.size() - 1
+	await _put(Terrain.cell_of(lvl.cairns[-1] - Vector2(0, 2)))
+	check(lvl.degrees < 8.0, "cold by the top (%d°C)" % lvl.degrees)
+	check(lvl._tint.color != low_tint, "and the light has changed (%s to %s)" % [low_tint, lvl._tint.color])
+	await _done()
+	await _load("summit-night")
+	lvl = level
+	check(lvl.degrees < 0.0, "below freezing on the summit night (%d°C)" % lvl.degrees)
+	check(c.chill < 1.0 and c.stamina.recovery < lvl.spec["difficulty"]["recovery"], "slower, and rest works less (pace %.2f)" % c.chill)
+	check("freezing" in level.hud._temp.text, "the HUD says so: " + level.hud._temp.text)
+	# The same walk, slower in the cold.
+	await _put(Vector2i(60, 85))
+	var x0 := c.global_position.x
+	await drive(["move_right"], func() -> bool: return false, 1.0, "")
+	failures.clear()
+	check(c.global_position.x - x0 < Climber.WALK * 0.97, "walking is slower in the cold (%.0f px/s)" % (c.global_position.x - x0))
+	# A slow climb gets colder.
+	var now := lvl.climate.degrees(0.2, 0.0)
+	check(lvl.climate.degrees(0.2, 240.0) < now, "the night gets colder as time passes")
+	await _done()
+	check(Climate.pace(-15.0) >= Climate.SLOWEST and Climate.pace(-15.0) < 1.0, "the cold slows, within reason")

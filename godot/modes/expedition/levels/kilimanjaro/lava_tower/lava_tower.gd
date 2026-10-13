@@ -11,6 +11,9 @@ func _init() -> void:
 		"map": "res://modes/expedition/levels/kilimanjaro/lava_tower/lava_tower.txt",
 		"hud": "Lava Tower",
 		"difficulty": {"recovery": 1.0, "drain": 0.85, "wind": -15.0, "maxSlips": 4, "helpCost": 15.0, "rockPeriod": 6.0},
+		# Afternoon sun on black lava rock, then a cold sunset on the tower.
+		"climate": {"temps": [[0.0, 27.0], [0.4, 18.0], [0.8, 6.0], [1.0, 2.0]], "drift": -1.5,
+			"light": [[0.0, "#fff2dc"], [0.5, "#ffe2c0"], [0.85, "#f0b48c"], [1.0, "#c89aa8"]]},
 		"meters": 4600,
 		"dangers": ["a scree bridge that gives way if you stop", "stones down the chimney"],
 		"gear": [

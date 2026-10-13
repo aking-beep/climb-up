@@ -154,6 +154,30 @@ exactly (the parity test still holds); a trek layer on top
   rested party; the summit is still the hardest breathing, about half as
   long again as low down for a party that rushed (`test_rules`).
 
+  **The weather** (`core/world/climate.gd`, each level's `climate`). Every
+  climb has its own day, moved along by how far up the route you are and
+  by the clock: the Lava Tower from hot afternoon sun on black rock (27°C)
+  to a cold sunset at the top, the Barranco Wall from a sunny valley into
+  cloud, the summit night from -7°C to -16°C before dawn and a pink sunrise
+  at Stella Point, the way down from frost into the heat. Below 5°C you
+  walk and climb slower (up to 15%) and resting works less (up to 20%);
+  above 24°C every move costs more (up to 15%). The light over the scene
+  shifts with it, the HUD shows the temperature in degrees and words, and
+  the brief has a Weather row.
+
+  **Falls are never a mystery.** Grabbing a face your stamina will not get
+  you up says so ("This face takes about 26 stamina and you have 8").
+  Empty arms on a Kilimanjaro face hang on for 3 s with a warning, time to
+  climb down; if they let go, the slip says your arms gave out. Every slip
+  names its cause (a stone, a long fall, the wind, your arms). A fall into
+  a hole (the gaps that drop out of the bottom of the map) is the worst:
+  it counts as a slip and you start the climb again from the beginning.
+  Loose rock costs a third more, not 60%.
+
+  **Wildlife along the whole walk.** Thistles, ants and ravens are spread
+  one per stretch of the route, start to finish
+  (`tools/levels/gauntlet.py` `SPREAD`), not bunched on one bench.
+
   It also goes back the other way: stamina lost to thorns, ants and ravens
   on the climb costs the party energy at camp (a fifth of it, up to 12),
   and energy is what sets the size of the next climb's bar.
