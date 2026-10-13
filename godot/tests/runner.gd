@@ -5,6 +5,31 @@ extends Node
 ##     godot --headless --path godot res://tests/runner.tscn
 ##
 ## Pass `-- only=<name>` to run suites whose file name contains <name>.
+##
+## A script error during a test (a bad call, a null, a type error) fails
+## that test, even when the test's own checks passed.
+
+
+class ErrorWatch extends Logger:
+	var errors: Array = []
+	var _lock := Mutex.new()
+
+	func _log_error(function: String, file: String, line: int, code: String, rationale: String, _editor_notify: bool, error_type: int, _backtraces: Array[ScriptBacktrace]) -> void:
+		if error_type == ERROR_TYPE_SCRIPT:
+			_lock.lock()
+			errors.append("script error: %s (%s:%d %s)" % [rationale if rationale != "" else code, file, line, function])
+			_lock.unlock()
+
+	func _log_message(_message: String, _error: bool) -> void:
+		pass
+
+	func take() -> Array:
+		_lock.lock()
+		var out := errors.duplicate()
+		errors.clear()
+		_lock.unlock()
+		return out
+
 
 func _ready() -> void:
 	await get_tree().process_frame
@@ -18,6 +43,8 @@ func _ready() -> void:
 		if f.begins_with("test_") and f.ends_with(".gd") and f != "test_case.gd" and (only == "" or only in f):
 			files.append(f)
 	files.sort()
+	var watch := ErrorWatch.new()
+	OS.add_logger(watch)
 	var passed := 0
 	var failed := 0
 	for f in files:
@@ -30,7 +57,10 @@ func _ready() -> void:
 			suite.tree = get_tree()
 			suite.root = self
 			var started := Time.get_ticks_msec()
+			watch.take()
 			await suite.call(name)
+			for e in watch.take():
+				suite.failures.append(e)
 			var ms := Time.get_ticks_msec() - started
 			if suite.failures.is_empty():
 				passed += 1
