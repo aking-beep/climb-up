@@ -47,7 +47,7 @@ const ROUTES := [
 		"text": "Four stretches of tiny holds, the longest at the top. Squeeze GRIP once when the meter drops below half: not before, not a flurry. Bolts close together all the way.",
 		"crux": "The last stretch of tiny holds. Stopping on them drains you."},
 	{"id": "leap-of-faith", "name": "Leap of Faith", "grade": "6b", "level": "harder", "falls": 4, "pump": 1.2, "gripDrain": 0.7,
-		"skill": "The timed catch",
+		"skill": "The leap",
 		"text": "Above a big hold the rock is blank: press JUMP to leap for the holds above (a dyno). A ring closes on the hold: tap GRIP once as it closes. Slopers and tiny holds above; the top bolts are far apart.",
 		"crux": "The catch, then tiny holds."},
 	{"id": "lions-roof", "name": "Lion's Roof", "grade": "6c", "level": "very hard", "falls": 3, "pump": 1.2, "gripDrain": 0.85,
