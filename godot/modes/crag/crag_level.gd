@@ -34,16 +34,13 @@ const GRIP_BURN := 1.35
 ## the slack in the system. Land below the ground and you hit it.
 const FALL_SLACK := 1.0 * Terrain.TILE
 const GROUND_HIT := 25.0
-## A dyno is a timing move, not a mashing one: one tap of GRIP as the
-## hands reach the hold sticks it. A tap up to CATCH_EARLY before the hands
-## arrive counts (you reached for it), and so does one up to CATCH_WINDOW
-## after; within CATCH_PERFECT of the contact it is a perfect catch, which
-## gives back half the jump's cost. Snatch at the air (FLAIL taps before
-## the hold is near) and the hands miss it.
-const CATCH_WINDOW := 0.4
+## A dyno: leap from the rock, and the hands catch the hold they reach, on
+## their own. Timing is a bonus, never a trap: a tap of GRIP from
+## CATCH_EARLY before the hands arrive to CATCH_PERFECT after is a perfect
+## catch, which gives back half the jump's cost. Missing the timing (or
+## tapping in the air) costs nothing.
 const CATCH_EARLY := 0.15
 const CATCH_PERFECT := 0.15
-const FLAIL := 2
 ## Slopers: rounded holds held by friction. Moving on them loses grip
 ## (SLOPER_SLIDE a second at full speed, by the square of the speed, so
 ## half speed loses a quarter), holding still lets it settle back
@@ -58,8 +55,6 @@ const FALL_LESSONS := {
 	"pump": "Pumped: your stamina ran out. Rest on big holds, pockets and the rope before the hard bits.",
 	"crimps": "Pumped on the tiny holds. Keep moving on them, and squeeze GRIP when the meter drops below half.",
 	"sloper": "Slid off a sloper. Move slowly on them and pause to let your grip settle.",
-	"dyno-late": "Missed the catch. Tap GRIP once, just as your hands reach the hold.",
-	"dyno-flail": "Snatched too early. One tap as your hands reach the hold, not a flurry in the air.",
 	"ground": "Hit the ground: the first bolts were too far below. Clip as soon as you can low down.",
 }
 ## Once clipped you can sit back on the rope and rest, any time, as often
@@ -671,7 +666,7 @@ func beta_tips() -> String:
 		if i > 0 and int(c["gap"]) >= RUNOUT:
 			tips.append("Between bolts %d and %d is a long run-out (%s m): rest on the rope at bolt %d first." % [i, i + 1, Crag._m(int(c["gap"]) * Crag.ROW_M), i])
 	if dyno_count() > 0:
-		tips.append("%s across blank rock: jump from the top of the holds below, then tap GRIP once, just as your hands reach the hold." % ("A leap" if dyno_count() == 1 else "%d leaps" % dyno_count()))
+		tips.append("%s across blank rock: jump from the top of the holds below and your hands catch the hold. Tap GRIP as you arrive for a perfect catch." % ("A leap" if dyno_count() == 1 else "%d leaps" % dyno_count()))
 	if _count_kind(Terrain.Kind.SLOPER) > 0:
 		tips.append("Slopers (round grey holds): move slowly, and pause on them to let your grip settle. Squeezing does not help.")
 	if _count_kind(Terrain.Kind.POCKET) > 0:
@@ -903,7 +898,7 @@ const LESSONS := {
 	"rest": ["Rest on the rope", "The green bar over your head is a rest: tap REST to sit back and get stamina back. Every bolt you clip refills it."],
 	"crimps": ["Tiny holds", "Tiny holds drain you fast: the seconds beside your stamina are how long your arms last here. Keep moving, and tap GRIP once when the meter over your head drops below half."],
 	"jug": ["A big hold", "Stay on big holds to shake out and get your stamina back."],
-	"dyno": ["Jump for it", "No holds above: press JUMP to leap. Tap GRIP once as the ring closes on the hold. Mashing misses."],
+	"dyno": ["Jump for it", "No holds above: press JUMP to leap, and your hands catch the hold. Tap GRIP just as you arrive for a perfect catch: stamina back."],
 	"fall": ["You fell. That's fine.", "The rope caught you at your last bolt. Climb on from here: falls are how you learn a route."],
 }
 
@@ -1048,17 +1043,13 @@ func _on_grabbed() -> void:
 	engage("grab")
 	if _dyno_air:
 		_dyno_air = false
-		if _air_taps >= FLAIL:
-			# Snatched at the air: the hands miss the hold.
-			_cause = "dyno-flail"
-			catch_quality = "flail"
-			hud.flash("Snatched too early: you missed the hold.", 2.0)
-			climber.peel_off()
-			return
 		if climber.clock - _air_tap_at <= CATCH_EARLY:
 			_stick(true)
 			return
-		catching = CATCH_WINDOW
+		# On the rock: the hands have it. A tap in the next moment still
+		# makes it a perfect catch.
+		_stick(false)
+		catching = CATCH_PERFECT
 
 
 ## In the air after a dyno, and the catch window once the hands touch: one
@@ -1069,9 +1060,8 @@ func _catch(dt: float) -> void:
 			# A tap close to the hold is a reach; one far from it is a snatch.
 			var hands_y := climber.body_rect().position.y
 			if dyno_target_y < INF and hands_y - dyno_target_y > 1.2 * Terrain.TILE:
+				# Too early to count as a reach; harmless.
 				_air_taps += 1
-				if _air_taps == FLAIL:
-					hud.flash("Wait for it...", 0.8)
 			else:
 				_air_tap_at = climber.clock
 		return
@@ -1083,25 +1073,23 @@ func _catch(dt: float) -> void:
 	if catching <= 0.0:
 		return
 	if _tap:
-		_stick(CATCH_WINDOW - catching <= CATCH_PERFECT)
+		# Right on the contact: upgrade to a perfect catch.
+		_stick(true)
 		return
 	catching -= dt
-	if catching <= 0.0:
-		_cause = "dyno-late"
-		catch_quality = "late"
-		climber.peel_off()
-		hud.flash("Too late: the hold slips out of your hands.", 2.0)
 
 
 ## The catch. A perfect one (right on the contact) gives back half the
 ## jump's stamina.
 func _stick(perfect: bool) -> void:
+	var upgrade := catching > 0.0 and catch_quality == "good"
 	catching = 0.0
 	# The tap that caught the hold does nothing else (no clip, no squeeze).
 	_tap = false
 	catch_quality = "perfect" if perfect else "good"
-	log_event("catch", catch_quality)
-	engage("catch")
+	if not upgrade:
+		log_event("catch", catch_quality)
+		engage("catch")
 	Haptics.tap(35 if perfect else 22)
 	Audio.play("catch", -4.0 if perfect else -7.0, 0.05)
 	puff(climber.global_position - Vector2(0, Climber.SIZE.y), Color(1, 1, 1, 0.9), 16 if perfect else 10)

@@ -434,12 +434,11 @@ non-climbers, with the climbing name after.
 | Sloper (z) | round grey domes | friction: moving loses grip by the square of your speed (half speed loses a quarter), holding still lets it settle back. Squeezing does nothing. The meter turns cool blue; out of grip you slide off. Move, pause, move |
 | Pocket (u) | dark holes with a lit rim | hang for free; cheap to clip from (1 stamina) |
 | Jug (J) | big incut holds | hang to shake out: stamina comes back, with chalk and a sound |
-| Blank rock | two rows with nothing | a dyno: JUMP (aim with the stick). A ring closes on the hold; tap GRIP **once** as the hands reach it. Within 0.15 s of contact is a perfect catch (half the jump's stamina back); up to 0.4 s after is a good catch; one tap up to 0.15 s before contact counts. Two or more taps before the hold is near is a snatch: the hands miss |
+| Blank rock | two rows with nothing | a dyno: JUMP (aim with the stick) and the hands catch the hold they reach, on their own: no second button. A tap of GRIP from 0.15 s before the contact to 0.15 s after is a perfect catch (half the jump's stamina back). A late tap, no tap, or mashing in the air never drops you |
 
 Every fall names its cause and what to try next ("Pumped on the tiny
 holds: keep moving and squeeze when the meter drops below half"; "Slid
-off a sloper: move slowly and pause"; "Missed the catch: tap once, just as
-your hands reach the hold"; "Snatched too early"; "Hit the ground: clip as
+off a sloper: move slowly and pause"; "Hit the ground: clip as
 soon as you can low down"). The results card repeats the most common one.
 A route tried but not sent shows a chalk line at your high point. Where
 the line goes sideways the hint says which way.
@@ -462,7 +461,7 @@ checks it makes the seven maps byte for byte.
 | 4 | Warm-up Wall | clip, rest, repeat | 16.5 m | 6 (5, 5, 5, 5, 5) | well | low | every clip from a good hold (pockets, jug, rock) |
 | 5b | Sundown Traverse | slow and steady | 19.5 m | 4 (6, 10, 12) | sporty | high, ground-fall risk | grip on the slopers never below a third |
 | 6a | The Pinch | squeeze timing | 21 m | 8 (5, 5, 5, 4, 5, 5, 5) | well | low | clean, no wasted squeezes |
-| 6b | Leap of Faith | the timed catch | 25 m | 6 (4, 7, 8, 10, 12) | sporty | high | clean, a perfect catch |
+| 6b | Leap of Faith | the leap | 25 m | 6 (4, 7, 8, 10, 12) | sporty | high | clean, a perfect catch |
 | 6c | Lion's Roof | steep ground | 25 m | 8 (5, 5, 4, 7, 7, 7, 7) | well | medium | no rests on the rope |
 | 7a | Thunderhead | all of it, run-out | 29 m | 5 (7, 10, 14, 17) | run-out | high, ground-fall risk | clean, both catches perfect |
 
@@ -670,8 +669,8 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=bar
 119 tests (a script error during a test fails it, not just a failed
 check). New this sprint: `test_crag_moves` (the route builder matches the
 tools byte for byte; slopers want a steady pace; pockets are free; a dyno
-wants one timed tap, perfect, good or a reach just before; mashing a dyno
-misses; each route tests its own skill; a traverse says which way),
+always catches the hold, and a tap on the contact makes it perfect;
+mashing never drops you; each route tests its own skill; a traverse says which way),
 `test_logbook` (styles named honestly, stars, each challenge asks for its
 skill, achievements cannot be ground out, saves survive bad data, the high
 point to beat, the next route is always clear), `test_daily` (the numbers

@@ -160,12 +160,18 @@ func _jump_the_blank() -> void:
 	check(level.dyno_target_y < INF, "the hold it goes for is known (the catch ring closes on it)")
 
 
-func test_a_dyno_wants_one_timed_tap() -> void:
+func test_a_dyno_catches_the_hold_and_a_timed_tap_is_a_bonus() -> void:
 	await _load("leap-of-faith")
+	# No tap at all: the hands catch the hold and you stay on.
+	await _jump_the_blank()
+	await drive([], func() -> bool: return c.state == Climber.State.CLIMB, 2.0, "the catch")
+	eq(level.catch_quality, "good", "reached the hold: caught, no tap needed")
+	await physics_frames(60)
+	eq(c.state, Climber.State.CLIMB, "and still on a second later")
 	# One tap right as the hands land on the hold: a perfect catch.
 	await _jump_the_blank()
 	await drive([], func() -> bool: return c.state == Climber.State.CLIMB, 2.0, "the catch")
-	check(level.catching > 0.0 and level.action_word == "GRIP", "hands on the hold: the catch window is open")
+	check(level.catching > 0.0, "hands on the hold: a moment for a perfect catch")
 	var breath := c.stamina.value
 	await _tap()
 	eq(level.catch_quality, "perfect", "one tap on the contact: a perfect catch")
@@ -173,24 +179,24 @@ func test_a_dyno_wants_one_timed_tap() -> void:
 	check(c.stamina.value >= breath + Climber.DYNO_COST * 0.5 - 0.5, "and half the jump's stamina back (%.1f to %.1f)" % [breath, c.stamina.value])
 	await physics_frames(20)
 	eq(c.state, Climber.State.CLIMB, "still on")
-	eq(int(level.taps["catch"]), 1, "one tap, not three")
-	# A tap a quarter of a second late: caught, not perfect.
+	# A tap a quarter of a second late: still caught, not perfect.
 	await _jump_the_blank()
 	await drive([], func() -> bool: return c.state == Climber.State.CLIMB, 2.0, "the catch")
 	await physics_frames(15)
 	await _tap()
 	eq(level.catch_quality, "good", "a little late: a good catch")
 	eq(c.state, Climber.State.CLIMB, "still on")
-	# A single reach just before the hands arrive counts too.
+	# A single reach just before the hands arrive is perfect too.
 	await _jump_the_blank()
 	await drive([], func() -> bool: return level.climber.body_rect().position.y - level.dyno_target_y <= 0.4 * Terrain.TILE or c.state != Climber.State.AIR, 2.0, "near the hold")
 	await _tap()
 	await drive([], func() -> bool: return c.state != Climber.State.AIR, 2.0, "contact")
 	check(level.catch_quality in ["perfect", "good"], "a reach just before contact sticks it (%s)" % level.catch_quality)
+	eq(c.state, Climber.State.CLIMB, "on the rock")
 	await _done()
 
 
-func test_mashing_a_dyno_misses() -> void:
+func test_mashing_a_dyno_never_drops_you() -> void:
 	await _load("leap-of-faith")
 	await _jump_the_blank()
 	# Mash from the moment you leave the rock.
@@ -200,16 +206,11 @@ func test_mashing_a_dyno_misses() -> void:
 		await tree.physics_frame
 		i += 1
 	GameInput.scripted = {"_": false}
-	eq(level.catch_quality, "flail", "snatching at the air: the hands miss")
+	eq(c.state, Climber.State.CLIMB, "mashed, but the hands still catch the hold")
+	check(level.catch_quality in ["perfect", "good"], "caught (%s)" % level.catch_quality)
 	await physics_frames(90)
-	eq(level.fall_cause, "dyno-flail", "the fall says why")
-	check("one tap" in level.hud.flash_text().to_lower() or "snatch" in level.hud.flash_text().to_lower(), "and what to do: " + level.hud.flash_text())
-	# Too late: no tap at all.
-	await _jump_the_blank()
-	await drive([], func() -> bool: return c.state == Climber.State.CLIMB, 2.0, "the catch")
-	await physics_frames(int(CragLevel.CATCH_WINDOW * 60.0) + 4)
-	eq(level.catch_quality, "late", "no tap in the window: too late")
-	check(c.state != Climber.State.CLIMB, "and off")
+	eq(c.state, Climber.State.CLIMB, "and stay on")
+	eq(level.fall_cause, "", "no fall")
 	await _done()
 
 
