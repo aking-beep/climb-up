@@ -17,9 +17,9 @@ func _init() -> void:
 		"meters": 4600,
 		"dangers": ["a scree bridge that gives way if you stop", "stones down the chimney"],
 		"gear": [
-			["a brass compass", "Dropped at the lip, where the wind takes things."],
-			["a wooden ice axe", "Wedged in the chimney's niche, out of the stonefall."],
-			["a faded photograph", "The tower from this ledge, years ago. It has not changed."],
+			["goggles and a buff", "Dropped at the lip, where the wind takes things. Gusts push you less, and resting in one gives full breath.", "shell"],
+			["a pair of gloves", "Wedged in the chimney's niche, out of the stonefall. Rock costs less with them on.", "gloves"],
+			["trekking poles", "Leaning on the top of the last face. Walking costs less with them.", "poles"],
 		],
 		"theme": {
 			"far": "res://assets/scenery/barranco-kibo.png",
@@ -36,7 +36,7 @@ func _init() -> void:
 			"l": ["lena", "Lena · Guide", [
 				"Climb high, sleep low. We touch the top and sleep at Barranco, lower down.",
 				"The red scree moves under you. Short moves, and breathe on the benches.",
-				"On the ledge under the overhang the plateau wind comes through. Stand still when it does.",
+				"On the ledge under the overhang the plateau wind comes through. Don't move when it does: sit down and REST until it passes.",
 			]],
 			"m": ["marco", "Marco · Climber", [
 				"I'll carry the water today. Tomorrow is the wall, and I want my arms for it.",
@@ -46,13 +46,13 @@ func _init() -> void:
 		"signs": [
 			["Shira 2 · 3,850 m", "The Lava Tower stands over the plateau. Climb it, then walk down to Barranco to sleep."],
 			["The tower foot", "The boulders are a scramble: push UP on them. The scree face above is loose and eats your arms."],
-			["The wind ledge", "The plateau wind comes under the overhang here. When it rises, stop and BRACE."],
+			["The wind ledge", "The plateau wind comes under the overhang here. When it rises, don't move: stop and REST until it passes."],
 			["Top of the Lava Tower · 4,600 m", "Higher than you will sleep tonight. The path drops east toward Barranco."],
 		],
 		"copy": {
 			"kicker": "Shira 2 · climb high",
 			"title": "The Lava Tower",
-			"brief": "Climb high, sleep low. The tower is loose red scree and a chimney of old lava. Scree eats your arms, so breathe on the benches. The plateau wind crosses the ledge under the overhang: stand still when it comes. Touch the top, then walk down toward Barranco.",
+			"brief": "Climb high, sleep low. The tower is loose red scree and a chimney of old lava. Scree eats your arms, so press REST on the benches: only resting gives your breath back. The plateau wind crosses the ledge under the overhang: don't move when it comes, REST until it passes. Touch the top, then walk down toward Barranco.",
 			"backOff": "Back off and stay at Shira 2",
 			"mateTitle": "", "mateBody": "", "decideHelped": "", "decideLeft": "", "decideBody": "",
 			"doneComplete": "You touched the top of the tower.",

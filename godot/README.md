@@ -35,8 +35,7 @@ screen, so pixel art stays sharp with no black bars.
 | Climb (on rock), pull over (at the top) | ↑ / W | up | push the stick up, or tap CLIMB |
 | Climb down, let go | ↓ / S | down | pull the stick down |
 | Talk, read, help | E / Enter | X | the context button (TALK, READ, HELP) |
-| Brace against the wind | Shift / B | shoulders | BRACE (hold) |
-| Sit and rest (HOP gets you straight up and over) | R | Y | REST |
+| Sit and rest; also how you sit out a gust (HOP gets you straight up and over) | R / Shift | Y, shoulders | REST |
 | Pause (turn back, settings, save and quit) | Esc / P | Start | II |
 
 Touch controls appear automatically on phones; the pause menu toggles them,
@@ -163,6 +162,36 @@ exactly (the parity test still holds); a trek layer on top
   full before each face (test_climbs). A tired party (bar 54) gets up the
   Barranco Wall without running dry (test_barranco).
 
+  **Only REST gives breath back.** On the mountain, standing still and
+  walking never refill the bar (`StaminaModel.still_recovers` is off on the
+  climbs; the crag keeps its standing shake-out). REST does: 22 a second,
+  30 on a rest stone, scaled by the cold and by what camp did (sleep, food,
+  sickness). Every obstacle costs: walking, more uphill, a hop, ice,
+  climbing rock, standing in a gust (test_expedition_rules).
+
+  **No brace button: REST in the wind.** On exposed ground a gust cannot
+  take someone sitting down. The warning says "don't move, REST"; moving in
+  a gust is still a slip, and standing in one nudges you and costs breath.
+  Resting in a gust gives back only 6 a second (full rest with the goggles
+  and buff). The Barranco Wall's shoulder is easier: its open stretch is 6
+  tiles instead of 10, with longer calms between gusts.
+
+  **Gear makes a climb easier.** Each climb hides three pieces, each
+  before what it helps with:
+
+  | Gear | What it does |
+  | --- | --- |
+  | Trekking poles | walking and uphill cost 30% less |
+  | Gloves | rock costs 20% less |
+  | Goggles and a buff | a gust pushes and costs 60% less; full rest in a gust |
+  | Crampons | no sliding on ice, and ice costs half |
+  | Headlamp | the cold and the dark no longer slow your walk |
+
+  Gear lasts the attempt (and a save and resume). Fall into a hole, or
+  lose the climb, and you start again with none: it is back where you
+  found it. The brief lists what is hidden; the HUD counts it; the results
+  say what you carried.
+
   **Camp gives energy back** (`Trek.camp_recovery`): a night's sleep gives
   about 10 low down, 6 at 4,600 m, less hungry or ill, almost double on a
   rest day, half after a big push up; and the porters stretch the food (a
@@ -227,15 +256,15 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
 
 - **Thin air.** Walking costs breath, a little at the tower, more on the
   summit, and more again for a party that has not acclimatized at camp.
-  Uphill costs more than flat; standing still and sitting recover.
+  Uphill costs more than flat. Only sitting down (REST) recovers.
 - **Stonefall.** Stones come down set chutes. Grit trickles over the column
   a stone is about to fall in; move across to another column, or wait
   under rock. A hit is a slip (a helped teammate can still catch it).
 - **Cracked slabs.** Pale, cracked stones that hold you while you keep
-  walking. Stop on one, or brace on one in a gust, and it drops you. They
+  walking. Stop on one, even to sit out a gust, and it drops you. They
   settle back after a while.
 - **Ice** (summit night). Little grip: you slide, and the edge guard cannot
-  hold you on ice. On the fourth switchback the ice runs up to a crevasse,
+  hold you on ice (unless you found the crampons). On the fourth switchback the ice runs up to a crevasse,
   crossed on a band of rock.
 - **One bar: stamina.** Everything that hits you takes stamina, the same
   bar walking and climbing spend. A hit you have no stamina left for is a
@@ -251,9 +280,9 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
   dives at the spot where you were: keep moving and it misses. A hit costs
   12 stamina and it flies off with one of your everlastings.
 - **Water caches** give most of the stamina bar back, once per attempt.
-- **Lost gear.** Three things per climb, hidden off the obvious line (an
-  alcove up a side face, the back of a niche, a ledge up a pinnacle). Found
-  gear stays found across attempts; the HUD and the camp screen count it.
+- **Gear.** Three pieces per climb, hidden off the obvious line (an
+  alcove up a side face, the back of a niche, a ledge up a pinnacle), each
+  making the climb easier (the table above). Lost with the attempt.
 
 **Always something to do, always something earned.**
 
@@ -262,7 +291,8 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
   count shows at the top of the screen.
 - **Fall and you drop them.** A slip that counts scatters every everlasting
   you are carrying back onto the ground where you found it: the count goes
-  to 0 and you pick them up again on the next go. (Lost gear stays found.)
+  to 0 and you pick them up again on the next go. (Gear goes only with a
+  hole or a lost climb.)
 - **No length meter.** The HUD does not say how far along the climb you
   are; you see the next obstacle, not the distance left.
 - **An obstacle every few steps.** `tools/levels/gauntlet.py` lines every
@@ -281,7 +311,7 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
   and your best is kept; a three-star climb lifts the party at camp
   (+3 team, +2 energy).
 - **Pacing is tested.** Every climb logs each moment the player has to act
-  (a hop, a grab, a pull-over, a brace, a dodged stone, a cracked slab, a
+  (a hop, a grab, a pull-over, sitting out a gust, a dodged stone, a cracked slab, a
   rolling stone, a step onto ice, a find, a cairn). The full-ascent tests fail if a climb
   has more than 5 s of walking with nothing to do, or more than 8 s of
   walking without a real challenge (flowers and cairns do not count as
@@ -290,11 +320,11 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
   the longest gaps left are around camps, cairns and people, where the
   ground is kept clear on purpose.
 
-| Climb | Hazards | Lost gear |
+| Climb | Hazards | Gear |
 | --- | --- | --- |
-| Lava Tower | a scree bridge of cracked slabs, stonefall down the chimney (a niche halfway up to shelter), the windy lip | on the windy lip, in the chimney niche, on a ledge beyond the tower |
-| Barranco Wall | stonefall down the loose gully, cracked slabs on the exposed ledge where you brace | an alcove above ledge 2, the back of the gully niche, a ledge on the plateau |
-| Summit night | ice on two switchbacks, the crevasse, stonefall on two rock steps, cracked slabs on the windy rim, thin air | a pocket off two switchbacks, a ledge above the rim |
+| Lava Tower | a scree bridge of cracked slabs, stonefall down the chimney (a niche halfway up to shelter), the windy lip | goggles and buff on the windy lip, gloves in the chimney niche, poles above the last face |
+| Barranco Wall | stonefall down the loose gully, cracked slabs on the exposed ledge where you sit out gusts | gloves in an alcove above ledge 2, goggles and buff in the gully niche below the shoulder, poles on a ledge on the plateau |
+| Summit night | ice on two switchbacks, the crevasse, stonefall on two rock steps, cracked slabs on the windy rim, thin air | crampons and a headlamp in pockets off the switchbacks, goggles and buff on a ledge below the rim |
 
 ## The crag
 
@@ -446,7 +476,7 @@ the same date and `Daily.VERSION`, opened once First Climb is sent:
 
 Barranco Camp (talk to Lena and Jun, read the signs) → the approach under
 the buttress → a scramble band → the first face → a traverse over a void →
-the rest ledge → a steeper face → the exposed ledge (brace in the gusts) →
+the rest ledge → a steeper face → the exposed ledge (REST in the gusts) →
 Marco, stuck: help him, leave him for Lena, or step back → the loose gully
 (rest in the niche halfway) → the shoulder and the view → the crouch ledge
 in the wind → the upper face → the plateau → Karanga.

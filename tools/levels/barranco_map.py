@@ -147,15 +147,17 @@ for x in range(58, 74):
     if rnd.random() < 0.35:
         g[29 + OY][x] = "#"
 
-# Exposure on ledge 3 (over the void) and on the crouch ledge.
+# Exposure on ledge 3 (over the void) and on the crouch ledge (the
+# shoulder). The shoulder's open stretch is short, six tiles: one calm
+# between gusts nearly gets you across, and REST sits out the rest.
 for x in range(57, 75):
     put(x, 27, "E")
-for x in range(106, 116):
+for x in range(108, 114):
     put(x, SH - 1, "E", absolute=True)
 
 # Challenges. Stones come down the loose gully (dodge between columns, or
-# wait in the niche). Two cracked slabs on the exposed ledge: brace on them
-# in a gust and they go.
+# wait in the niche). Two cracked slabs on the exposed ledge: stop on them
+# (even to sit out a gust) and they go.
 put(82, 20, "r", absolute=True)
 put(66, 28, "c")
 put(67, 28, "c")

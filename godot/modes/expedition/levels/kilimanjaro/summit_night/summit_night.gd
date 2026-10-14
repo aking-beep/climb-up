@@ -18,9 +18,9 @@ func _init() -> void:
 		"meters": 5700,
 		"dangers": ["ice on the switchbacks", "a crevasse", "stones on the rock steps", "cracked slabs on the rim"],
 		"gear": [
-			["a frozen compass", "The glass is frosted over. It still points the way down."],
-			["an ice axe", "Left in a pocket of the slope. The pick is sharp."],
-			["a photograph of Stella Point", "Taken at dawn. The sky in it is the one coming now."],
+			["crampons", "Left by a party coming down. On ice they bite: no sliding, and it costs less.", "crampons"],
+			["a headlamp", "In a niche off the switchbacks. You see your footing: the cold and the dark no longer slow your walk.", "headlamp"],
+			["goggles and a buff", "Below the crater rim, out of the wind. Gusts push you less, and resting in one gives full breath.", "shell"],
 		],
 		"theme": {
 			"night": true,
@@ -52,13 +52,13 @@ func _init() -> void:
 		"signs": [
 			["Barafu · 4,670 m", "Midnight. The crater rim is above you, a line of headlamps on the dark."],
 			["The switchbacks", "Scree and short rock steps. The cold slows how fast your arms come back: sit at the cairns."],
-			["The crater rim", "Open to the wind. When it rises, stop and BRACE. Walk between gusts."],
+			["The crater rim", "Open to the wind. When it rises, don't move: stop and REST until it passes. Walk between gusts."],
 			["Stella Point · 5,756 m", "First light. Uhuru is along the rim. The way home starts here."],
 		],
 		"copy": {
 			"kicker": "Barafu · midnight",
 			"title": "Summit night",
-			"brief": "Headlamps on. Frozen switchbacks of scree and rock to the crater rim, then Stella Point at first light. The cold slows how fast your arms come back, so rest at every cairn. The rim is open to the wind. Jun is somewhere on the zigzags.",
+			"brief": "Midnight start, and your headlamp is dim. Frozen switchbacks of scree, ice and rock to the crater rim, then Stella Point at first light. The cold slows how fast your arms come back, so REST at every cairn. The rim is open to the wind: don't move in a gust, REST until it passes. Jun is somewhere on the zigzags.",
 			"backOff": "Turn the headlamps around",
 			"mateTitle": "Jun has stopped on the switchback",
 			"mateBody": "His hands have gone numb and he has dropped a glove on the scree.",

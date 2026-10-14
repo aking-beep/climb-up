@@ -151,7 +151,7 @@ func _fly(rv: Dictionary, dt: float, now: float) -> void:
 			var w: float = now * 1.6 + rv["seed"] * TAU
 			n.position = home + Vector2(cos(w) * 14.0, sin(w * 2.0) * 4.0)
 			n.flip_h = sin(w) > 0.0
-			var on_foot := climber.state in [Climber.State.GROUND, Climber.State.REST, Climber.State.BRACE]
+			var on_foot := climber.state in [Climber.State.GROUND, Climber.State.REST]
 			var ready: bool = rv["phase"] == "circle" or rv["t"] >= RAVEN_REST
 			if ready and on_foot and _in_reach(home):
 				rv["phase"] = "warn"

@@ -9,15 +9,16 @@ extends Node2D
 ## misses. A hit is a slip (a helped teammate can still catch it).
 ##
 ## Cracked slabs (c tiles): solid until you stand on one; then it creaks and
-## goes. Keep walking and you are across. Stop, or brace in a gust, and you
+## goes. Keep walking and you are across. Stop (even to sit out a gust) and you
 ## fall. They settle back after a while.
 ##
 ## Ice (i tiles) is in Climber: little grip, so you slide, and the edge
 ## guard does not hold you there.
 ##
 ## Water caches (w): a drink, most of the bar back, once per attempt.
-## Lost gear (*): three things per climb, found off the obvious line. What
-## you find stays found across attempts (Expedition.found).
+## Gear (*): three pieces per climb, each placed before what it helps with
+## (the level says what each does). It lasts this attempt: fail the climb
+## or fall in a hole and it goes back where it was (drop_gear).
 
 signal found_gear(index: int)
 ## Something the player had to deal with: for the level's pacing log.
@@ -43,7 +44,7 @@ var terrain: Terrain
 var ground: TileMapLayer
 var climber: Climber
 var rock_period := 5.0
-## gear: [[name, text], ...] for this climb's * markers, bottom to top.
+## gear: [[name, text, kind], ...] for this climb's * markers, bottom to top.
 var gear_words: Array = []
 
 var slabs := {}      # cell -> {t, state, gone_at}
@@ -107,13 +108,15 @@ func setup(lvl: Node, t: Terrain, g: TileMapLayer, c: Climber, period: float, wo
 		var s := Sprite2D.new()
 		var at := AtlasTexture.new()
 		at.atlas = Art.tex("res://assets/terrain/props/gear.png")
-		at.region = Rect2((n % 3) * 14, 0, 14, 14)
+		var kind: String = String(words[n][2]) if n < words.size() and words[n].size() > 2 else ""
+		var icon := maxi(0, ClimbLevel.GEAR_KINDS.find(kind)) if kind != "" else n % ClimbLevel.GEAR_KINDS.size()
+		at.region = Rect2(icon * 14, 0, 14, 14)
 		s.texture = at
 		s.position = Terrain.feet(cell) - Vector2(0, 9)
 		add_child(s)
 		var had := found.has(n)
 		if had:
-			s.modulate = Color(1, 1, 1, 0.35)
+			s.visible = false
 			gear_count += 1
 		pickups.append({"cell": cell, "kind": "gear", "index": n, "node": s, "taken": had})
 	for cell in terrain.markers.get("w", []):
@@ -481,11 +484,11 @@ func _pickups() -> void:
 			level.on_water(p["key"])
 		else:
 			gear_count += 1
-			p["node"].modulate = Color(1, 1, 1, 0.35)
+			p["node"].visible = false
 			_burst(p["node"].position, Color(1.0, 0.92, 0.6), 16)
 			Audio.play("cairn", -4.0)
-			var words: Array = gear_words[mini(p["index"], gear_words.size() - 1)] if not gear_words.is_empty() else ["Lost gear", ""]
-			level.hud.flash("Found: %s. %s" % [words[0], words[1]], 4.5)
+			var words: Array = gear_words[mini(p["index"], gear_words.size() - 1)] if not gear_words.is_empty() else ["Gear", ""]
+			level.hud.flash("Found %s! %s" % [words[0], words[1]], 4.5)
 			found_gear.emit(p["index"])
 
 
@@ -518,6 +521,15 @@ func steal_flower() -> bool:
 			level.forget_taken([p["key"]])
 			return true
 	return false
+
+
+## Lost the climb: every piece of gear taken goes back on the ground.
+func drop_gear() -> void:
+	gear_count = 0
+	for p in pickups:
+		if p["kind"] == "gear" and p["taken"]:
+			p["taken"] = false
+			p["node"].visible = true
 
 
 func gear_total() -> int:

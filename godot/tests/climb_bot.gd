@@ -129,7 +129,7 @@ func _on_slab() -> bool:
 	return _slab_near(1, 0)
 
 
-## Walk toward `until_x` (either way). On open ground, brace whenever a gust
+## Walk toward `until_x` (either way). On open ground, sit (REST) whenever a gust
 ## is near; never stop on a cracked slab, and only step onto slabs when the
 ## wind will stay down long enough to cross them.
 func cross(until_x: float) -> bool:
@@ -148,9 +148,9 @@ func cross(until_x: float) -> bool:
 		if _on_slab():
 			held[dir] = true
 		elif _slab_near(sign, 2) and windy and not c.wind.calm_for(c.clock, 3.0):
-			held["brace"] = true
+			held["rest"] = true
 		elif windy and not c.wind.calm_for(c.clock, 0.8):
-			held["brace"] = true
+			held["rest"] = true
 		else:
 			held[dir] = true
 		_hop(held)

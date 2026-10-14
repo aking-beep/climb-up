@@ -198,9 +198,9 @@ func update_from(level: Node) -> void:
 func _wind_line(c: Climber) -> void:
 	match c.gust:
 		WindSchedule.Phase.WARN:
-			_wind.text = "Wind rising: stop and brace"
+			_wind.text = "Wind rising: don't move, REST" if c.state != Climber.State.REST else "Wind rising: sit tight"
 		WindSchedule.Phase.BLOW:
-			_wind.text = "Gust: brace!" if c.state != Climber.State.BRACE else "Gust: braced"
+			_wind.text = "Gust: stop and REST!" if c.state != Climber.State.REST else "Gust: sitting it out"
 		_:
 			_wind.text = "Exposed: walk between gusts" if c.exposed else ""
 

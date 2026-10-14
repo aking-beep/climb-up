@@ -149,7 +149,7 @@ static func report(c: Dictionary, st: StaminaModel, energy: float, meters: float
 	if c.get("hungry", false):
 		parts.append("hungry -20%")
 	var rec := int(round(st.recovery * 100.0))
-	var back := "Sitting down refills stamina at %d%% speed" % rec
+	var back := "Only REST refills stamina (standing still doesn't), at %d%% speed" % rec
 	if not parts.is_empty():
 		back += " (" + ", ".join(parts) + ")"
 	rows.append({"tone": "good" if rec >= 100 else ("bad" if rec < 75 else "info"), "icon": "heart", "title": "Rest", "text": back + "."})

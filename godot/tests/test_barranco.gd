@@ -111,20 +111,45 @@ func test_leaving_marco_is_reported() -> void:
 	await _done()
 
 
-func test_walking_in_a_gust_on_exposed_ground_is_a_slip_and_bracing_is_safe() -> void:
+func test_walking_in_a_gust_on_exposed_ground_is_a_slip_and_resting_is_safe() -> void:
 	await _load()
 	var start: Vector2i = level.terrain.markers["K"][0]
 	# Put the climber on the exposed ledge, at the next gust.
 	c.global_position = Terrain.feet(Vector2i(60, 41))
 	await physics_frames(5)
-	while c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW:
-		GameInput.scripted = {"_": false, "brace": true}
+	# Sit down (REST) while the wind is rising, and stay sat through the gust.
+	GameInput.scripted = {"_": false}
+	while c.wind.phase_at(c.clock) != WindSchedule.Phase.CALM:
 		await tree.physics_frame
-	check(c.exposed, "on exposed ground")
-	await drive(["brace"], func() -> bool: return c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW, 3.0, "braced gust")
-	eq(c.slips, 0, "braced through a gust")
+	while c.wind.phase_at(c.clock) != WindSchedule.Phase.WARN:
+		await tree.physics_frame
+	await drive(["rest"], func() -> bool: return c.state == Climber.State.REST, 1.0, "sit down")
 	while c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW:
-		GameInput.scripted = {"_": false, "brace": true}
+		GameInput.scripted = {"_": false}
+		await tree.physics_frame
+	await physics_frames(1)
+	check(c.exposed, "on exposed ground")
+	eq(c.state, Climber.State.REST, "sitting as the gust hits")
+	var x0 := c.global_position.x
+	await drive([], func() -> bool: return c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW, 3.0, "sat out the gust")
+	eq(c.slips, 0, "resting through a gust is safe")
+	check(absf(c.global_position.x - x0) < 0.5, "the gust does not push someone sitting")
+	# Stand up (REST again) in the calm, then stand still in the next gust:
+	# pushed along the ledge, and it costs breath.
+	while c.wind.phase_at(c.clock) != WindSchedule.Phase.CALM:
+		await tree.physics_frame
+	await drive(["rest"], func() -> bool: return c.state == Climber.State.GROUND, 1.0, "stand up")
+	GameInput.scripted = {"_": false}
+	while c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW:
+		await tree.physics_frame
+	x0 = c.global_position.x
+	var before := c.stamina.value
+	await physics_frames(20)
+	check(absf(c.global_position.x - x0) > 0.2, "standing in a gust gets nudged along (%.1f px, state %d, slips %d)" % [c.global_position.x - x0, c.state, c.slips])
+	check(c.stamina.value < before, "standing in a gust costs stamina")
+	# Walking into a gust is a slip.
+	while c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW:
+		GameInput.scripted = {"_": false}
 		await tree.physics_frame
 	await drive(["move_right"], func() -> bool: return c.state == Climber.State.SLIP, 2.0, "walk into the gust")
 	eq(c.slips, 1, "walking in a gust slips")

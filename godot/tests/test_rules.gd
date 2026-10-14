@@ -19,7 +19,7 @@ func test_climbing_drains_and_resting_recovers() -> void:
 	s.value = 20.0
 	var before := s.value
 	s.tick(1.0, "rest_stone")
-	near(s.value, before + 26.0, 0.001, "a rest stone gives 26/s")
+	near(s.value, before + 30.0, 0.001, "a rest stone gives 30/s")
 
 
 func test_walking_costs_breath_and_more_in_thin_air() -> void:

@@ -27,7 +27,7 @@ func _ready() -> void:
 	if Settings.touch_enabled():
 		text("Left thumb moves (push up on rock to climb); right thumb jumps and acts (talk, climb, help). II pauses.", 8, MUTED)
 	else:
-		text("Keys: arrows or WASD · UP on rock climbs · SPACE jump · E talk / climb · Shift brace · R rest · Esc pause.", 8, MUTED)
+		text("Keys: arrows or WASD · UP on rock climbs · SPACE jump · E talk / climb · R rest (also in a gust) · Esc pause.", 8, MUTED)
 
 
 func _continue() -> void:

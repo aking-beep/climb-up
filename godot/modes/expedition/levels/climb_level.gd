@@ -39,6 +39,20 @@ var _next_dizzy := -1.0
 var _next_cramp := -1.0
 var ground_layer: TileMapLayer
 var gear_this_attempt := 0
+## Gear in hand on this attempt, by kind (GEAR). Lose the climb, or fall in
+## a hole, and it is all gone: back where it was found.
+var gear_kinds: Array = []
+## What each piece of gear does. The climb's spec places them (its "gear"
+## list, [name, text, kind], bottom to top on the map), each before the
+## thing it helps with.
+const GEAR_KINDS := ["poles", "gloves", "shell", "crampons", "headlamp"]
+const GEAR := {
+	"poles": {"label": "Poles", "walk": 0.7},
+	"gloves": {"label": "Gloves", "rock": 0.8},
+	"shell": {"label": "Goggles"},
+	"crampons": {"label": "Crampons", "ice": 0.5},
+	"headlamp": {"label": "Headlamp"},
+}
 ## Pacing: every moment the player had to do something, [clock, kind]. The
 ## tests read it to check that no stretch of a climb is just walking.
 var pace_log: Array = []
@@ -68,7 +82,7 @@ const SLIP_LESSONS := {
 	"rock": ["falling stones", "Watch for grit trickling over a column: a stone follows. Step to the side until it passes."],
 	"fall": ["long falls", "Drops of more than four rows hurt. Climb down a face instead of letting go above a ledge."],
 	"arms": ["empty arms", "Rest to full before a face (the warning on grabbing it says what it costs), and keep moving on it."],
-	"wind": ["the wind", "On exposed ledges stop and BRACE when the wind warning shows, then walk between gusts."],
+	"wind": ["the wind", "On exposed ledges, don't move in a gust: when the wind warning shows, stop and REST until it passes, then walk on."],
 	"hurt": ["thorns, ants and ravens", "Hop over thistles and ants; keep moving under a raven so it misses."],
 	"hole": ["holes", "Hop the gaps: a fall into a hole sends you back to the start."],
 }
@@ -119,6 +133,8 @@ func _ready() -> void:
 	if p != null and p["challengeId"] == spec["id"]:
 		seed = int(p["seed"])
 	stamina = StaminaModel.new(float(s["energy"]), float(d["recovery"]), float(d["drain"]))
+	# On the mountain only REST (and a rest stone) gives breath back.
+	stamina.still_recovers = false
 	stamina.thin_air = StaminaModel.thin_air_for(float(spec.get("meters", 4000)), float(s["acclimatization"]))
 	# The trek reaches into the climb: a steeper route, and the body the
 	# camp choices left you (sleep, food, sickness, medicine).
@@ -186,11 +202,12 @@ func _ready() -> void:
 	add_child(hazards)
 	var mine: bool = Expedition.climb.get("challengeId") == spec["id"]
 	hazards.setup(self, terrain, ground, climber, float(d.get("rockPeriod", 5.0)) / trek_factor["steep"], spec.get("gear", []),
-		Expedition.climb.get("taken", []) if mine else [], Expedition.gear_found(spec["id"]))
+		Expedition.climb.get("taken", []) if mine else [], Expedition.climb.get("gear", []) if mine else [])
 	hazards.engaged.connect(engage)
-	hazards.found_gear.connect(func(i: int) -> void:
-		gear_this_attempt += 1
-		Expedition.find_gear(spec["id"], i))
+	hazards.found_gear.connect(_on_gear)
+	for i in (Expedition.climb.get("gear", []) if mine else []):
+		gear_kinds.append(gear_kind(int(i)))
+	_apply_gear()
 
 	creatures = Creatures.new()
 	creatures.name = "Creatures"
@@ -419,8 +436,12 @@ func brief() -> void:
 	var dangers: Array = spec.get("dangers", [])
 	if not dangers.is_empty():
 		facts.append("Watch for: " + ", ".join(dangers) + ".")
+	rows.append({"tone": "info", "icon": "bolt", "title": "Costs", "text": "Hops, ice, uphill and rock all cost stamina: more in the heat, the cold and thin air. In a gust, don't move: REST until it passes."})
 	if hazards.gear_total() > 0:
-		facts.append("Lost gear found here: %d of %d." % [hazards.gear_count, hazards.gear_total()])
+		var names: Array = []
+		for g in spec.get("gear", []):
+			names.append(String(g[0]))
+		rows.append({"tone": "good", "icon": "crate", "title": "Gear", "text": "Hidden on this climb, each before what it helps with: %s. Each one makes the climb easier. Fail the climb or fall in a hole and you start again with none: it goes back where it was." % ", ".join(names)})
 	# What the climb costs back at camp, before you start it.
 	var stakes: Dictionary = Coordinator.CLIMBS.get(spec["id"], {}).get("stakes", {})
 	if not stakes.is_empty():
@@ -475,10 +496,11 @@ func _physics_process(_delta: float) -> void:
 	if climber.on_ice and not _was_on_ice:
 		engage("ice")
 	_was_on_ice = climber.on_ice
-	var bracing := climber.state == Climber.State.BRACE
-	if bracing and not _was_bracing:
-		engage("brace")
-	_was_bracing = bracing
+	# Sitting out a gust on an exposed ledge.
+	var sheltering := climber.state == Climber.State.REST and climber.exposed and climber.gust == WindSchedule.Phase.BLOW
+	if sheltering and not _was_bracing:
+		engage("shelter")
+	_was_bracing = sheltering
 	if mate:
 		mate.record(climber.global_position, climber.sprite.animation, climber.sprite.flip_h)
 	_arrive()
@@ -535,7 +557,8 @@ func _face_warning() -> void:
 func _weather() -> void:
 	var p := route_progress()
 	degrees = climate.degrees(p, climber.clock)
-	climber.chill = Climate.pace(degrees)
+	# A headlamp: you see your footing, and the cold and dark don't slow you.
+	climber.chill = 1.0 if gear_kinds.has("headlamp") else Climate.pace(degrees)
 	# A rest stone is shelter: out of the wind, the cold does not slow rest.
 	var sheltered := climber.last_activity == "rest_stone"
 	stamina.recovery = clampf(_base_recovery * (1.0 if sheltered else Climate.rest(degrees)), 0.2, 1.2)
@@ -849,6 +872,8 @@ func _on_slipped(saved: bool, reason: String) -> void:
 		"arms": "Your arms gave out on the rock. Back to the last cairn: rest before the next face."}.get(reason, "Slipped. Back to the last cairn.")
 	if _hole:
 		line = "You fell into a hole. Back to the start of the climb."
+		if lose_gear():
+			line += " Your gear is gone: it is back where you found it."
 	elif reason == "wind":
 		line = "The gust takes your balance."
 	elif reason == "hurt":
@@ -963,6 +988,49 @@ func route_progress() -> float:
 
 
 ## Puts picked things back in the save's list of what is still on the ground.
+## The kind of the gear at `index` (the spec's gear list, bottom to top).
+func gear_kind(index: int) -> String:
+	var list: Array = spec.get("gear", [])
+	if list.is_empty():
+		return "poles"
+	var g: Array = list[clampi(index, 0, list.size() - 1)]
+	return String(g[2]) if g.size() > 2 else "poles"
+
+
+func _on_gear(index: int) -> void:
+	gear_this_attempt += 1
+	var kind := gear_kind(index)
+	if not gear_kinds.has(kind):
+		gear_kinds.append(kind)
+	# The collection (kept across attempts, for the record only).
+	Expedition.find_gear(spec["id"], index)
+	var held: Array = Expedition.climb.get("gear", [])
+	if not held.has(index):
+		held.append(index)
+	Expedition.remember({"gear": held})
+	_apply_gear()
+
+
+## What the gear in hand does: to stamina costs, the ice, the wind.
+func _apply_gear() -> void:
+	stamina.walk_gear = float(GEAR["poles"]["walk"]) if gear_kinds.has("poles") else 1.0
+	stamina.rock_gear = float(GEAR["gloves"]["rock"]) if gear_kinds.has("gloves") else 1.0
+	stamina.ice_gear = float(GEAR["crampons"]["ice"]) if gear_kinds.has("crampons") else 1.0
+	climber.crampons = gear_kinds.has("crampons")
+	climber.wind_shell = gear_kinds.has("shell")
+
+
+## Lost the climb (or fell in a hole): all the gear goes back where it was
+## found, and you start again with none. True if there was any.
+func lose_gear() -> bool:
+	var had := not gear_kinds.is_empty()
+	gear_kinds.clear()
+	hazards.drop_gear()
+	Expedition.remember({"gear": []})
+	_apply_gear()
+	return had
+
+
 func forget_taken(keys: Array) -> void:
 	var taken: Array = Expedition.climb.get("taken", [])
 	Expedition.remember({"taken": taken.filter(func(k: Variant) -> bool: return not keys.has(k))})
@@ -1039,6 +1107,9 @@ func finish(kind: String) -> void:
 		climber.state = Climber.State.DONE
 	else:
 		climber.lock(true)
+	if kind == "fail":
+		# Lost the climb: the next go starts with no gear.
+		lose_gear()
 	panel.hide_panel()
 	Audio.stop_ambience()
 	var o := outcome_now(kind)
@@ -1058,8 +1129,8 @@ func finish(kind: String) -> void:
 			lines.append("Three stars: the party's spirits lift at camp.")
 	else:
 		lines.append("Everlastings %d of %d · cairn %d of %d" % [o.flowers, o.flowers_total, checkpoint, cairns.size() - 1])
-	if o.gear_found > 0:
-		lines.append("Lost gear found: %d" % o.gear_found)
+	if hazards.gear_total() > 0:
+		lines.append("Gear: %d of %d%s" % [gear_kinds.size(), hazards.gear_total(), (" (" + ", ".join(gear_kinds.map(func(k: String) -> String: return String(GEAR[k]["label"]).to_lower())) + ")") if not gear_kinds.is_empty() else ""])
 	if o.hurt > 0:
 		lines.append("Stamina lost to hits: %d (thistles %d, ants %d, ravens %d)%s" % [o.hurt, creatures.stings, creatures.bites, creatures.raven_hits,
 			"; the party feels it at camp" if o.hurt >= 10 else ""])

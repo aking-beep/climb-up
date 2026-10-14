@@ -7,7 +7,7 @@ extends CanvasLayer
 ## find. It is analog: a small push walks slowly, a full push walks at pace;
 ## up or down climbs.
 ## Right thumb: JUMP, one context button that says what it will do (CLIMB,
-## TALK, READ, HELP), BRACE (hold) and REST. Top right: pause.
+## TALK, READ, HELP) and REST (also for sitting out a gust). Top right: pause.
 ## Everything presses the same input actions as keys, so gameplay never
 ## knows the difference. Shown automatically on touch devices (Settings).
 ##
@@ -64,12 +64,12 @@ func _ready() -> void:
 	_button("jump", "JUMP", r + Vector2(-50, -52) * k, 50.0 * k)
 	if level and level.get("touch_layout") == "crag":
 		# The crag is all tapping: one big button for CLIP and GRIP, by the
-		# thumb, and nothing to brace or sit for.
+		# thumb, and nothing to sit for.
 		_act = _button("interact", "CLIMB", r + Vector2(-122, -60) * k, 58.0 * k)
 	else:
 		_act = _button("interact", "CLIMB", r + Vector2(-46, -104) * k, 42.0 * k)
-		_button("brace", "BRACE", r + Vector2(-100, -42) * k, 40.0 * k)
-		_button("rest", "REST", r + Vector2(-96, -92) * k, 34.0 * k)
+		# REST is also how you sit out a gust: no separate brace button.
+		_button("rest", "REST", r + Vector2(-100, -42) * k, 40.0 * k)
 	_act_label = _act.get_child(0)
 	# Pause stays top right for both hands: clear of the stats, top left.
 	_button("pause", "II", Vector2(vp.x - 38 - safe["right"], 4 + safe["top"]), 32.0)

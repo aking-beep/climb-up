@@ -11,8 +11,7 @@ const ACTIONS := {
 	"climb_down": [KEY_DOWN, KEY_S],
 	"interact": [KEY_E, KEY_ENTER],
 	"jump": [KEY_SPACE, KEY_K, KEY_Z],
-	"brace": [KEY_SHIFT, KEY_B],
-	"rest": [KEY_R],
+	"rest": [KEY_R, KEY_SHIFT],
 	"pause": [KEY_ESCAPE, KEY_P],
 }
 
@@ -23,8 +22,7 @@ const PAD := {
 	"climb_down": [JOY_BUTTON_DPAD_DOWN],
 	"interact": [JOY_BUTTON_X],
 	"jump": [JOY_BUTTON_A],
-	"brace": [JOY_BUTTON_RIGHT_SHOULDER, JOY_BUTTON_LEFT_SHOULDER],
-	"rest": [JOY_BUTTON_Y],
+	"rest": [JOY_BUTTON_Y, JOY_BUTTON_RIGHT_SHOULDER, JOY_BUTTON_LEFT_SHOULDER],
 	"pause": [JOY_BUTTON_START],
 }
 

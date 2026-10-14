@@ -62,7 +62,7 @@ func _init() -> void:
 		"copy": {
 			"kicker": "Stella Point · sunrise",
 			"title": "The way down",
-			"brief": "You stood on the summit. Now the expedition is getting down. The rim is open to the wind (stop and BRACE in a gust), the scree slopes are long, there is one rock step to climb down (stand at the edge and push DOWN), and ice above it. Jun is on the rim with nothing left in his legs.",
+			"brief": "You stood on the summit. Now the expedition is getting down. The rim is open to the wind (don't move in a gust: stop and REST until it passes), the scree slopes are long, there is one rock step to climb down (stand at the edge and push DOWN), and ice above it. Jun is on the rim with nothing left in his legs.",
 			"backOff": "",
 			"mateTitle": "Jun can't get up",
 			"mateBody": "He sits on the rim, shaking. He gave everything on the way up.",
