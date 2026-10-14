@@ -788,6 +788,19 @@ func _results(s: Dictionary) -> void:
 	for name in Plain.SCORE:
 		why = why.replace(name, Plain.score(name))
 	_text_label("Highest point %s m. %s" % [ExpeditionEngine.format_meters(sc["highestAltitude"]), why], 9, INK)
+	# What ranks this expedition on the boards.
+	var t := Trek.ensure(Expedition.session)
+	var home := 4 - (t.get("gone", []) as Array).size() if bool(s.get("returnedSafely", false)) else 0
+	var lp := Records.leader_points(s, String(t.get("route", "")), home)
+	var parts: Array = ["score %d" % int(lp["score"])]
+	if int(lp["team"]) != 0:
+		parts.append("team %+d" % int(lp["team"]))
+	if int(lp["speed"]) > 0:
+		parts.append("speed %+d" % int(lp["speed"]))
+	if int(lp["stores"]) > 0:
+		parts.append("stores %+d" % int(lp["stores"]))
+	var note := "" if int(lp["team"]) > 0 or not bool(s.get("summitReached", false)) else " Speed and stores count only when the whole team summits and comes home."
+	_text_label("Leader points %d: %s.%s" % [int(lp["points"]), ", ".join(parts), note], 9, SPRUCE if int(lp["team"]) >= 0 else EMBER)
 	for pair in [["Judgment", "judgment"], ["Risk management", "riskManagement"], ["Teamwork", "teamwork"], ["Preparation", "preparation"]]:
 		var row := HBoxContainer.new()
 		var l := _label(Plain.score(pair[0]), 9, INK, UiFont.body())

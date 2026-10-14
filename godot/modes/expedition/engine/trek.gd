@@ -20,18 +20,18 @@ extends RefCounted
 
 const ROUTES := {
 	"lemosho": {
-		"name": "The long way", "line": "10 days · safest",
-		"text": "Slow and steady. Lots of time for everyone's body to get used to the thin air, so less altitude sickness. The most food and medicine.",
-		"permit": 10, "supplies": 94, "medicine": 3, "upEnergy": 0, "upAcclim": 0, "upHealth": 0, "risk": 0, "climb": 1.0, "porters": 0.4,
+		"name": "The long way", "line": "13 days · easy",
+		"text": "Twice the slips on each climb. Slow and steady: time to get used to the thin air, the most food and medicine.",
+		"permit": 13, "supplies": 94, "medicine": 3, "upEnergy": 0, "upAcclim": 0, "upHealth": 0, "risk": 0, "climb": 1.0, "porters": 0.4,
 	},
 	"machame": {
-		"name": "The faster way", "line": "9 days · harder",
-		"text": "Starts higher and climbs faster, with less food. Each day up is more tiring and people get sick sooner. You can rest some days, but not every day.",
+		"name": "The faster way", "line": "9 days · medium",
+		"text": "One extra slip on each climb. Starts higher, less food, tiring days up; people get sick sooner.",
 		"start": "ebc", "startHours": 24,
 		"permit": 9, "supplies": 86, "medicine": 2, "upEnergy": -5, "upAcclim": -3, "upHealth": 0, "risk": 10, "climb": 1.15, "porters": 0.3,
 	},
 	"umbwe": {
-		"name": "The fastest way", "line": "8 days · hardest",
+		"name": "The fastest way", "line": "8 days · hard",
 		"text": "Straight up, very fast. The least food and medicine, the hardest climbs, and the most altitude sickness. Pick your one or two rest days carefully.",
 		"start": "camp1", "startHours": 36,
 		"permit": 8, "supplies": 84, "medicine": 1, "upEnergy": -7, "upAcclim": -5, "upHealth": -2, "risk": 16, "climb": 1.3, "porters": 0.2,
@@ -71,6 +71,18 @@ static func fresh(route: String = "") -> Dictionary:
 static func route(session: Dictionary) -> Dictionary:
 	var r: String = ensure(session)["route"]
 	return ROUTES.get(r if r != "" else "lemosho", ROUTES["lemosho"])
+
+
+## Slips allowed on the played climbs, by route: the easy way doubles each
+## climb's own limit, the medium way adds one, the hard way keeps it. (No
+## route chosen yet, as in the level tests: the climb's own limit.)
+static func max_slips(session: Dictionary, base: int) -> int:
+	match String(ensure(session)["route"]):
+		"lemosho":
+			return base * 2
+		"machame":
+			return base + 1
+	return base
 
 
 static func permit_days(session: Dictionary) -> int:

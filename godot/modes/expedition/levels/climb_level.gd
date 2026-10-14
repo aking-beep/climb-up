@@ -136,7 +136,8 @@ var _panel_closed_at := -1.0
 
 func _ready() -> void:
 	var d: Dictionary = spec["difficulty"]
-	max_slips = int(d["maxSlips"])
+	# The route sets how forgiving the climbs are (Trek.max_slips).
+	max_slips = Trek.max_slips(Expedition.session, int(d["maxSlips"]))
 	terrain = Terrain.load_file(spec["map"])
 	var s: Dictionary = Expedition.state()
 	var seed := int(s["seed"])

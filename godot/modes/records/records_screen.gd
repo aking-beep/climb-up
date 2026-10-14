@@ -119,16 +119,17 @@ func _expedition() -> void:
 			continue
 		shown = true
 		text(Records.DIFFICULTY_NAMES[d], 7, MUTED)
-		var scores: Array = board.map(func(r: Dictionary) -> int: return int(r["score"]))
+		var points: Array = board.map(func(r: Dictionary) -> int: return int(r["points"]))
 		for r in board.slice(0, 5):
 			var how := "summit and down" if r["complete"] else ("down safely, no summit" if r["returned"] else "did not come down")
-			text("%s  %d · %s · %d of 4 home · good calls %d · staying safe %d · %s" % [Records.ordinal(Records.rank_of(r["score"], scores, false)), int(r["score"]), how,
-				int(r["teamHome"]), int(r["judgment"]), int(r["risk"]), _date(int(r["t"]))], 8)
+			text("%s  %d points (score %d) · %s · %d of 4 home · %d days · %s" % [Records.ordinal(Records.rank_of(r["points"], points, false)), int(r["points"]), int(r["score"]), how,
+				int(r["teamHome"]), int(r.get("days", 0)), _date(int(r["t"]))], 8)
 	if not shown:
 		text("No finished expeditions yet. The score is the game's own: completing means the summit AND bringing everyone down.", 8, MUTED)
 	else:
 		var b := button("Share my best expedition", func() -> void: _share("expedition"))
 		b.name = "Share-expedition"
+	text("Leader points: the score, +10 when all four summit and come home, -8 for each teammate who did not. With the whole team home, being quick (+2 a spare permit day, up to 10) and thrifty (+1 for every 10 supplies left, up to 10) counts too.", 7, MUTED)
 	text("Assisted play: kept as its own board. The game has no assist options yet, so it is empty.", 7, MUTED)
 
 

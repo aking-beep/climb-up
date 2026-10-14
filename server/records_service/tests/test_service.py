@@ -247,6 +247,55 @@ class Firsts(Base):
         self.assertFalse(out["firstVerifiedCompletion"])
 
 
+class LeaderPoints(Base):
+    """Expedition boards rank by leader points (validate.leader_points), the
+    same numbers the game shows."""
+
+    def with_team(self, home):
+        from server.records_service import validate
+        e = expedition()
+        pl = e["payload"]
+        pl["run"]["teamHome"] = home
+        pl["run"]["points"] = validate.leader_points(pl["state"], pl["route"], home)
+        e["id"] = "%s-%d" % (e["id"][:40], home)
+        return e
+
+    def test_the_game_and_the_server_agree(self):
+        p = self.player(name="Agree")
+        e = expedition()
+        code, out = self.submit(p["token"], e)
+        self.assertTrue(out["ok"], out)
+        self.assertEqual(out["points"], e["payload"]["run"]["points"])
+        self.assertGreater(out["points"], out["score"], "a whole team, quick and thrifty, earns more than the score")
+
+    def test_forged_points_are_refused(self):
+        p = self.player(name="Inflater")
+        e = expedition()
+        e["payload"]["run"]["points"] += 5
+        code, out = self.submit(p["token"], e)
+        self.assertFalse(out["ok"])
+        self.assertIn("leader points", out["reason"])
+
+    def test_nobody_is_home_from_a_run_that_did_not_come_down(self):
+        p = self.player(name="Stranded")
+        e = expedition()
+        e["payload"]["state"]["returnedSafely"] = False
+        e["payload"]["run"].pop("points")
+        code, out = self.submit(p["token"], e)
+        self.assertFalse(out["ok"])
+
+    def test_the_whole_team_outranks_a_fast_summit_without_it(self):
+        a = self.player(name="Together")
+        b = self.player(name="Alone")
+        code, out_b = self.submit(b["token"], self.with_team(2))
+        code, out_a = self.submit(a["token"], self.with_team(4))
+        self.assertTrue(out_a["ok"] and out_b["ok"])
+        self.assertEqual(out_a["points"] - out_b["points"], 10 + 16 + 10 + 3, "team +10 vs -16, and speed and stores only with everyone")
+        code, board = self.call("GET", "/v1/leaderboards/expedition/standard")
+        self.assertEqual([e["player"] for e in board["entries"]], ["Together", "Alone"])
+        self.assertEqual(board["entries"][0]["points"], out_a["points"])
+
+
 class Offline(Base):
     def test_a_late_daily_go_from_offline_is_accepted_for_a_while(self):
         p = self.player(name="Offline Olly")

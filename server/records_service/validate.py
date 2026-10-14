@@ -146,6 +146,9 @@ BUCKETS = ("judgment", "riskManagement", "teamwork", "preparation")
 MAX_NOTE_DELTA = 20
 MAX_NOTES = 60
 DIFFICULTY = {"lemosho": "standard", "machame": "hard", "umbwe": "hardest"}
+# Permit days per route (Trek.ROUTES in the game).
+PERMIT = {"lemosho": 13, "machame": 9, "umbwe": 8}
+LEADER_MAX, LEADER_TEAM, LEADER_MISSING = 130, 10, 8
 
 
 def js_round(x: float) -> int:
@@ -180,6 +183,25 @@ def score(s: dict) -> int:
     return max(0, min(100, js_round(overall)))
 
 
+def leader_points(s: dict, route: str, team_home: int) -> int:
+    """Records.leader_points, ported: the score, +10 when all four summit and
+    come home, -8 per teammate missing on a summit run, and (whole team
+    only) 2 per spare permit day up to 10 and 1 per 10 supplies up to 10."""
+    sc = score(s)
+    summit, home = bool(s["summitReached"]), bool(s["returnedSafely"])
+    everyone = summit and home and team_home >= 4
+    team = speed = stores = 0
+    if everyone:
+        team = LEADER_TEAM
+    elif summit:
+        team = -LEADER_MISSING * (4 - (max(0, min(4, team_home)) if home else 0))
+    if everyone:
+        left = PERMIT.get(route, 13) * 24.0 - float(s["elapsedHours"])
+        speed = js_round(max(0.0, min(5.0, left / 24.0)) * 2.0)
+        stores = js_round(max(0.0, min(100.0, float(s["supplies"]))) / 10.0)
+    return max(0, min(LEADER_MAX, sc + team + speed + stores))
+
+
 def check_expedition(payload: dict) -> dict:
     if not isinstance(payload, dict) or not isinstance(payload.get("state"), dict) or not isinstance(payload.get("run"), dict):
         raise Rejected("bad payload")
@@ -209,5 +231,19 @@ def check_expedition(payload: dict) -> dict:
     route = payload.get("route", "")
     if route not in DIFFICULTY:
         raise Rejected("unknown expedition route")
+    # Who came home is the client's word (it needs a replay to check), but
+    # nobody is home from a run that did not come down.
+    try:
+        team_home = int(run.get("teamHome", 0))
+    except (TypeError, ValueError):
+        raise Rejected("bad expedition fields")
+    if not 0 <= team_home <= 4 or (team_home > 0 and not bool(s["returnedSafely"])):
+        raise Rejected("a team that does not add up")
+    try:
+        points = leader_points(s, route, team_home)
+    except (KeyError, TypeError, ValueError):
+        raise Rejected("bad expedition fields")
+    if "points" in run and int(run["points"]) != points:
+        raise Rejected("the leader points do not match the expedition")
     return {"difficulty": DIFFICULTY[route], "assisted": bool(run.get("assisted", False)), "score": server_score,
-            "complete": bool(s["summitReached"]) and bool(s["returnedSafely"])}
+            "points": points, "complete": bool(s["summitReached"]) and bool(s["returnedSafely"])}

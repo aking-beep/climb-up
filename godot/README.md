@@ -76,10 +76,18 @@ retreat that costs the day, not the expedition. The outcome lands once.
 exactly (the parity test still holds); a trek layer on top
 (`modes/expedition/engine/trek.gd`) adds:
 
-- **A route and a permit.** The first card is the route: the long way
-  (10 days), the steep way (9 days, starts higher, less food, harder days up)
-  or the direct way (8 days, starts higher still, the hardest climbs). When
-  the days run out before the summit, the rangers walk you down.
+- **A route and a permit: the difficulty.** The first card is the route:
+
+  | Route | Difficulty | Permit | Slips on each played climb |
+  | --- | --- | --- | --- |
+  | The long way (lemosho) | easy | 13 days | double the climb's own (tower 8, wall 6, summit 4, way down 6) |
+  | The faster way (machame) | medium | 9 days | one more (5, 4, 3, 4) |
+  | The fastest way (umbwe) | hard | 8 days | the climb's own (4, 3, 2, 3) |
+
+  The faster ways also start higher, with less food and harder days up
+  (`Trek.ROUTES`, `Trek.max_slips`). When the days run out before the
+  summit, the rangers walk you down. Each slip's health cost at camp is
+  still capped per climb, so the extra slips forgive, they do not pile up.
 - **Every choice shows what it will cost before you pick it**
   (`Trek.foresee`): the hours, the stats it moves (the route's toll on the
   way up included), and a risk band (low, medium, high) with its reasons:
@@ -182,6 +190,21 @@ exactly (the parity test still holds); a trek layer on top
   "Rests 0 (food N)"; the brief and the results say what was eaten. The
   test bots eat nothing on the tower or the wall and one snack on the
   summit night.
+
+  **Leader points rank the boards** (`Records.leader_points`, ported to
+  the records service as `validate.leader_points`, which recomputes and
+  checks them). The score (the game's own, unchanged), and on top:
+
+  | Part | Points | When |
+  | --- | --- | --- |
+  | Team | +10 | all four summit and come home |
+  | Team | -8 per teammate | not home, on a run that reached the summit |
+  | Speed | +2 per unused permit day, up to +10 | whole team home only |
+  | Stores | +1 per 10 supplies left, up to +10 | whole team home only |
+
+  Fast at the top without your team ranks below slow with it: being
+  quick and thrifty is worth something only when everyone made it. The
+  end screen shows the breakdown; the records screen ranks by points.
 
   **The summit rim is fairer.** It used to be 52 tiles of wind in one
   stretch, so a gust near the end sent you all the way back. Now two open

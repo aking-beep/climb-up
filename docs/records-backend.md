@@ -41,7 +41,10 @@ The smallest service that can verify records honestly:
   event log, or the expedition's final state). The server recomputes:
   - the style, from its own count of earlier attempts;
   - the time ranks;
-  - the expedition score.
+  - the expedition score, and the leader points that rank the boards:
+    the score, +10 when all four summit and come home, -8 per teammate
+    missing on a summit run, and with the whole team home +2 per unused
+    permit day (up to 10) and +1 per 10 supplies left (up to 10).
 - **Server time decides "first".** The first verified ascent of a route,
   and the first verified expedition completion, belong to whichever
   accepted attempt *arrived* first by the server's clock (an
@@ -59,7 +62,7 @@ The smallest service that can verify records honestly:
 | POST | `/v1/submissions` | `{id, kind: crag\|expedition, clientTime, payload}` | `{ok, verified, serverTime, style, rank, cleanRank, firstVerifiedAscent}`, or `{ok:false, reason}` |
 | GET | `/v1/leaderboards/crag/<route>` | `board=time\|clean`, `scope=global\|friends` | `{entries:[{rank, player, seconds, received}]}` |
 | GET | `/v1/leaderboards/daily/<YYYY-MM-DD>` | `scope` | the same shape |
-| GET | `/v1/leaderboards/expedition/<standard\|hard\|hardest>` | `assisted=0\|1`, `scope` | `{entries:[{rank, player, score, complete}]}` |
+| GET | `/v1/leaderboards/expedition/<standard\|hard\|hardest>` | `assisted=0\|1`, `scope` | `{entries:[{rank, player, points, score, complete}]}`, ranked by leader points |
 | GET | `/v1/firsts` | | `{firsts:[{scope, display, received}]}` |
 
 All requests except creating an account and reading the boards send
@@ -70,7 +73,7 @@ All requests except creating an account and reading the boards send
 - `players(id, token_hash, created, age_group, display_name, name_key UNIQUE, visibility, friend_code UNIQUE)`
 - `submissions(player_id, id, kind, received, status, reason, reply)`, with primary key `(player_id, id)`. This is the idempotency record.
 - `crag_attempts(player_id, sub_id, board, sent, seconds, falls, rows, style, received)`. `board` is the route id, or `daily:<date>`.
-- `expedition_runs(player_id, sub_id, difficulty, assisted, score, complete, received)`
+- `expedition_runs(player_id, sub_id, difficulty, assisted, score, complete, received, points)`. `points` are the leader points the board ranks by (added to older databases on start).
 - `firsts(scope PRIMARY KEY, player_id NULL, display, received)`. Scopes are `crag:<board>` and `expedition:complete`.
 - `follows(player_id, friend_id)`
 
@@ -106,7 +109,11 @@ The server refuses an attempt when any of these holds:
   exceeds what the route allows.
 - **Expedition.**
   - The score differs from the server's recomputation (`validate.score`,
-    a port of `ExpeditionEngine.score`).
+    a port of `ExpeditionEngine.score`), or the leader points differ from
+    `validate.leader_points` (a port of `Records.leader_points`).
+  - The team home is out of range, or anyone is "home" from a run that
+    did not come down. (Who came home is otherwise the client's word: it
+    needs a server-side replay to check.)
   - A stat is out of range.
   - The ledger has oversized or repeated entries.
   - The run claims a summit below the crater rim.

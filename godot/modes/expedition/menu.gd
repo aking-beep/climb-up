@@ -9,7 +9,7 @@ func _ready() -> void:
 	kicker("Kilimanjaro · Lemosho route, as a game")
 	title("Climb Up", 22)
 	text("How high you climb isn't how you win.", 9, MUTED)
-	text("Ten days on the mountain with Lena, Marco and Jun. Make the calls at camp. Climb the Lava Tower, the Barranco Wall and the summit night yourself, and then the hardest part: bringing everyone back down.")
+	text("Eight to thirteen days on the mountain with Lena, Marco and Jun. Make the calls at camp. Climb the Lava Tower, the Barranco Wall and the summit night yourself, and then the hardest part: bringing everyone back down.")
 	text("A game, not a guide: altitude, illness and medicine here are simplified game rules, not advice for a real mountain.", 7, MUTED)
 	if has_save:
 		var s: Dictionary = Expedition.state()

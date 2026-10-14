@@ -1,7 +1,7 @@
 [
   {
     "clientTime": 1791892800,
-    "id": "e48daee97245e40e0d08ab67",
+    "id": "c385fd43a44651fec366828f",
     "kind": "crag",
     "payload": {
       "beta": false,
@@ -258,12 +258,12 @@
       "mapHash": 878098442,
       "route": "warm-up"
     },
-    "player": "b5967960cbb17cc8",
+    "player": "a4eb28bd1d37f3b6",
     "status": "pending"
   },
   {
     "clientTime": 1791892800,
-    "id": "59e538d730069dcb662e3f14",
+    "id": "55a3d1dfbdade5615eb7f3c4",
     "kind": "crag",
     "payload": {
       "beta": false,
@@ -312,12 +312,12 @@
       "mapHash": 878098442,
       "route": "warm-up"
     },
-    "player": "b5967960cbb17cc8",
+    "player": "a4eb28bd1d37f3b6",
     "status": "pending"
   },
   {
     "clientTime": 1791892800,
-    "id": "18cb1d80963a041a97b6981d",
+    "id": "d8b5f4ebba480da2d5141795",
     "kind": "crag",
     "payload": {
       "beta": false,
@@ -705,12 +705,12 @@
       "mapHash": 544962256,
       "route": "daily"
     },
-    "player": "b5967960cbb17cc8",
+    "player": "a4eb28bd1d37f3b6",
     "status": "pending"
   },
   {
     "clientTime": 1791892800,
-    "id": "47d706675329b169eeb4eedd",
+    "id": "d5c08edc339fae5d5d84503e",
     "kind": "expedition",
     "payload": {
       "history": [
@@ -738,7 +738,15 @@
         "firstCompletion": true,
         "health": 92,
         "judgment": 100,
+        "leader": {
+          "points": 123,
+          "score": 100,
+          "speed": 10,
+          "stores": 3,
+          "team": 10
+        },
         "newBest": true,
+        "points": 123,
         "preparation": 64,
         "returned": true,
         "risk": 78,
@@ -902,7 +910,7 @@
         "teamCondition": 100
       }
     },
-    "player": "b5967960cbb17cc8",
+    "player": "a4eb28bd1d37f3b6",
     "status": "pending"
   }
 ]

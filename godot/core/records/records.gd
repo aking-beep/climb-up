@@ -15,7 +15,10 @@ extends Node
 ## Expedition: every finished expedition with its score (the game's own
 ## ExpeditionEngine.score), whether it summited and came down, the team,
 ## the stores and the decisions; split by route (difficulty) and assisted
-## play. World Passport: places and continents completed.
+## play. The boards rank by leader points (leader_points): the score, plus
+## speed and stores left over when the whole team summits and comes home,
+## minus every teammate who did not. World Passport: places and continents
+## completed.
 
 const PATH := "user://climb_up_records.json"
 const VERSION := 1
@@ -93,6 +96,8 @@ func load_records() -> void:
 					run["returned"] = _bool(run.get("returned"))
 					run["assisted"] = _bool(run.get("assisted"))
 					run["t"] = _int(run.get("t"), 0)
+					# Runs from before leader points rank by their score.
+					run["points"] = clampi(_int(run.get("points"), run["score"]), 0, LEADER_MAX)
 					data["expedition"]["runs"].append(run)
 	if typeof(d.get("queue")) == TYPE_ARRAY:
 		data["queue"] = d["queue"].filter(func(q: Variant) -> bool: return typeof(q) == TYPE_DICTIONARY and typeof(q.get("id")) == TYPE_STRING and typeof(q.get("status")) == TYPE_STRING)
@@ -317,12 +322,15 @@ func expedition_finished(session: Dictionary) -> Dictionary:
 		"health": int(s.get("health", 0)), "teamCondition": int(s.get("teamCondition", 0)), "supplies": int(s.get("supplies", 0)),
 		"days": ExpeditionEngine.day_of(s), "verified": false,
 	}
+	var lp := leader_points(s, run["route"], run["teamHome"])
+	run["points"] = lp["points"]
+	run["leader"] = lp
 	var runs: Array = data["expedition"]["runs"]
 	var best_before := -1
 	for r in runs:
 		if r["difficulty"] == run["difficulty"] and r["assisted"] == run["assisted"]:
-			best_before = maxi(best_before, int(r["score"]))
-	run["newBest"] = best_before < 0 or run["score"] > best_before
+			best_before = maxi(best_before, int(r.get("points", r["score"])))
+	run["newBest"] = best_before < 0 or run["points"] > best_before
 	run["firstCompletion"] = run["complete"] and int(data["expedition"]["firstCompletion"]) == 0
 	if run["firstCompletion"]:
 		data["expedition"]["firstCompletion"] = run["t"]
@@ -338,6 +346,41 @@ func expedition_finished(session: Dictionary) -> Dictionary:
 	if run["newBest"]:
 		Analytics.event("record_set", {"route": "expedition", "kind": "score"})
 	return run
+
+
+## Leader points: what ranks an expedition on the boards. The score (the
+## game's own, 0 to 100), and on top:
+## - team: +10 when all four summit and come home; every teammate who did
+##   not costs 8 on a run that reached the summit (fast at the top without
+##   your team counts against you);
+## - speed: 2 for each permit day left unused, up to 10;
+## - stores: 1 for every 10 supplies left, up to 10.
+## Speed and stores count only on a run where the whole team summited and
+## came home: efficiency is worth something only when everyone made it.
+## Ported to the records service (validate.leader_points).
+const LEADER_MAX := 130
+const LEADER_TEAM := 10
+const LEADER_MISSING := 8
+
+
+static func leader_points(s: Dictionary, route_id: String, team_home: int) -> Dictionary:
+	var score := int(ExpeditionEngine.score(s)["overall"])
+	var summit := bool(s.get("summitReached", false))
+	var home := bool(s.get("returnedSafely", false))
+	var everyone := summit and home and team_home >= 4
+	var team := 0
+	if everyone:
+		team = LEADER_TEAM
+	elif summit:
+		team = -LEADER_MISSING * (4 - (clampi(team_home, 0, 4) if home else 0))
+	var speed := 0
+	var stores := 0
+	if everyone:
+		var permit: int = Trek.ROUTES.get(route_id, Trek.ROUTES["lemosho"])["permit"]
+		var left := float(permit) * 24.0 - float(s.get("elapsedHours", 0))
+		speed = ExpeditionEngine.js_round(clampf(left / 24.0, 0.0, 5.0) * 2.0)
+		stores = ExpeditionEngine.js_round(clampf(float(s.get("supplies", 0)), 0.0, 100.0) / 10.0)
+	return {"points": clampi(score + team + speed + stores, 0, LEADER_MAX), "score": score, "team": team, "speed": speed, "stores": stores}
 
 
 ## The route is the difficulty: the long way, the faster way, the fastest.
@@ -356,13 +399,14 @@ static func assisted(_session: Dictionary) -> bool:
 
 func expedition_board(difficulty: String, assisted_play: bool = false) -> Array:
 	var runs: Array = data["expedition"]["runs"].filter(func(r: Dictionary) -> bool: return r["difficulty"] == difficulty and r["assisted"] == assisted_play)
-	# Completed (summit and down) first, then by score; ties: earlier first.
+	# Completed (summit and down) first, then by leader points; ties:
+	# earlier first.
 	runs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if a["complete"] != b["complete"]:
 			return a["complete"]
-		if int(a["score"]) == int(b["score"]):
+		if int(a["points"]) == int(b["points"]):
 			return int(a["t"]) < int(b["t"])
-		return int(a["score"]) > int(b["score"]))
+		return int(a["points"]) > int(b["points"]))
 	return runs
 
 
@@ -455,12 +499,12 @@ func share_text(id: String) -> String:
 	var lines := ["CLIMB UP · personal record (this device, not verified)"]
 	if id == "expedition":
 		var best: Array = expedition_board("standard") + expedition_board("hard") + expedition_board("hardest")
-		best.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["score"]) > int(b["score"]))
+		best.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["points"]) > int(b["points"]))
 		if best.is_empty():
 			return ""
 		var r: Dictionary = best[0]
 		lines.append("Kilimanjaro · %s" % DIFFICULTY_NAMES[r["difficulty"]])
-		lines.append("Score %d · %s" % [int(r["score"]), "summit and back down" if r["complete"] else ("back down safely" if r["returned"] else "did not come down")])
+		lines.append("Leader points %d (score %d) · %s" % [int(r["points"]), int(r["score"]), "summit and back down" if r["complete"] else ("back down safely" if r["returned"] else "did not come down")])
 	else:
 		var route := Crag.route(id)
 		var r := crag_route(id)

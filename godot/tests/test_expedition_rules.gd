@@ -390,3 +390,51 @@ func test_the_cards_show_low_medium_and_high_risk() -> void:
 	for label in ["Keep the pace through the dark", "Start for the summit tonight", "Stay on the summit"]:
 		if seen.has(label):
 			eq(seen[label], "high", "%s is high risk" % label)
+
+
+## Easy: thirteen days and twice each climb's slips. Medium: one more slip.
+## Hard: the climb's own limit.
+func test_the_route_sets_the_days_and_the_slips() -> void:
+	eq(int(Trek.ROUTES["lemosho"]["permit"]), 13, "the easy way has thirteen days")
+	eq(int(Trek.ROUTES["machame"]["permit"]), 9, "the medium way nine")
+	eq(int(Trek.ROUTES["umbwe"]["permit"]), 8, "the hard way eight")
+	var want := {"lemosho": [6, 8, 4], "machame": [4, 5, 3], "umbwe": [3, 4, 2]}
+	var paths := [BARRANCO, "res://modes/expedition/levels/kilimanjaro/lava_tower/lava_tower.tscn", SUMMIT]
+	for route in want:
+		for i in paths.size():
+			Expedition.new_expedition(7)
+			Trek.ensure(Expedition.session)["route"] = route
+			await _load(paths[i], false)
+			eq(level.max_slips, int(want[route][i]), "%s: %s allows %d slips" % [route, level.spec["id"], want[route][i]])
+			await _done()
+
+
+## Leader points: the whole team home is worth the most; speed and stores
+## count only then; a summit without your team counts against you.
+func test_leader_points_reward_a_quick_thrifty_whole_team() -> void:
+	var base: Dictionary = TestSessions.at("summit-night")["state"].duplicate(true)
+	base["summitReached"] = true
+	base["returnedSafely"] = true
+	base["highestAltitude"] = 5895
+	base["supplies"] = 40
+	var slow := base.duplicate(true)
+	slow["elapsedHours"] = 13 * 24 - 2
+	var fast := base.duplicate(true)
+	fast["elapsedHours"] = 9 * 24
+	var all_slow := Records.leader_points(slow, "lemosho", 4)
+	var all_fast := Records.leader_points(fast, "lemosho", 4)
+	var three_fast := Records.leader_points(fast, "lemosho", 3)
+	var two_fast := Records.leader_points(fast, "lemosho", 2)
+	eq(int(all_fast["team"]), 10, "everyone home: +10")
+	eq(int(all_fast["speed"]), 8, "four spare days: +8")
+	eq(int(all_fast["stores"]), 4, "40 supplies left: +4")
+	eq(int(all_slow["speed"]), 0, "no spare day: no speed")
+	check(int(all_fast["points"]) > int(all_slow["points"]), "quicker ranks higher with the whole team")
+	eq(int(three_fast["team"]), -8, "one teammate missing: -8")
+	eq(int(three_fast["speed"]) + int(three_fast["stores"]), 0, "and speed and stores do not count")
+	check(int(three_fast["points"]) < int(all_slow["points"]), "fast without your team ranks below slow with it")
+	check(int(two_fast["points"]) < int(three_fast["points"]), "each missing teammate costs more")
+	var no_summit := base.duplicate(true)
+	no_summit["summitReached"] = false
+	var ns := Records.leader_points(no_summit, "lemosho", 4)
+	eq(int(ns["team"]) + int(ns["speed"]) + int(ns["stores"]), 0, "no summit: just the score")

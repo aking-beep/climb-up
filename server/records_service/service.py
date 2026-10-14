@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS crag_attempts (
   falls INTEGER, rows INTEGER, style TEXT, received INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS expedition_runs (
   player_id TEXT NOT NULL, sub_id TEXT NOT NULL, difficulty TEXT, assisted INTEGER, score INTEGER,
-  complete INTEGER, received INTEGER NOT NULL);
+  complete INTEGER, received INTEGER NOT NULL, points INTEGER);
 CREATE TABLE IF NOT EXISTS firsts (
   scope TEXT PRIMARY KEY, player_id TEXT, display TEXT, received INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS follows (
@@ -82,6 +82,11 @@ class Service:
         self.db = sqlite3.connect(db, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
+        # Databases from before leader points: add the column (old runs
+        # rank by their score).
+        cols = [r[1] for r in self.db.execute("PRAGMA table_info(expedition_runs)")]
+        if "points" not in cols:
+            self.db.execute("ALTER TABLE expedition_runs ADD COLUMN points INTEGER")
         self.clock = clock or (lambda: int(time.time()))
 
     # --- accounts --------------------------------------------------------
@@ -228,11 +233,11 @@ class Service:
 
     def _expedition(self, p, sid, payload, now):
         r = validate.check_expedition(payload)
-        self.db.execute("INSERT INTO expedition_runs VALUES (?,?,?,?,?,?,?)",
-                        (p["id"], sid, r["difficulty"], int(r["assisted"]), r["score"], int(r["complete"]), now))
+        self.db.execute("INSERT INTO expedition_runs VALUES (?,?,?,?,?,?,?,?)",
+                        (p["id"], sid, r["difficulty"], int(r["assisted"]), r["score"], int(r["complete"]), now, r["points"]))
         first = self._claim_first("expedition:complete", p, now) if r["complete"] else False
         self.db.commit()
-        return {"ok": True, "verified": True, "score": r["score"], "complete": r["complete"], "firstVerifiedCompletion": first}
+        return {"ok": True, "verified": True, "score": r["score"], "points": r["points"], "complete": r["complete"], "firstVerifiedCompletion": first}
 
     def _claim_first(self, scope, p, now):
         # First by the server's clock: only an empty slot is taken.
@@ -277,20 +282,22 @@ class Service:
         ids = self._visible(viewer, scope)
         if ids is None:
             return []
-        rows = self.db.execute("SELECT player_id, score, complete, received FROM expedition_runs WHERE difficulty=? AND assisted=?", (difficulty, int(assisted))).fetchall()
+        # Ranked by leader points (validate.leader_points): completed runs
+        # first, then points; ties go to the earlier.
+        rows = self.db.execute("SELECT player_id, score, COALESCE(points, score) AS points, complete, received FROM expedition_runs WHERE difficulty=? AND assisted=?", (difficulty, int(assisted))).fetchall()
         best = {}
         for r in rows:
             if r["player_id"] not in ids:
                 continue
-            key = (-r["complete"], -r["score"], r["received"])
+            key = (-r["complete"], -r["points"], r["received"])
             b = best.get(r["player_id"])
-            if b is None or key < (-b["complete"], -b["score"], b["received"]):
+            if b is None or key < (-b["complete"], -b["points"], b["received"]):
                 best[r["player_id"]] = r
-        entries = sorted(best.values(), key=lambda r: (-r["complete"], -r["score"], r["received"]))
+        entries = sorted(best.values(), key=lambda r: (-r["complete"], -r["points"], r["received"]))
         out = []
         for e in entries:
-            better = sum(1 for o in entries if (o["complete"], o["score"]) > (e["complete"], e["score"]))
-            out.append({"rank": better + 1, "player": self._name_of(e["player_id"]), "score": e["score"], "complete": bool(e["complete"]), "received": e["received"]})
+            better = sum(1 for o in entries if (o["complete"], o["points"]) > (e["complete"], e["points"]))
+            out.append({"rank": better + 1, "player": self._name_of(e["player_id"]), "points": e["points"], "score": e["score"], "complete": bool(e["complete"]), "received": e["received"]})
         return out[:limit]
 
     def _ranked(self, entries, key, lower=True):
