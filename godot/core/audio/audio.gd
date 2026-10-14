@@ -33,10 +33,15 @@ const SETS := {
 }
 ## Music styles (MusicBox.STYLES): made as it plays, nothing shipped.
 const MUSIC := ["camp", "crag", "lava", "barranco", "summit", "descent"]
-## Movement sounds sit under the music: footsteps, hops, holds and chalk
-## are this many dB quieter than the level they are asked for at.
-const TRIM := {"step_dirt": -10.0, "step_rock": -10.0, "grip": -8.0, "jug": -7.0, "sloper": -7.0, "pocket": -7.0,
-	"chalk": -6.0, "breath": -5.0, "catch": -3.0, "clip": -3.0}
+## The music leads. The climber's own sounds (footsteps, hops, hands on
+## holds, chalk, breathing) are faint underneath it: this many dB quieter
+## than the level they are asked for at. Everything else (clips, catches,
+## cairns, stones) is a little quieter too (EFFECTS_DB).
+const TRIM := {"step_dirt": -24.0, "step_rock": -24.0, "grip": -22.0, "jug": -20.0, "sloper": -20.0, "pocket": -20.0,
+	"chalk": -18.0, "breath": -16.0, "catch": -10.0, "clip": -10.0}
+const EFFECTS_DB := -4.0
+## The music's level at full volume settings (dB).
+const MUSIC_DB := -4.0
 
 var _streams: Dictionary = {}
 var _voices: Array[AudioStreamPlayer] = []
@@ -100,7 +105,7 @@ func play(kind: String, volume_db: float = -6.0, pitch_spread: float = 0.08) -> 
 	var p := _voices[_next]
 	_next = (_next + 1) % _voices.size()
 	p.stream = s
-	p.volume_db = volume_db + float(TRIM.get(kind, 0.0)) + linear_to_db(Settings.master_volume * Settings.effects_volume)
+	p.volume_db = volume_db + EFFECTS_DB + float(TRIM.get(kind, 0.0)) + linear_to_db(Settings.master_volume * Settings.effects_volume)
 	p.pitch_scale = 1.0 + randf_range(-pitch_spread, pitch_spread)
 	p.play()
 
@@ -139,10 +144,11 @@ func set_music_mood(m: float) -> void:
 
 
 func _process(delta: float) -> void:
-	_fade(_wind, _wind_target, delta, -4.0)
-	_fade(_camp, _camp_target, delta, -10.0)
+	# Wind and camp sounds sit under the music too.
+	_fade(_wind, _wind_target, delta, -12.0)
+	_fade(_camp, _camp_target, delta, -18.0)
 	var level := Settings.master_volume * Settings.music_volume
-	var want := -60.0 if _music_name == "" or level <= 0.001 else -10.0 + linear_to_db(level)
+	var want := -60.0 if _music_name == "" or level <= 0.001 else MUSIC_DB + linear_to_db(level)
 	_music.volume_db = move_toward(_music.volume_db, want, 12.0 * delta)
 	if _music.volume_db <= -59.0 and _music_name == "" and _music.style_name != "":
 		_music.set_style("")

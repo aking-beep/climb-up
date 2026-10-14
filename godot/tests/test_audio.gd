@@ -54,8 +54,11 @@ func test_the_summit_turns_to_a_major_key_at_dawn() -> void:
 
 
 func test_footsteps_and_hands_sit_under_the_music() -> void:
-	for kind in ["step_dirt", "step_rock", "grip"]:
-		check(float(Audio.TRIM.get(kind, 0.0)) <= -8.0, "%s is turned down (%.0f dB)" % [kind, Audio.TRIM.get(kind, 0.0)])
+	for kind in ["step_dirt", "step_rock", "grip", "jug", "sloper", "pocket", "chalk", "breath"]:
+		check(float(Audio.TRIM.get(kind, 0.0)) <= -16.0, "%s is faint under the music (%.0f dB)" % [kind, Audio.TRIM.get(kind, 0.0)])
+	# The loudest a footstep is ever asked for (-4 dB, a landing) still
+	# plays well under the music.
+	check(-4.0 + Audio.EFFECTS_DB + float(Audio.TRIM["step_dirt"]) < Audio.MUSIC_DB - 20.0, "footsteps at least 20 dB under the music")
 	Audio.play_music("lava")
 	eq(Audio.music_playing(), "lava", "a climb's music starts")
 	Audio.play_music("")
