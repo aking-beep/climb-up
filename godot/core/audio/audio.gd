@@ -3,7 +3,8 @@ extends Node
 ## ambience whose level follows the world (wind on exposed ground, camp
 ## sounds near the tents), and quiet music (play_music: one loop at a time,
 ## crossfaded). Quiet by design: the mountain is often silent but for wind
-## and breath. Effects and music have their own volume (Settings), under
+## and breath. Footsteps and hand sounds sit low (TRIM) under the music.
+## The music is made as it plays (MusicBox). Effects and music have their own volume (Settings), under
 ## the master volume; at zero they are silent and the game plays the same.
 ## All sounds are placeholders (assets/audio/README.md).
 
@@ -30,7 +31,12 @@ const SETS := {
 	"record": ["record"],
 	"perfect": ["perfect"],
 }
-const MUSIC := {"crag": "music_crag", "camp": "music_camp"}
+## Music styles (MusicBox.STYLES): made as it plays, nothing shipped.
+const MUSIC := ["camp", "crag", "lava", "barranco", "summit", "descent"]
+## Movement sounds sit under the music: footsteps, hops, holds and chalk
+## are this many dB quieter than the level they are asked for at.
+const TRIM := {"step_dirt": -10.0, "step_rock": -10.0, "grip": -8.0, "jug": -7.0, "sloper": -7.0, "pocket": -7.0,
+	"chalk": -6.0, "breath": -5.0, "catch": -3.0, "clip": -3.0}
 
 var _streams: Dictionary = {}
 var _voices: Array[AudioStreamPlayer] = []
@@ -39,7 +45,7 @@ var _wind: AudioStreamPlayer
 var _camp: AudioStreamPlayer
 var _wind_target := 0.0
 var _camp_target := 0.0
-var _music: AudioStreamPlayer
+var _music: MusicBox
 var _music_name := ""
 ## The last effect played (for tests: the game asked for a sound).
 var last := ""
@@ -52,7 +58,8 @@ func _ready() -> void:
 		_voices.append(p)
 	_wind = _loop("wind_loop")
 	_camp = _loop("camp_loop")
-	_music = AudioStreamPlayer.new()
+	_music = MusicBox.new()
+	_music.name = "Music"
 	_music.volume_db = -60.0
 	add_child(_music)
 
@@ -93,7 +100,7 @@ func play(kind: String, volume_db: float = -6.0, pitch_spread: float = 0.08) -> 
 	var p := _voices[_next]
 	_next = (_next + 1) % _voices.size()
 	p.stream = s
-	p.volume_db = volume_db + linear_to_db(Settings.master_volume * Settings.effects_volume)
+	p.volume_db = volume_db + float(TRIM.get(kind, 0.0)) + linear_to_db(Settings.master_volume * Settings.effects_volume)
 	p.pitch_scale = 1.0 + randf_range(-pitch_spread, pitch_spread)
 	p.play()
 
@@ -112,40 +119,33 @@ func stop_ambience() -> void:
 	_camp_target = 0.0
 
 
-## Starts a music loop (a MUSIC key), or "" for none. The old one fades out.
+## Starts a music style (a MUSIC name), or "" for none (it fades out).
 func play_music(name: String) -> void:
 	if name == _music_name:
 		return
 	_music_name = name
-	if name == "":
-		return
-	var s := _stream(MUSIC.get(name, ""))
-	if s is AudioStreamWAV:
-		s = s.duplicate()
-		s.loop_mode = AudioStreamWAV.LOOP_FORWARD
-		s.loop_begin = 0
-		s.loop_end = int(s.get_length() * s.mix_rate)
-	_music.stream = s
-	_music.volume_db = -40.0
-	if s != null:
-		_music.play()
+	if name != "":
+		_music.volume_db = -40.0
+		_music.set_style(name)
 
 
 func music_playing() -> String:
 	return _music_name
 
 
+## 0..1: the summit's dawn, for the music (it turns to a major key).
+func set_music_mood(m: float) -> void:
+	_music.mood = clampf(m, 0.0, 1.0)
+
+
 func _process(delta: float) -> void:
 	_fade(_wind, _wind_target, delta, -4.0)
 	_fade(_camp, _camp_target, delta, -10.0)
-	if _music.stream != null:
-		var level := Settings.master_volume * Settings.music_volume
-		var want := -60.0 if _music_name == "" or level <= 0.001 else -14.0 + linear_to_db(level)
-		_music.volume_db = move_toward(_music.volume_db, want, 12.0 * delta)
-		if _music.volume_db <= -59.0 and (_music_name == "" or level <= 0.001):
-			_music.stop()
-		elif want > -59.0 and not _music.playing:
-			_music.play()
+	var level := Settings.master_volume * Settings.music_volume
+	var want := -60.0 if _music_name == "" or level <= 0.001 else -10.0 + linear_to_db(level)
+	_music.volume_db = move_toward(_music.volume_db, want, 12.0 * delta)
+	if _music.volume_db <= -59.0 and _music_name == "" and _music.style_name != "":
+		_music.set_style("")
 
 
 func _fade(p: AudioStreamPlayer, target: float, delta: float, loudest_db: float) -> void:

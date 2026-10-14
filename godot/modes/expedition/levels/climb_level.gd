@@ -290,8 +290,8 @@ func _ready() -> void:
 
 	_resume_from_save()
 	Audio.set_camp(1.0)
-	# On the mountain: the wind and your breath, no music.
-	Audio.play_music("")
+	# Each climb has its own music, under the wind and your breath.
+	Audio.play_music(String(spec.get("music", "")))
 	if not briefed:
 		brief()
 
@@ -617,6 +617,7 @@ func _weather() -> void:
 		var want := smoothstep(0.0, 1.0, clampf(near, 0.0, 1.0))
 		# The sun only rises: it never sets again if you step back.
 		dawn.amount = maxf(dawn.amount, want)
+		Audio.set_music_mood(dawn.amount)
 		# Warm light over the world as the sun comes up.
 		if _tint:
 			_tint.color = _tint.color.lerp(Color(1.0, 0.9, 0.82), dawn.amount * 0.8)

@@ -9,6 +9,7 @@ func _init() -> void:
 	spec = {
 		"id": "barranco-wall",
 		"map": "res://modes/expedition/levels/kilimanjaro/barranco/barranco.txt",
+		"music": "barranco",
 		"hud": "Barranco Wall",
 		"difficulty": {"recovery": 0.95, "drain": 0.9, "wind": -5.0, "maxSlips": 3, "helpCost": 15.0, "rockPeriod": 5.0},
 		# A sunny morning in the valley; cloud comes up the wall as you climb.

@@ -12,6 +12,7 @@ func _init() -> void:
 		# The top: the Uhuru sign, flowers, and a sunrise (SummitTop, SummitDawn).
 		"summit": true,
 		"map": "res://modes/expedition/levels/kilimanjaro/summit_night/summit_night.txt",
+		"music": "summit",
 		"hud": "Summit night",
 		"difficulty": {"recovery": 0.8, "drain": 1.1, "wind": 30.0, "maxSlips": 2, "helpCost": 22.0, "rockPeriod": 4.8},
 		# Midnight cold, colder before dawn, then the sun at Stella Point.

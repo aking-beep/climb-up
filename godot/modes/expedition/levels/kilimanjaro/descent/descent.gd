@@ -18,6 +18,7 @@ func _init() -> void:
 	spec = {
 		"id": ID,
 		"map": "res://modes/expedition/levels/kilimanjaro/descent/descent.txt",
+		"music": "descent",
 		"hud": "The descent",
 		"difficulty": {"recovery": 0.75, "drain": 1.1, "wind": 34.0, "maxSlips": 3, "helpCost": 18.0, "rockPeriod": 6.0},
 		# Frost at the top, then down into the heat of the lower slopes.

@@ -9,6 +9,7 @@ func _init() -> void:
 	spec = {
 		"id": "lava-tower",
 		"map": "res://modes/expedition/levels/kilimanjaro/lava_tower/lava_tower.txt",
+		"music": "lava",
 		"hud": "Lava Tower",
 		"difficulty": {"recovery": 1.0, "drain": 0.85, "wind": -15.0, "maxSlips": 4, "helpCost": 15.0, "rockPeriod": 6.0},
 		# Afternoon sun on black lava rock, then a cold sunset on the tower.
