@@ -214,7 +214,7 @@ def water():
 def gear():
     """Five pieces of gear in GEAR_KINDS order (climb_level.gd): trekking
     poles, gloves, goggles and buff, crampons, headlamp."""
-    p = Pen(70, 14)
+    p = Pen(98, 14)
     steel, steel_d = c("#c8d0d8"), c("#8a949e")
     # Trekking poles, crossed: grips (red, blue), shafts, baskets.
     q = p.at(0)
@@ -254,6 +254,20 @@ def gear():
     q.line([(0.8, 9.6), (3.0, 7.4), (8.6, 7.4)], 1.2, c("#3c3c46"))
     q.rrect(3.4, 4.4, 9.0, 10.2, 1.4, c("#e0b03c"))
     q.ellipse(5.0, 5.6, 8.4, 9.0, c("#fff6c8"), outline=False)
+    # Helmet: an orange dome, a brim, a dark strap.
+    q = p.at(70)
+    q.line([(3.6, 9.6), (4.6, 12.2)], 0.7, c("#3c3c46"))
+    q.line([(10.4, 9.6), (9.4, 12.2)], 0.7, c("#3c3c46"))
+    q.poly([(1.4, 9.6), (2.4, 5.4), (5.0, 2.8), (9.0, 2.8), (11.6, 5.4), (12.6, 9.6)], c("#e8782c"))
+    q.rrect(0.8, 9.0, 13.2, 10.6, 0.6, c("#b8561c"))
+    q.ellipse(3.6, 4.0, 6.4, 6.4, c("#f4a868"), outline=False)
+    # Rope: a coil, with the end tucked through.
+    q = p.at(84)
+    q.ellipse(1.6, 2.2, 12.4, 12.0, c("#3a78c8"))
+    q.ellipse(4.0, 4.6, 10.0, 9.6, (0, 0, 0, 0), outline=True)
+    q.ellipse(4.4, 5.0, 9.6, 9.2, (0, 0, 0, 0), outline=False)
+    q.line([(2.6, 7.0), (11.4, 7.0)], 0.5, c("#6ea6e0"), outline=False)
+    q.line([(9.6, 3.4), (12.4, 1.2)], 0.9, c("#d64a3a"))
     p.at(0).save("gear")
 
 

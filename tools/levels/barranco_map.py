@@ -230,11 +230,16 @@ def main():
     print("wildlife:", wildlife(g, every=4, kinds=("ants", "plant")))
     # Wildlife moved first, so the everlastings keep clear of it.
     print("wildlife spread:", spread(g, "barranco"))
+    # More gear (tools/levels/gear.py): a rope before the first face, a
+    # helmet at the foot of the loose gully.
+    from gear import place
+    print("gear placed:", place(g, [(70, 74), (79, 41, "exact")]))
+    # A boulder to hop on ledge 2, where an everlasting used to be.
+    assert g[59][71] == "." and g[60][71] == "#"
+    g[59][71] = "#"
+    # A cairn on the plateau, on the long way from the top to Karanga.
+    print("cairns placed:", place(g, [(148, 8)], "K"))
     print("everlastings:", sprinkle(g))
-    # One on the long slope down from the plateau, so the walk down has
-    # something to reach for too.
-    if g[11][179] == ".":
-        g[11][179] = "f"
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join("".join(row) for row in g) + "\n")
     print("wrote", OUT, f"{W}x{H}")

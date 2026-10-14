@@ -18,9 +18,11 @@ func _init() -> void:
 		"meters": 5700,
 		"dangers": ["ice on the switchbacks", "a crevasse", "stones on the rock steps", "cracked slabs on the rim"],
 		"gear": [
-			["crampons", "Left by a party coming down. On ice they bite: no sliding, and it costs less.", "crampons"],
-			["a headlamp", "In a niche off the switchbacks. You see your footing: the cold and the dark no longer slow your walk.", "headlamp"],
-			["goggles and a buff", "Below the crater rim, out of the wind. Gusts push you less, and sitting on windy ground gives some breath back.", "shell"],
+			["a short rope", "By the tents at Barafu. Lena can hold your next slip on it.", "rope", [29, 85]],
+			["crampons", "Left by a party coming down. On ice they bite: no sliding, and it costs less.", "crampons", [107, 67]],
+			["a headlamp", "In a niche off the switchbacks. You see your footing: the cold and the dark no longer slow your walk.", "headlamp", [10, 58]],
+			["a helmet", "On the bench below the last rock step. A falling stone costs breath instead of knocking you off.", "helmet", [90, 40]],
+			["goggles and a buff", "Below the crater rim, out of the wind. Gusts push you less, and sitting on windy ground gives some breath back.", "shell", [35, 24]],
 		],
 		"theme": {
 			"night": true,

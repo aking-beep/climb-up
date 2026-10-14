@@ -25,7 +25,11 @@ func _init() -> void:
 			"light": [[0.0, "#ffe2d0"], [0.4, "#fff6ea"], [1.0, "#fff0d6"]]},
 		"meters": 5300,
 		"dangers": ["the wind on the rim", "loose scree", "ice above the rock step"],
-		"gear": [],
+		"gear": [
+			["goggles and a buff", "Left on the rim by someone who no longer needed them. Gusts push you less, and sitting on windy ground gives some breath back.", "shell", [19, 13]],
+			["trekking poles", "Stuck in the scree by the second cairn. The long slopes down cost less with them.", "poles", [63, 25]],
+			["crampons", "On the scree above the ice. On ice they bite: no sliding, and it costs less.", "crampons", [73, 35]],
+		],
 		"theme": {
 			"night": false,
 			"far": "res://assets/scenery/summit-sea.png",

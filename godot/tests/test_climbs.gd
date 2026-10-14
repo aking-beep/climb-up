@@ -203,9 +203,14 @@ func test_water_and_lost_gear() -> void:
 	eq(hz.gear_count, 0, "nothing found yet")
 	await _put(Vector2i(59, 22))
 	eq(hz.gear_count, 1, "found the gear in the chimney niche")
-	eq(Expedition.gear_found("lava-tower"), [1], "kept on the expedition")
+	# Its index: the markers' order, bottom to top.
+	var cells: Array = level.terrain.markers["*"].duplicate()
+	cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y > b.y or (a.y == b.y and a.x < b.x))
+	var n := cells.find(Vector2i(59, 22))
+	eq(String(hz.gear_words[n][2]), "gloves", "the gloves, in the chimney niche")
+	eq(Expedition.gear_found("lava-tower"), [n], "kept on the expedition")
 	check(Expedition.load_saved(), "saved")
-	eq(Expedition.gear_found("lava-tower"), [1], "and in the save")
+	eq(Expedition.gear_found("lava-tower"), [n], "and in the save")
 	await _done()
 
 

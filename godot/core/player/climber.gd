@@ -55,8 +55,12 @@ const SAFE_FALL := 4.0 * T
 const SLIP_TIME := 1.0
 const MANTLE_TIME := 0.45
 const HELP_TIME := 1.2
-const GUST_PUSH := 20.0
+## Standing in a gust: a nudge along the ledge, never a fall, and breath.
+const GUST_PUSH := 10.0
 const GUST_FIGHT := 6.0  # stamina per second, standing (not resting) in a gust
+## Walking into a gust: you stagger, and it costs this much stamina. Only a
+## stagger you have no stamina left for is a fall (back to the cairn).
+const GUST_STAGGER := 10.0
 ## A hop: about two tiles up and two across at a walk. Not a leap; it is how
 ## you get over a boulder, a stream cut or a crack in the ice. It costs
 ## breath like a hard step, more in thin air.
@@ -98,6 +102,9 @@ var on_ice := false
 ## and costs less, and sitting on windy ground gives some breath back.
 var crampons := false
 var wind_shell := false
+## A helmet: a falling stone costs stamina (Hazards.HELMET_HIT) instead of
+## knocking you off.
+var helmet := false
 ## Asked once per sit, the first moment it would refill you: true when this
 ## rest may (the expedition counts rests between cairns and then eats camp
 ## food). Not set (the crag): every rest refills.
@@ -307,6 +314,10 @@ func _ground(delta: float, input: Vector2) -> void:
 	var slick := on_ice and not crampons
 	var limit := (EXPOSED_WALK if exposed else (TIRED_WALK if stamina.is_tired() else WALK)) * chill
 	var target := input.x * limit
+	# Standing in a gust: the wind walks you along slowly (the edge guard
+	# below still holds you at a drop).
+	if exposed and gust == WindSchedule.Phase.BLOW and absf(input.x) <= 0.2:
+		target = GUST_PUSH * (0.4 if wind_shell else 1.0)
 	if cramp > 0.0:
 		target = 0.0
 	elif dizzy > 0.0:
@@ -766,9 +777,15 @@ func _rest(delta: float, input: Vector2) -> void:
 		# A rest stone is shelter: always a full rest, and it never counts.
 		last_activity = "rest_stone"
 	elif exposed:
-		# Hunkered down on windy ground: safe from gusts and free, but the
-		# wind gives no breath back (a little with the goggles and buff).
-		last_activity = "rest_gust" if wind_shell else "sit"
+		# Hunkered down on windy ground: safe from gusts and free, never
+		# moved, but the wind gives no breath back (a little with the
+		# goggles and buff), and a gust costs a little while it blows.
+		if wind_shell:
+			last_activity = "rest_gust"
+		elif gust == WindSchedule.Phase.BLOW:
+			last_activity = "sit_gust"
+		else:
+			last_activity = "sit"
 	else:
 		if not _sit_asked and stamina.value < stamina.max_value:
 			_sit_asked = true
@@ -789,14 +806,20 @@ func _weather(delta: float, input: Vector2) -> void:
 	# take you.
 	if not exposed or gust != WindSchedule.Phase.BLOW or state == State.REST:
 		return
-	if absf(input.x) > 0.2 or absf(velocity.x) > 8.0:
-		wind_strikes += 1
-		wind_struck.emit()
-		slip("wind")
-		return
-	# Standing in it: the wind shoves you along the ledge and costs breath.
 	var shell := 0.4 if wind_shell else 1.0
-	velocity.x = GUST_PUSH * shell
+	# Only the player's own step counts as moving: a slide on ice, or the
+	# wind's own nudge, is never held against you.
+	if absf(input.x) > 0.2:
+		if _hurt_cool <= 0.0:
+			wind_strikes += 1
+			wind_struck.emit()
+		# A stagger: it stops you and costs breath; a fall only if that was
+		# the last of it.
+		velocity.x = 0.0
+		hurt(GUST_STAGGER * shell, "wind")
+		return
+	# Standing in it: the nudge is in _ground (a slow drift the edge guard
+	# still stops), and it costs breath.
 	stamina.value = maxf(0.0, stamina.value - GUST_FIGHT * shell * delta)
 
 
@@ -813,7 +836,7 @@ func hurt(amount: float, reason: String) -> bool:
 	Audio.play("slip", -12.0)
 	hurt_taken.emit(amount, reason)
 	if spent:
-		slip("hurt")
+		slip("wind" if reason == "wind" else "hurt")
 	return true
 
 

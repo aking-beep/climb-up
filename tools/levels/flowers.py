@@ -7,12 +7,16 @@ never within `gap` tiles of another everlasting (so they are spread along
 the whole climb, not bunched where the ground is flat).
 """
 
+# Few and far between: a handful per climb, each a real find (the gear and
+# the cairns are what fill the way now).
+GAP = 70
+
 SOLID = set("#/\\ic")
 OPEN = set(".")
 MARKERS = set("PXMljmpSTFgoVKrw*bdRfnav")
 
 
-def sprinkle(g, spacing=6, skip_rows=(), gap=9):
+def sprinkle(g, spacing=6, skip_rows=(), gap=GAP):
     h, w = len(g), len(g[0])
     count = 0
     placed = []

@@ -132,16 +132,19 @@ func test_gear_helps_and_is_lost_with_the_climb() -> void:
 	Expedition.climb = {"challengeId": "barranco-wall", "attemptId": "gear-test"}
 	await _load(BARRANCO, false)
 	var spec_gear: Array = level.spec["gear"]
-	eq(spec_gear.size(), 3, "three pieces of gear on the wall")
+	eq(spec_gear.size(), 5, "five pieces of gear on the wall")
+	eq(level.hazards.gear_total(), 5, "and five on the map")
 	for g in spec_gear:
 		check(ClimbLevel.GEAR.has(String(g[2])), "%s is a known kind" % g[2])
 	var rock: float = level.stamina.rate("climb")
 	var walk: float = level.stamina.rate("walk")
-	# Pick up the first piece (gloves, before the faces) and the last (poles).
-	var cells: Array = level.terrain.markers["*"].duplicate()
-	cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y > b.y or (a.y == b.y and a.x < b.x))
-	for n in [0, 2]:
-		c.global_position = Terrain.feet(cells[n])
+	# Pick up the gloves (before the faces) and the poles (for the walk out),
+	# by the cells the spec names.
+	var cell_of := {}
+	for g in spec_gear:
+		cell_of[String(g[2])] = Vector2i(int(g[3][0]), int(g[3][1]))
+	for kind in ["gloves", "poles"]:
+		c.global_position = Terrain.feet(cell_of[kind])
 		await physics_frames(4)
 	check(level.gear_kinds.has("gloves"), "found the gloves")
 	check(level.gear_kinds.has("poles"), "found the poles")
@@ -161,9 +164,9 @@ func test_gear_helps_and_is_lost_with_the_climb() -> void:
 	for p in level.hazards.pickups:
 		if p["kind"] == "gear" and not p["taken"] and p["node"].visible:
 			shown += 1
-	eq(shown, 3, "all three back on the ground")
+	eq(shown, 5, "all five back on the ground")
 	# Losing the climb also drops it.
-	c.global_position = Terrain.feet(cells[0])
+	c.global_position = Terrain.feet(cell_of["gloves"])
 	await physics_frames(4)
 	check(level.gear_kinds.has("gloves"), "found again")
 	level.finish("fail")
@@ -438,3 +441,75 @@ func test_leader_points_reward_a_quick_thrifty_whole_team() -> void:
 	no_summit["summitReached"] = false
 	var ns := Records.leader_points(no_summit, "lemosho", 4)
 	eq(int(ns["team"]) + int(ns["speed"]) + int(ns["stores"]), 0, "no summit: just the score")
+
+
+## The helmet turns a falling stone into a knock (stamina), not a fall; the
+## rope catches the next slip.
+func test_a_helmet_and_a_rope() -> void:
+	Expedition.new_expedition(7)
+	Expedition.climb = {"challengeId": "barranco-wall", "attemptId": "helmet-test"}
+	await _load(BARRANCO, false)
+	var cell_of := {}
+	for g in level.spec["gear"]:
+		cell_of[String(g[2])] = Vector2i(int(g[3][0]), int(g[3][1]))
+	c.global_position = Terrain.feet(cell_of["rope"])
+	await physics_frames(4)
+	check(level.gear_kinds.has("rope"), "found the rope")
+	check(c.spotter, "the rope will hold the next slip")
+	c.slip("fall")
+	await drive([], func() -> bool: return c.state == Climber.State.GROUND, 5.0, "caught")
+	eq(c.slips, 0, "the rope caught it")
+	eq(c.caught, 1, "one caught")
+	c.global_position = Terrain.feet(cell_of["helmet"])
+	await physics_frames(4)
+	check(c.helmet, "helmet on")
+	var before := c.stamina.value
+	# A stone lands on the helmet.
+	var hz: Hazards = level.hazards
+	var s := Sprite2D.new()
+	hz.add_child(s)
+	s.position = c.body_rect().get_center()
+	hz.rocks.append({"node": s, "vy": 200.0, "col": Terrain.cell_of(s.position).x})
+	await physics_frames(3)
+	eq(c.slips, 0, "no fall under the helmet")
+	check(c.stamina.value <= before - Hazards.HELMET_HIT + 0.5, "it costs stamina instead")
+	await _done()
+
+
+## A fire at a cairn: full stamina and fresh rests, once per cairn, for an
+## hour on the expedition's clock.
+func test_a_fire_at_a_cairn_costs_an_hour() -> void:
+	Expedition.new_expedition(7)
+	Expedition.climb = {"challengeId": "barranco-wall", "attemptId": "fire-test"}
+	await _load(BARRANCO, false)
+	c.global_position = level.cairns[1]
+	await physics_frames(4)
+	eq(level.checkpoint, 1, "at cairn 1")
+	c.stamina.value = 10.0
+	level.rests_left = 0
+	await physics_frames(2)
+	eq(level.action_word, "FIRE", "the cairn offers a fire")
+	level._interact()
+	check(level.panel.open, "it asks first")
+	level.panel.choose("fire")
+	await physics_frames(2)
+	check(c.stamina.value >= c.stamina.max_value - 0.5, "full stamina")
+	eq(level.rests_left, ClimbLevel.REST_LIMIT, "fresh rests")
+	eq(level.fires, [1], "one fire, here")
+	await physics_frames(2)
+	check(level.action_word != "FIRE", "once per cairn")
+	eq(level.outcome_now("complete").fire_hours, ClimbLevel.FIRE_HOURS, "the outcome carries the hour")
+	await _done()
+	# Landed: the hour goes on the expedition's clock.
+	var base := TestSessions.at("barranco-wall")
+	var hours := []
+	for fire in [0, 2]:
+		Expedition.session = base.duplicate(true)
+		Expedition.navigate = false
+		var p: Dictionary = Expedition.pending()
+		Expedition.climb = {"attemptId": p["attemptId"], "challengeId": p["challengeId"], "checkpoint": 0}
+		var o := TestSessions.complete(p)
+		o["fireHours"] = fire
+		Expedition.finish_climb(o)
+		hours.append(int(Expedition.state()["elapsedHours"]))
+	eq(hours[1] - hours[0], 2, "two hours of fires: two hours later")

@@ -17,9 +17,11 @@ func _init() -> void:
 		"meters": 4600,
 		"dangers": ["a scree bridge that gives way if you stop", "stones down the chimney"],
 		"gear": [
-			["goggles and a buff", "Dropped at the lip, where the wind takes things. Gusts push you less, and sitting on windy ground gives some breath back.", "shell"],
-			["a pair of gloves", "Wedged in the chimney's niche, out of the stonefall. Rock costs less with them on.", "gloves"],
-			["trekking poles", "Leaning on the top of the last face. Walking costs less with them.", "poles"],
+			["a short rope", "Coiled by the path out of camp. Lena can hold your next slip on it.", "rope", [39, 55]],
+			["goggles and a buff", "Dropped at the lip, where the wind takes things. Gusts push you less, and sitting on windy ground gives some breath back.", "shell", [52, 29]],
+			["a helmet", "On the wind ledge, under the chimney. A falling stone costs breath instead of knocking you off.", "helmet", [62, 28]],
+			["a pair of gloves", "Wedged in the chimney's niche, out of the stonefall. Rock costs less with them on.", "gloves", [59, 22]],
+			["trekking poles", "Leaning on the top of the last face. Walking costs less with them.", "poles", [133, 15]],
 		],
 		"theme": {
 			"far": "res://assets/scenery/barranco-kibo.png",

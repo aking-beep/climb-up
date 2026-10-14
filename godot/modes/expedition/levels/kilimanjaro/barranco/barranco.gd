@@ -17,9 +17,11 @@ func _init() -> void:
 		"meters": 4200,
 		"dangers": ["stones down the loose gully", "cracked slabs on the exposed ledge"],
 		"gear": [
-			["a pair of gloves", "Tucked under the first faces. Rock costs less with them on.", "gloves"],
-			["goggles and a buff", "Left below the shoulder, where the wind starts. Gusts push you less, and sitting on windy ground gives some breath back.", "shell"],
-			["trekking poles", "Hidden above the last face. The long walk down to camp costs less with them.", "poles"],
+			["a short rope", "On ledge 1, below the first face. Lena can hold your next slip on it.", "rope", [70, 73]],
+			["a pair of gloves", "Tucked under the first faces. Rock costs less with them on.", "gloves", [81, 54]],
+			["a helmet", "At the foot of the loose gully. A falling stone costs breath instead of knocking you off.", "helmet", [79, 41]],
+			["goggles and a buff", "Left below the shoulder, where the wind starts. Gusts push you less, and sitting on windy ground gives some breath back.", "shell", [86, 33]],
+			["trekking poles", "Hidden above the last face. The long walk down to camp costs less with them.", "poles", [169, 1]],
 		],
 		"theme": {
 			"far": "res://assets/scenery/barranco-kibo.png",

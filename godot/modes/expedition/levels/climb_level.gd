@@ -53,16 +53,23 @@ var snacks := 0
 ## A rest lasts until you are full: get up to dodge a stone and sit again,
 ## and it is the same rest.
 var _rest_open := false
+## A fire at a cairn: a full rest, your rests back and a breather for the
+## teammate, for FIRE_HOURS off the expedition's clock (the permit, and the
+## leader points for speed). Once per cairn.
+const FIRE_HOURS := 1
+var fires: Array = []
 ## What each piece of gear does. The climb's spec places them (its "gear"
 ## list, [name, text, kind], bottom to top on the map), each before the
 ## thing it helps with.
-const GEAR_KINDS := ["poles", "gloves", "shell", "crampons", "headlamp"]
+const GEAR_KINDS := ["poles", "gloves", "shell", "crampons", "headlamp", "helmet", "rope"]
 const GEAR := {
 	"poles": {"label": "Poles", "walk": 0.7},
 	"gloves": {"label": "Gloves", "rock": 0.8},
 	"shell": {"label": "Goggles"},
 	"crampons": {"label": "Crampons", "ice": 0.5},
 	"headlamp": {"label": "Headlamp"},
+	"helmet": {"label": "Helmet"},
+	"rope": {"label": "Rope"},
 }
 ## Pacing: every moment the player had to do something, [clock, kind]. The
 ## tests read it to check that no stretch of a climb is just walking.
@@ -206,9 +213,11 @@ func _ready() -> void:
 	climber.jumped.connect(func() -> void: engage("hop"))
 	climber.mantled.connect(func() -> void: engage("mantle"))
 	climber.mantled.connect(func() -> void: camera.kick(0.0))
-	climber.hurt_taken.connect(func(_amount: float, _reason: String) -> void:
+	climber.hurt_taken.connect(func(amount: float, reason: String) -> void:
 		camera.kick(0.3)
-		Haptics.tap(30))
+		Haptics.tap(30)
+		if reason == "wind":
+			hud.flash("The gust staggers you: -%d stamina. Don't move in the wind: REST until it passes." % int(round(amount)), 2.4))
 
 	hazards = Hazards.new()
 	hazards.name = "Hazards"
@@ -396,6 +405,9 @@ func _resume_from_save() -> void:
 	regrouped = saved.get("regrouped") == true
 	rests_left = clampi(int(saved.get("rests", REST_LIMIT)), 0, REST_LIMIT)
 	snacks = maxi(0, int(saved.get("snacks", 0)))
+	for f in saved.get("fires", []):
+		fires.append(int(f))
+		add_child(_fire(cairns[clampi(int(f), 0, cairns.size() - 1)] + Vector2(Terrain.TILE * 1.2, 0)))
 	climber.global_position = cairns[checkpoint]
 	climber.reset_physics_interpolation()
 	if mate and mate_state == "helped":
@@ -685,6 +697,7 @@ func _remember() -> void:
 		"seconds": climber.clock,
 		"rests": rests_left,
 		"snacks": snacks,
+		"fires": fires,
 	})
 
 
@@ -874,6 +887,8 @@ func _on_choice(id: String) -> void:
 			land()
 		"talk":
 			climber.lock(false)
+		"fire":
+			make_fire()
 
 
 func _on_helped() -> void:
@@ -899,7 +914,7 @@ func _on_slipped(saved: bool, reason: String) -> void:
 		if lose_gear():
 			line += " Your gear is gone: it is back where you found it."
 	elif reason == "wind":
-		line = "The gust takes your balance."
+		line = "A gust takes the last of your strength. Back to the last cairn."
 	elif reason == "hurt":
 		line = "Too hurt to go on: you collapse. Back to the last cairn."
 	if climber.slips >= max_slips:
@@ -955,6 +970,11 @@ func _find_interaction() -> void:
 				prompt = "Read the sign"
 				action_word = "READ"
 				return
+		if checkpoint > 0 and not fires.has(checkpoint) and feet.distance_to(cairns[checkpoint]) < 20.0:
+			_interact_target = {"kind": "fire"}
+			prompt = "Make a fire at the cairn (%d hour)" % FIRE_HOURS
+			action_word = "FIRE"
+			return
 		if mate and mate_state == "waiting" and mate_cooldown and feet.distance_to(mate.global_position) < 26.0:
 			_interact_target = {"kind": "mate"}
 			prompt = "Talk to %s" % mate_name()
@@ -985,6 +1005,13 @@ func _interact() -> void:
 			climber.lock(true)
 			Audio.play("chime", -14.0)
 			panel.show_panel("Sign", text[0], text[1], [["talk", "OK"]])
+		"fire":
+			climber.lock(true)
+			Audio.play("chime", -14.0)
+			panel.show_panel("Cairn %d" % checkpoint, "Make a fire?",
+				"A fire and a hot drink: full stamina, your rests back%s. It costs %d hour of the expedition: the permit's clock, and the leader points for speed." % [
+					", and %s gets their breath back" % mate_name() if mate and mate_state == "helped" else "", FIRE_HOURS],
+				[["fire", "Make a fire (%d hour)" % FIRE_HOURS], ["talk", "Not now, keep moving"]])
 		"mate":
 			mate_cooldown = false
 			climber.lock(true)
@@ -1017,7 +1044,7 @@ func route_progress() -> float:
 ## Puts picked things back in the save's list of what is still on the ground.
 ## The kind of the gear at `index` (the spec's gear list, bottom to top).
 func gear_kind(index: int) -> String:
-	var list: Array = spec.get("gear", [])
+	var list: Array = hazards.gear_words if hazards and not hazards.gear_words.is_empty() else spec.get("gear", [])
 	if list.is_empty():
 		return "poles"
 	var g: Array = list[clampi(index, 0, list.size() - 1)]
@@ -1036,6 +1063,9 @@ func _on_gear(index: int) -> void:
 		held.append(index)
 	Expedition.remember({"gear": held})
 	_apply_gear()
+	# A short rope: someone (the guide) can now hold your next slip.
+	if kind == "rope":
+		climber.spotter = true
 
 
 ## What the gear in hand does: to stamina costs, the ice, the wind.
@@ -1044,6 +1074,7 @@ func _apply_gear() -> void:
 	stamina.rock_gear = float(GEAR["gloves"]["rock"]) if gear_kinds.has("gloves") else 1.0
 	stamina.ice_gear = float(GEAR["crampons"]["ice"]) if gear_kinds.has("crampons") else 1.0
 	climber.crampons = gear_kinds.has("crampons")
+	climber.helmet = gear_kinds.has("helmet")
 	climber.wind_shell = gear_kinds.has("shell")
 
 
@@ -1056,6 +1087,28 @@ func lose_gear() -> bool:
 	Expedition.remember({"gear": []})
 	_apply_gear()
 	return had
+
+
+## A fire at the cairn you are at: full stamina, the rests back, the
+## teammate's breath back, an hour off the expedition.
+func make_fire() -> void:
+	if checkpoint <= 0 or fires.has(checkpoint):
+		climber.lock(false)
+		return
+	fires.append(checkpoint)
+	engage("fire")
+	stamina.value = stamina.max_value
+	rests_left = REST_LIMIT
+	_rest_open = false
+	if mate and mate_state == "helped":
+		mate_breath = 100.0
+		mate_winded = false
+	var f := _fire(cairns[checkpoint] + Vector2(Terrain.TILE * 1.2, 0))
+	add_child(f)
+	Audio.play("cairn", -6.0)
+	hud.flash("A fire at cairn %d: full stamina and fresh rests. The expedition is %d hour%s later." % [checkpoint, fires.size() * FIRE_HOURS, "" if fires.size() * FIRE_HOURS == 1 else "s"], 3.0)
+	climber.lock(false)
+	_remember()
 
 
 ## Camp food left to eat on the climb (the expedition's supplies, less the
@@ -1116,6 +1169,7 @@ func outcome_now(kind: String) -> ChallengeOutcome:
 	o.checkpoint = checkpoint
 	o.gear_found = gear_this_attempt
 	o.food = snacks * SNACK
+	o.fire_hours = fires.size() * FIRE_HOURS
 	o.flowers = hazards.flowers
 	o.flowers_total = hazards.flowers_total
 	o.stars = star_count(kind, o)
@@ -1186,6 +1240,8 @@ func finish(kind: String) -> void:
 			lines.append("Three stars: the party's spirits lift at camp.")
 	else:
 		lines.append("Everlastings %d of %d · cairn %d of %d" % [o.flowers, o.flowers_total, checkpoint, cairns.size() - 1])
+	if not fires.is_empty():
+		lines.append("Fires at the cairns: %d (the expedition is %d hour%s later)" % [fires.size(), fires.size() * FIRE_HOURS, "" if fires.size() * FIRE_HOURS == 1 else "s"])
 	if snacks > 0:
 		lines.append("Camp food eaten on the climb: %d snack%s (supplies -%d)" % [snacks, "" if snacks == 1 else "s", snacks * SNACK])
 	if hazards.gear_total() > 0:

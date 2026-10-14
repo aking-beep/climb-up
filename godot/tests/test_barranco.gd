@@ -147,14 +147,50 @@ func test_walking_in_a_gust_on_exposed_ground_is_a_slip_and_resting_is_safe() ->
 	await physics_frames(20)
 	check(absf(c.global_position.x - x0) > 0.2, "standing in a gust gets nudged along (%.1f px, state %d, slips %d)" % [c.global_position.x - x0, c.state, c.slips])
 	check(c.stamina.value < before, "standing in a gust costs stamina")
-	# Walking into a gust is a slip.
+	eq(c.slips, 0, "standing in a gust never sends you back")
+	# Walking into a gust: a stagger that costs stamina, not a fall.
 	while c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW:
 		GameInput.scripted = {"_": false}
 		await tree.physics_frame
-	await drive(["move_right"], func() -> bool: return c.state == Climber.State.SLIP, 2.0, "walk into the gust")
-	eq(c.slips, 1, "walking in a gust slips")
+	before = c.stamina.value
+	await drive(["move_right"], func() -> bool: return c.wind_strikes > 0, 1.0, "walk into the gust")
 	eq(c.wind_strikes, 1, "wind strike counted")
+	eq(c.slips, 0, "a stagger, not a fall")
+	check(c.stamina.value <= before - Climber.GUST_STAGGER + 0.5, "the stagger costs stamina")
+	# With nothing left, the stagger is a fall.
+	while c.wind.phase_at(c.clock) == WindSchedule.Phase.BLOW:
+		GameInput.scripted = {"_": false}
+		await tree.physics_frame
+	while c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW:
+		GameInput.scripted = {"_": false}
+		await tree.physics_frame
+	c.stamina.value = 2.0
+	for i in 60:
+		if c.state == Climber.State.SLIP:
+			break
+		GameInput.scripted = {"_": false, "move_right": true}
+		await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	eq(c.slips, 1, "spent and staggered: a fall")
 	var _unused := start
+	await _done()
+
+
+## Standing still on ice in a gust (the descent's rim): the wind's nudge
+## must never count as moving.
+func test_standing_on_ice_in_a_gust_is_not_a_fall() -> void:
+	await _load()
+	c.global_position = Terrain.feet(Vector2i(60, 41))
+	await physics_frames(3)
+	c.on_ice = true
+	for i in 60 * 6:
+		GameInput.scripted = {"_": false}
+		# As on ice: nothing slows the nudge.
+		if c.wind.phase_at(c.clock) == WindSchedule.Phase.BLOW:
+			c.velocity.x = maxf(c.velocity.x, 30.0)
+		await tree.physics_frame
+	eq(c.slips, 0, "no fall from standing still")
+	eq(c.wind_strikes, 0, "and no wind strike")
 	await _done()
 
 

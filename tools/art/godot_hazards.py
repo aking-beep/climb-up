@@ -7,9 +7,9 @@ Pixel art for the climbs' hazards and finds, in the style of the Godot tiles
                                        2-3 breaking).
   godot/assets/terrain/props/rock.png        a falling rock, 10 x 10
   godot/assets/terrain/props/water.png       a water cache, 12 x 14
-  godot/assets/terrain/props/gear.png        gear to find, 5 x (14 x 14):
+  godot/assets/terrain/props/gear.png        gear to find, 7 x (14 x 14):
                                              poles, gloves, goggles and buff,
-                                             crampons, headlamp
+                                             crampons, headlamp, helmet, rope
 
     python3 tools/art/godot_hazards.py
 """
@@ -138,7 +138,7 @@ def water():
 def gear():
     """Five pieces of gear, each 14 x 14, in GEAR_KINDS order (climb_level.gd):
     trekking poles, gloves, goggles and buff, crampons, headlamp."""
-    sheet = Image.new("RGBA", (70, 14))
+    sheet = Image.new("RGBA", (98, 14))
     steel, dark, red, blue = rgb("#b8c0c8"), rgb("#6b737c"), rgb("#c0392b"), rgb("#2f6db0")
     # Trekking poles: two crossed shafts with grips and baskets.
     a = Image.new("RGBA", (14, 14))
@@ -215,6 +215,32 @@ def gear():
     for k in range(4):
         p[9 + k // 2, 6 - k // 2 + (k % 2)] = rgb("#fff6c8")
     sheet.paste(outline(h), (56, 0))
+    # Helmet: an orange dome with a strap.
+    m = Image.new("RGBA", (14, 14))
+    p = m.load()
+    for y in range(3, 10):
+        for x in range(2, 12):
+            if ((x - 6.5) ** 2) / 25 + ((y - 9) ** 2) / 36 <= 1.0:
+                p[x, y] = rgb("#e8782c")
+    for x in range(1, 13):
+        p[x, 9] = rgb("#b8561c")
+    p[4, 5] = rgb("#f4a868")
+    p[5, 4] = rgb("#f4a868")
+    for y in range(10, 12):
+        p[3, y] = rgb("#3c3c46")
+        p[10, y] = rgb("#3c3c46")
+    sheet.paste(outline(m), (70, 0))
+    # Rope: a coil, blue with a red fleck.
+    r = Image.new("RGBA", (14, 14))
+    p = r.load()
+    for y in range(14):
+        for x in range(14):
+            d = ((x - 6.5) ** 2 + (y - 7) ** 2) ** 0.5
+            if 3.0 <= d < 5.5 and not (2.5 < d < 3.0):
+                p[x, y] = rgb("#3a78c8") if int(d * 2) % 2 else rgb("#6ea6e0")
+    p[10, 3] = red
+    p[11, 2] = red
+    sheet.paste(outline(r), (84, 0))
     return sheet
 
 
