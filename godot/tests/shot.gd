@@ -54,9 +54,15 @@ func _ready() -> void:
 		await get_tree().create_timer(0.5).timeout
 		scene.panel.hide_panel()
 		scene.climber.lock(false)
+		if not spots.is_empty():
+			# Finish from a place (the summit): stand there first.
+			scene.briefed = true
+			scene.climber.global_position = Terrain.feet(Vector2i(spots[0]))
+			scene.camera.snap()
+			await get_tree().create_timer(1.0).timeout
 		scene.hazards.flowers = int(scene.hazards.flowers_total * 0.8)
 		scene.finish("complete")
-		await get_tree().create_timer(2.0).timeout
+		await get_tree().create_timer(hold if not spots.is_empty() else 2.0).timeout
 		get_viewport().get_texture().get_image().save_png(out + "_0.png")
 		get_tree().quit(0)
 		return

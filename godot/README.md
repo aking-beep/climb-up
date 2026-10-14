@@ -235,14 +235,20 @@ exactly (the parity test still holds); a trek layer on top
   (test_expedition_rules).
 
   **No brace button: REST in the wind.** On exposed ground a gust cannot
-  take someone sitting down. The warning says "don't move, REST"; moving in
-  a gust is still a slip, and standing in one nudges you and costs breath.
-  Sitting on windy ground gives nothing back (6 a second with the goggles
-  and buff). The Barranco Wall's shoulder is easier: its open stretch is 6
+  take someone sitting down, and never moves them; sitting out a gust costs
+  1.5 stamina a second while it blows (with the goggles and buff it gives 6
+  back instead). Standing in a gust drifts you slowly along the ledge (the
+  edge guard still holds you) and costs breath. Walking into one is a
+  stagger: -10 stamina and you stop. It is a fall back to the cairn only
+  if that was the last of your stamina. Only the player's own step counts
+  as moving: the wind's nudge or a slide on ice never does (that used to
+  knock players standing still on the descent's icy rim back to the
+  cairn). The Barranco Wall's shoulder is easier: its open stretch is 6
   tiles instead of 10, with longer calms between gusts.
 
-  **Gear makes a climb easier.** Each climb hides three pieces, each
-  before what it helps with:
+  **Gear makes a climb easier.** Each climb up hides five pieces and the
+  way down three, each placed near what it helps with
+  (`tools/levels/gear.py`; each spec entry names its cell):
 
   | Gear | What it does |
   | --- | --- |
@@ -251,11 +257,26 @@ exactly (the parity test still holds); a trek layer on top
   | Goggles and a buff | a gust pushes and costs 60% less; sitting on windy ground gives some breath back |
   | Crampons | no sliding on ice, and ice costs half |
   | Headlamp | the cold and the dark no longer slow your walk |
+  | Helmet | a falling stone costs 12 stamina instead of knocking you off |
+  | Short rope | catches your next slip |
 
   Gear lasts the attempt (and a save and resume). Fall into a hole, or
   lose the climb, and you start again with none: it is back where you
   found it. The brief lists what is hidden; the HUD counts it; the results
   say what you carried.
+
+  **Fires at the cairns.** Every climb has a cairn more on its long walk
+  out (the Lava Tower's, the Barranco plateau). At any cairn you have
+  reached, FIRE offers a fire: full stamina, both rests back, your
+  teammate's breath back. It costs an hour on the expedition's clock (the
+  permit, and the leader points for speed). Once per cairn.
+
+  **The top of Kilimanjaro.** The summit night ends at Uhuru Peak at
+  sunrise (`SummitTop`, `SummitDawn`): along the rim the sky turns from
+  night to violet, rose and gold, the stars go out and the sun lifts out of
+  the cloud sea. At the top: the Uhuru sign, a string of climbers' flags,
+  everlastings in bloom, petals on the wind and a moment to look before the
+  results. All drawn in code, no new textures.
 
   **Camp gives energy back** (`Trek.camp_recovery`): a night's sleep gives
   about 10 low down, 6 at 4,600 m, less hungry or ill, almost double on a
@@ -351,10 +372,10 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
 
 **Always something to do, always something earned.**
 
-- **Everlastings** (the papery Kilimanjaro flower) are spread along the
-  walkable ground, never two within 9 tiles (10 on the summit night), so
-  they do not bunch up: each is 5 stamina back, they glint so the eye finds the next one, and the
-  count shows at the top of the screen.
+- **Everlastings** (the papery Kilimanjaro flower) are rare finds: 2 or 3
+  a climb, never two within 70 tiles (8 in all, about a tenth of what
+  there were). Each is 15 stamina back; they glint, and the count shows at
+  the top of the screen. Gear and cairns fill the way instead.
 - **Fall and you drop them.** A slip that counts scatters every everlasting
   you are carrying back onto the ground where you found it: the count goes
   to 0 and you pick them up again on the next go. (Gear goes only with a

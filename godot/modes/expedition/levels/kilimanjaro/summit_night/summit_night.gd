@@ -9,6 +9,8 @@ extends ClimbLevel
 func _init() -> void:
 	spec = {
 		"id": "summit-night",
+		# The top: the Uhuru sign, flowers, and a sunrise (SummitTop, SummitDawn).
+		"summit": true,
 		"map": "res://modes/expedition/levels/kilimanjaro/summit_night/summit_night.txt",
 		"hud": "Summit night",
 		"difficulty": {"recovery": 0.8, "drain": 1.1, "wind": 30.0, "maxSlips": 2, "helpCost": 22.0, "rockPeriod": 4.8},
@@ -67,9 +69,9 @@ func _init() -> void:
 			"decideHelped": "Jun is moving again. Now what?",
 			"decideLeft": "Lena is with Jun. Now what?",
 			"decideBody": "The crater rim is above, open to the wind. Stella Point is beyond it.",
-			"doneComplete": "Stella Point, as the sky goes pale.",
+			"doneComplete": "Uhuru Peak at sunrise: the roof of Africa.",
 			"doneRetreat": "Back down to Barafu.",
 			"doneFail": "The mountain kept the summit tonight.",
-			"vista": "The sky goes pale over the cloud sea",
+			"vista": "The sun is coming up over the cloud sea",
 		},
 	}

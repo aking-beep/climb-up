@@ -110,6 +110,10 @@ var degrees := 10.0
 var _base_recovery := 1.0
 var _base_drain := 1.0
 var _tint: ColorRect
+## The sunrise at the top (summit night only).
+var dawn: SummitDawn
+## How far before the summit the sky starts to turn, in tiles.
+const DAWN_TILES := 95.0
 var _cold_said := false
 var _hot_said := false
 var _was_failing := false
@@ -256,6 +260,10 @@ func _ready() -> void:
 	camera.snap()
 
 	Scenery.build(self, terrain, camera, theme)
+	# The summit night ends in a sunrise over the cloud sea.
+	if spec.get("summit", false):
+		dawn = SummitDawn.new()
+		add_child(dawn)
 	# The light of the hour, over the whole scene (multiplied in: white is
 	# none, warm is afternoon sun, orange is sunset, blue is night).
 	var tl := CanvasLayer.new()
@@ -321,7 +329,14 @@ func _place_props() -> void:
 				"R":
 					props.add_child(_sprite("rest_stone", feet))
 				"X":
-					props.add_child(_sprite("exit_post", feet))
+					if spec.get("summit", false):
+						# The top of Kilimanjaro: the Uhuru sign, flags, flowers.
+						var top := SummitTop.new()
+						top.name = "SummitTop"
+						top.position = feet + Vector2(-44, 0)
+						props.add_child(top)
+					else:
+						props.add_child(_sprite("exit_post", feet))
 	# Tussock and pebbles on open ledge tops, scattered deterministically.
 	var green: bool = spec["theme"].get("grass", true)
 	for y in terrain.height:
@@ -596,6 +611,15 @@ func _weather() -> void:
 	stamina.drain = clampf(_base_drain * Climate.heat(degrees), 0.5, 2.0)
 	if _tint:
 		_tint.color = climate.tint(p)
+	if dawn:
+		var top: Vector2 = Terrain.feet(terrain.markers["X"][0]) if terrain.markers.has("X") else climber.global_position
+		var near := 1.0 - climber.global_position.distance_to(top) / (DAWN_TILES * Terrain.TILE)
+		var want := smoothstep(0.0, 1.0, clampf(near, 0.0, 1.0))
+		# The sun only rises: it never sets again if you step back.
+		dawn.amount = maxf(dawn.amount, want)
+		# Warm light over the world as the sun comes up.
+		if _tint:
+			_tint.color = _tint.color.lerp(Color(1.0, 0.9, 0.82), dawn.amount * 0.8)
 	if roundf(degrees) < 0.0 and not _cold_said:
 		_cold_said = true
 		hud.flash("Below freezing (%d°C): you move slower and rest works less, except on a rest stone (shelter)." % int(round(degrees)), 3.2)
@@ -1089,6 +1113,43 @@ func lose_gear() -> bool:
 	return had
 
 
+## The top of Kilimanjaro: the sun all the way up, petals on the wind, the
+## team cheering, and the view.
+func _summit_moment() -> void:
+	if dawn:
+		var tw := create_tween()
+		tw.tween_property(dawn, "amount", 1.0, 1.5)
+	var petals := CPUParticles2D.new()
+	petals.name = "Petals"
+	petals.position = climber.global_position - Vector2(0, 24)
+	petals.amount = 90
+	petals.lifetime = 4.0
+	petals.one_shot = true
+	petals.explosiveness = 0.7
+	petals.direction = Vector2(0.2, -1)
+	petals.spread = 70.0
+	petals.initial_velocity_min = 40.0
+	petals.initial_velocity_max = 110.0
+	petals.gravity = Vector2(14, 38)
+	petals.angular_velocity_min = -180.0
+	petals.angular_velocity_max = 180.0
+	petals.scale_amount_min = 1.5
+	petals.scale_amount_max = 3.0
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1.0, 0.82, 0.9))
+	ramp.set_color(1, Color(1.0, 0.95, 0.7, 0.0))
+	ramp.add_point(0.5, Color(1, 1, 1))
+	petals.color_ramp = ramp
+	petals.color_initial_ramp = ramp
+	add_child(petals)
+	petals.emitting = true
+	if mate and mate_state == "helped":
+		mate.global_position = climber.global_position + Vector2(-20, 0)
+	Audio.play("cairn", -2.0)
+	Haptics.tap(80)
+	hud.flash("Uhuru Peak, 5,895 m. The sun comes up over the whole of Africa, and you are standing on its roof.", 4.5)
+
+
 ## A fire at the cairn you are at: full stamina, the rests back, the
 ## teammate's breath back, an hour off the expedition.
 func make_fire() -> void:
@@ -1230,6 +1291,9 @@ func finish(kind: String) -> void:
 	stars = o.stars
 	var best := Expedition.record_best(spec["id"], o.stars, o.flowers)
 	var head: String = {"complete": copy["doneComplete"], "retreat": copy["doneRetreat"], "fail": copy["doneFail"]}[kind]
+	var summit: bool = kind == "complete" and spec.get("summit", false)
+	if summit:
+		_summit_moment()
 	var lines: Array = []
 	if kind == "complete":
 		lines.append("%d of 3 stars%s" % [o.stars, "  ·  a new best" if best else ""])
@@ -1253,8 +1317,10 @@ func finish(kind: String) -> void:
 	var why := slip_summary()
 	if why != "":
 		lines.append(why)
-	hud.flash(head)
-	await get_tree().create_timer(1.2 if is_inside_tree() else 0.0).timeout
+	if not summit:
+		hud.flash(head)
+	# On the summit, time to look around before the results.
+	await get_tree().create_timer((4.5 if summit else 1.2) if is_inside_tree() else 0.0).timeout
 	panel.show_panel("Climb over", head, "\n".join(lines), [["camp", "Back to camp"]])
 	# Lands by itself if nobody taps.
 	await get_tree().create_timer(45.0 if is_inside_tree() else 0.0).timeout
