@@ -459,6 +459,12 @@ const STAT_WORDS := {"energy": "Energy", "supplies": "Supplies", "health": "Heal
 	"acclimatization": "Used to height", "weatherRisk": "Weather risk", "objectiveRisk": "Falling rock"}
 
 
+## The risk bands: below RISK_MEDIUM a choice is low risk, from RISK_HIGH
+## it is high.
+const RISK_MEDIUM := 20.0
+const RISK_HIGH := 45.0
+
+
 ## What a choice will cost before you pick it: the hours, the stats it moves
 ## (route included), and how risky it looks as a band, not a number, with
 ## the reasons. What actually happens still rolls on the day.
@@ -486,6 +492,40 @@ static func foresee(session: Dictionary, choice: Dictionary, def: Dictionary) ->
 	var why: Array = []
 	var score := 0.0
 	var energy_after: float = float(s["energy"]) + float(deltas.get("energy", 0))
+	# What the choice itself does. The card's own verdict first: a call the
+	# expedition scores as poor judgment or poor risk management is a risk.
+	var verdict := 0.0
+	for bucket in ["judgment", "riskManagement"]:
+		for note in ExpeditionEngine.notes_of(e.get("scores", {}).get(bucket)):
+			verdict += float(note.get("delta", 0))
+	if verdict < 0.0:
+		score += -verdict * 2.5
+		why.append("it is a gamble with the team's margin")
+	# What it takes out of the people.
+	var hurt := -float(mini(0, int(deltas.get("health", 0))))
+	var spent := -float(mini(0, int(e.get("energy", 0))))
+	var morale := -float(mini(0, int(deltas.get("teamCondition", 0))))
+	score += hurt * 2.5 + maxf(0.0, spent - 4.0) * 1.5 + morale * 1.0
+	if hurt > 0.0:
+		why.append("someone could get hurt")
+	if spent >= 10.0:
+		why.append("it costs a lot of energy")
+	if int(deltas.get("weatherRisk", 0)) > 0:
+		score += float(deltas["weatherRisk"])
+		why.append("the weather gets worse")
+	# A played climb waits behind it: the tower is a scramble, the wall a
+	# real climb, the summit night the hardest thing on the mountain.
+	var climb := ""
+	if up and not s["retreating"]:
+		for id in Coordinator.CLIMBS:
+			if Coordinator.CLIMBS[id]["gate"] == s["checkpoint"]:
+				climb = id
+	if climb != "":
+		score += {"lava-tower": 10.0, "barranco-wall": 22.0, "summit-night": 40.0}.get(climb, 15.0)
+		why.append("%s is a climb you play, and slips cost the party" % Coordinator.CLIMBS[climb]["title"])
+	elif move == "summit":
+		score += 20.0
+		why.append("it is the summit push")
 	if up:
 		var meters := float(s["altitude"])
 		var stops: Array = def["route"]
@@ -503,7 +543,10 @@ static func foresee(session: Dictionary, choice: Dictionary, def: Dictionary) ->
 		if float(s["weatherRisk"]) >= 40:
 			score += 10.0
 			why.append("bad weather coming")
-	if energy_after < 40:
+	# The party's state makes anything that asks more of it riskier; it
+	# never makes resting riskier.
+	var demanding := up or spent > 0.0
+	if demanding and energy_after < 40:
 		score += (40.0 - energy_after) * 0.8
 		why.append("everyone is tired")
 	if up:
@@ -517,7 +560,7 @@ static func foresee(session: Dictionary, choice: Dictionary, def: Dictionary) ->
 	if hours >= hours_left(session) and not (move == "down" or move == "retreat"):
 		why.append("you'd run out of days")
 		score += 30.0
-	var band := "low" if score < 25.0 else ("medium" if score < 50.0 else "high")
+	var band := "low" if score < RISK_MEDIUM else ("medium" if score < RISK_HIGH else "high")
 	if move == "down" or move == "retreat":
 		band = "low"
 		why = ["going down helps sick people get better"]

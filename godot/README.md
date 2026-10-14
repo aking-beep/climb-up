@@ -183,6 +183,34 @@ exactly (the parity test still holds); a trek layer on top
   test bots eat nothing on the tower or the wall and one snack on the
   summit night.
 
+  **The summit rim is fairer.** It used to be 52 tiles of wind in one
+  stretch, so a gust near the end sent you all the way back. Now two open
+  saddles of 12 tiles take the wind, with a lee between them holding a
+  cairn and a rest stone (`rim_lee` in `tools/levels/kili_maps.py`, run
+  after the gauntlet so nothing below moves). A gust costs half the rim at
+  most.
+
+  **Risk on the camp cards is a spread** (`Trek.foresee`). The score now
+  counts what the choice itself does, not only the party's state:
+  - the card's own verdict: a choice scored as poor judgment or poor risk
+    management (×2.5);
+  - health lost (×2.5), energy spent beyond 4 (×1.5), team spirit lost,
+    and worse weather;
+  - a played climb behind it (tower +10, wall +22, summit night +40) or
+    the summit push (+20);
+  - going up: the height gap, the route, above 3,800 m, bad weather;
+  - a tired, exhausted or sick party, but only for choices that ask more
+    of it (resting is never riskier for being tired);
+  - running out of days.
+
+  Below 20 is LOW RISK ("little can go wrong"), 20 to 45 MEDIUM RISK ("it
+  can cost the team energy or health"), 45 and up HIGH RISK ("likely to
+  cost health, a teammate, or the climb"). Going down is always low. The
+  card says what the band means and why. A careful party sees about 30
+  low, 8 medium and 13 high choices over a trip; walks in the dark are
+  medium or high, sleeping and rest days low, the summit night high
+  (test_expedition_rules).
+
   **No brace button: REST in the wind.** On exposed ground a gust cannot
   take someone sitting down. The warning says "don't move, REST"; moving in
   a gust is still a slip, and standing in one nudges you and costs breath.

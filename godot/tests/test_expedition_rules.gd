@@ -316,3 +316,77 @@ func test_food_eaten_on_the_climb_comes_out_of_camp_supplies() -> void:
 		landed.append(int(Expedition.state()["supplies"]))
 	eq(landed[0] - landed[1], 6, "six supplies eaten on the climb are gone from camp")
 	check(Expedition.descent_effect({"result": "complete", "food": 3}).get("supplies", 0) == -3, "the way down eats from camp too")
+
+
+## The rim is long, but the wind is not: no open stretch longer than twelve
+## tiles, and a cairn in the lee between the saddles, so a gust never sends
+## you back the whole rim.
+func test_the_summit_rim_has_short_windy_saddles_and_a_cairn_between() -> void:
+	var t := Terrain.load_file("res://modes/expedition/levels/kilimanjaro/summit_night/summit_night.txt")
+	var longest := 0
+	var runs: Array = []
+	for y in t.height:
+		var run := 0
+		for x in t.width + 1:
+			if x < t.width and t.kind(Vector2i(x, y)) == Terrain.Kind.EXPOSED:
+				run += 1
+			else:
+				if run > 0:
+					runs.append([x - run, x - 1, y])
+				longest = maxi(longest, run)
+				run = 0
+	check(longest <= 12, "no windy stretch longer than 12 tiles (longest %d)" % longest)
+	# Two saddles (a boulder to hop splits the second in two).
+	check(runs.size() >= 2 and runs.size() <= 3, "windy saddles on the rim only (%d runs)" % runs.size())
+	if runs.size() >= 2:
+		var between := false
+		for k in t.markers.get("K", []):
+			if k.y == runs[0][2] and k.x > runs[0][1] and k.x < runs[runs.size() - 1][0]:
+				between = true
+		check(between, "a cairn between the saddles")
+
+
+## Risk on the camp cards is a spread, not everything low: sleeping and
+## resting are low, a walk in the dark is not, and the summit night is high.
+func test_the_cards_show_low_medium_and_high_risk() -> void:
+	SaveGame.erase()
+	Expedition.navigate = false
+	Expedition.new_expedition(7)
+	var seen := {}
+	var bands := {"low": 0, "medium": 0, "high": 0}
+	for n in 200:
+		if not Expedition.active():
+			break
+		var p: Variant = Expedition.pending()
+		if p != null:
+			Expedition.finish_climb(TestSessions.complete(p))
+			continue
+		var tk := Trek.ensure(Expedition.session)
+		var dd: Dictionary = tk.get("descent", {})
+		if not dd.is_empty() and not dd.get("played", false):
+			Expedition.finish_descent({"attemptId": dd["attemptId"], "challengeId": "descent", "result": "complete", "staminaLeft": 60, "slips": 0, "assisted": null, "regrouped": false, "seconds": 300})
+			continue
+		var card := Expedition.card()
+		var pick := 0
+		for i in card["choices"].size():
+			var ch: Dictionary = card["choices"][i]
+			var f := Trek.foresee(Expedition.session, ch, Expedition.def)
+			if not f.is_empty():
+				bands[f["risk"]] += 1
+				seen[String(ch["label"])] = f["risk"]
+			if TestSessions.CAREFUL.has(ch["label"]):
+				pick = i
+		Expedition.choose(pick)
+	print("      careful party's cards: ", bands)
+	for b in bands:
+		check(bands[b] > 0, "some %s-risk choices" % b)
+	check(bands["low"] < bands["low"] + bands["medium"] + bands["high"], "not everything is low risk")
+	for label in ["Sleep under the trees", "Sleep before the tower", "Rest the day", "Take the extra day"]:
+		if seen.has(label):
+			eq(seen[label], "low", "%s is low risk" % label)
+	for label in ["Walk the mud in the dark", "Start for the tower in the dark", "Push the forest to gain a day"]:
+		if seen.has(label):
+			check(seen[label] != "low", "%s is not low risk (%s)" % [label, seen[label]])
+	for label in ["Keep the pace through the dark", "Start for the summit tonight", "Stay on the summit"]:
+		if seen.has(label):
+			eq(seen[label], "high", "%s is high risk" % label)

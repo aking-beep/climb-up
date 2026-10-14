@@ -186,7 +186,8 @@ def summit_night():
     m.fill(0, 0, 131, RIM - 1, ".")
     m.fill(x0, RIM, x0 + 2, floors[-1] - 1, "L")
     m.fill(0, RIM - 3, x0 - 1, RIM - 1, "#")
-    # The rim runs east along the top and is exposed to the wind.
+    # The rim runs east along the top and is exposed to the wind (rim_lee
+    # later shelters most of it).
     for x in range(40, 92):
         m.put(x, RIM - 1, "E")
     # Stella Point: a last rock step at the east end of the rim.
@@ -369,6 +370,24 @@ def preview(m, path):
     img.resize((m.w * 6, m.h * 6), Image.NEAREST).save(path)
 
 
+def rim_lee(m, rim=32):
+    """The summit rim, made fairer after the gauntlet has laid the benches
+    (so nothing below moves). Two open saddles take the wind, twelve steps
+    each; between and around them the crater edge stands up as a lee, with a
+    cairn and a rest stone mid-rim, so a gust sends you back half the rim
+    at most, not all of it."""
+    y = rim - 1
+    for x in range(40, 92):
+        if m.g[y][x] == "E":
+            m.g[y][x] = "."
+    for lo, hi in ((44, 56), (70, 82)):
+        for x in range(lo, hi):
+            if m.g[y][x] == ".":
+                m.g[y][x] = "E"
+    m.put(64, y, "K")     # cairn in the lee, mid-rim
+    m.put(66, y, "R")     # and a rest stone beside it
+
+
 def main():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from flowers import sprinkle
@@ -394,6 +413,8 @@ def main():
         if name == "lava_tower":
             print(name, "wildlife:", wildlife(m.g, every=4, kinds=("ants", "plant")))
         print(name, "wildlife spread:", spread(m.g, name))
+        if name == "summit_night":
+            rim_lee(m)
         print(name, "everlastings:", sprinkle(m.g, spacing=9 if name == "summit_night" else 5, gap=10 if name == "summit_night" else 9))
         out = LEVELS / name / f"{name}.txt"
         out.parent.mkdir(parents=True, exist_ok=True)

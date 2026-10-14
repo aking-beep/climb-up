@@ -52,7 +52,7 @@ func _init() -> void:
 		"signs": [
 			["Barafu · 4,670 m", "Midnight. The crater rim is above you, a line of headlamps on the dark."],
 			["The switchbacks", "Scree and short rock steps. The cold slows how fast your arms come back: sit at the cairns."],
-			["The crater rim", "Open to the wind. When it rises, don't move: stop and REST until it passes. Walk between gusts."],
+			["The crater rim", "Two open saddles take the wind; the rock between them is a lee, with a cairn and a rest stone. In a saddle, when the wind rises, don't move: stop and REST until it passes."],
 			["Stella Point · 5,756 m", "First light. Uhuru is along the rim. The way home starts here."],
 		],
 		"copy": {
