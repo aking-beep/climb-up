@@ -42,6 +42,17 @@ var gear_this_attempt := 0
 ## Gear in hand on this attempt, by kind (GEAR). Lose the climb, or fall in
 ## a hole, and it is all gone: back where it was found.
 var gear_kinds: Array = []
+## REST refills you at most REST_LIMIT times between two cairns (a rest
+## stone, and sitting out the wind, never count). Out of rests, a sit eats a
+## snack from the camp's food instead: SNACK supplies, gone for the rest of
+## the expedition. With no food to spare, a sit gives nothing back.
+const REST_LIMIT := 2
+const SNACK := 3
+var rests_left := REST_LIMIT
+var snacks := 0
+## A rest lasts until you are full: get up to dodge a stone and sit again,
+## and it is the same rest.
+var _rest_open := false
 ## What each piece of gear does. The climb's spec places them (its "gear"
 ## list, [name, text, kind], bottom to top on the map), each before the
 ## thing it helps with.
@@ -186,6 +197,7 @@ func _ready() -> void:
 	climber.slip_finished.connect(_on_slip_finished)
 	# On Kilimanjaro, empty arms hang on for a moment: time to climb down.
 	climber.arms_grace = ARMS_GRACE
+	climber.rest_gate = _rest_gate
 	climber.grabbed.connect(func() -> void:
 		Haptics.tap(12)
 		engage("grab")
@@ -381,6 +393,8 @@ func _resume_from_save() -> void:
 	if mate:
 		mate_state = String(saved.get("mate", "waiting"))
 	regrouped = saved.get("regrouped") == true
+	rests_left = clampi(int(saved.get("rests", REST_LIMIT)), 0, REST_LIMIT)
+	snacks = maxi(0, int(saved.get("snacks", 0)))
 	climber.global_position = cairns[checkpoint]
 	climber.reset_physics_interpolation()
 	if mate and mate_state == "helped":
@@ -436,6 +450,7 @@ func brief() -> void:
 	var dangers: Array = spec.get("dangers", [])
 	if not dangers.is_empty():
 		facts.append("Watch for: " + ", ".join(dangers) + ".")
+	rows.append({"tone": "info", "icon": "clock", "title": "%d rests a cairn" % REST_LIMIT, "text": "REST fills you up %d times between two cairns (a rest lasts until you are full; rest stones and sitting out the wind don't count). After that, each rest eats camp food: supplies -%d, gone for the rest of the trip (you have %d)." % [REST_LIMIT, SNACK, food_left()]})
 	rows.append({"tone": "info", "icon": "bolt", "title": "Costs", "text": "Hops, ice, uphill and rock all cost stamina: more in the heat, the cold and thin air. In a gust, don't move: REST until it passes."})
 	if hazards.gear_total() > 0:
 		var names: Array = []
@@ -496,6 +511,9 @@ func _physics_process(_delta: float) -> void:
 	if climber.on_ice and not _was_on_ice:
 		engage("ice")
 	_was_on_ice = climber.on_ice
+	# A rest is spent once it has filled you up.
+	if _rest_open and stamina.value >= stamina.max_value - 0.5:
+		_rest_open = false
 	# Sitting out a gust on an exposed ledge.
 	var sheltering := climber.state == Climber.State.REST and climber.exposed and climber.gust == WindSchedule.Phase.BLOW
 	if sheltering and not _was_bracing:
@@ -622,7 +640,10 @@ func _arrive() -> void:
 			checkpoint = i
 			engage("cairn")
 			Audio.play("cairn", -8.0)
-			hud.flash("Cairn %d of %d" % [checkpoint, cairns.size() - 1])
+			var fresh := rests_left < REST_LIMIT
+			rests_left = REST_LIMIT
+			_rest_open = false
+			hud.flash("Cairn %d of %d%s" % [checkpoint, cairns.size() - 1, " · rests back to %d" % REST_LIMIT if fresh else ""])
 			# The teammate you helped climbs with you, and says so.
 			var said: Array = spec.get("mate", {}).get("climbLines", [])
 			if mate_state == "helped" and not said.is_empty():
@@ -661,6 +682,8 @@ func _remember() -> void:
 		"regrouped": regrouped,
 		"spotter": climber.spotter,
 		"seconds": climber.clock,
+		"rests": rests_left,
+		"snacks": snacks,
 	})
 
 
@@ -900,6 +923,9 @@ func _on_slip_finished() -> void:
 		_hole = false
 		checkpoint = 0
 	climber.respawn(cairns[checkpoint])
+	# Back at a cairn: a fresh stretch, with its rests.
+	rests_left = REST_LIMIT
+	_rest_open = false
 	if mate and mate_state == "helped":
 		mate.catch_up(cairns[checkpoint])
 	camera.snap()
@@ -1031,6 +1057,35 @@ func lose_gear() -> bool:
 	return had
 
 
+## Camp food left to eat on the climb (the expedition's supplies, less the
+## snacks already eaten here).
+func food_left() -> int:
+	return int(Expedition.state().get("supplies", 0)) - snacks * SNACK
+
+
+## A sit that would refill you: one of this stretch's rests, else a snack
+## from camp, else nothing.
+func _rest_gate() -> bool:
+	if _rest_open:
+		return true
+	if rests_left > 0:
+		rests_left -= 1
+		_rest_open = true
+		if rests_left == 0:
+			hud.flash("Your last rest before the next cairn. After this, resting eats camp food.", 2.6)
+		_remember()
+		return true
+	if food_left() >= SNACK:
+		snacks += 1
+		_rest_open = true
+		Haptics.tap(10)
+		hud.flash("No rests left: you eat from the camp food (supplies -%d). Get to the next cairn for fresh rests." % SNACK, 3.0)
+		_remember()
+		return true
+	hud.flash("No rests left and no food to spare: nothing comes back. Make for the next cairn.", 3.0)
+	return false
+
+
 func forget_taken(keys: Array) -> void:
 	var taken: Array = Expedition.climb.get("taken", [])
 	Expedition.remember({"taken": taken.filter(func(k: Variant) -> bool: return not keys.has(k))})
@@ -1059,6 +1114,7 @@ func outcome_now(kind: String) -> ChallengeOutcome:
 	o.rest_seconds = climber.rest_seconds
 	o.checkpoint = checkpoint
 	o.gear_found = gear_this_attempt
+	o.food = snacks * SNACK
 	o.flowers = hazards.flowers
 	o.flowers_total = hazards.flowers_total
 	o.stars = star_count(kind, o)
@@ -1129,6 +1185,8 @@ func finish(kind: String) -> void:
 			lines.append("Three stars: the party's spirits lift at camp.")
 	else:
 		lines.append("Everlastings %d of %d · cairn %d of %d" % [o.flowers, o.flowers_total, checkpoint, cairns.size() - 1])
+	if snacks > 0:
+		lines.append("Camp food eaten on the climb: %d snack%s (supplies -%d)" % [snacks, "" if snacks == 1 else "s", snacks * SNACK])
 	if hazards.gear_total() > 0:
 		lines.append("Gear: %d of %d%s" % [gear_kinds.size(), hazards.gear_total(), (" (" + ", ".join(gear_kinds.map(func(k: String) -> String: return String(GEAR[k]["label"]).to_lower())) + ")") if not gear_kinds.is_empty() else ""])
 	if o.hurt > 0:

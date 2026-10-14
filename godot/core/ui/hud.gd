@@ -157,6 +157,9 @@ func update_from(level: Node) -> void:
 	var hz: Hazards = level.get("hazards")
 	if hz and hz.gear_total() > 0:
 		gear = " · Gear %d/%d" % [hz.gear_count, hz.gear_total()]
+	if level.get("rests_left") != null:
+		# Rests left before the next cairn; then the camp's food.
+		gear = (" · Rests %d" % level.rests_left if level.rests_left > 0 else " · Rests 0 (food %d)" % maxi(0, level.food_left())) + gear
 	if level.has_method("route_progress"):
 		_route.value = level.route_progress()
 		var flowers := ""
@@ -214,6 +217,10 @@ func _hint_for(level: Node) -> String:
 	if c.state == Climber.State.SLIP:
 		return ""
 	if c.state == Climber.State.REST:
+		if c.last_activity == "sit" and c.exposed:
+			return "Sitting out the wind: safe, but no breath back here."
+		if c.last_activity == "sit" and c.stamina.value < c.stamina.max_value:
+			return "No rests or food left: nothing comes back. Get to the next cairn."
 		return "Resting. Move to get up."
 	if c.arms_failing:
 		return "Arms empty! Climb DOWN now, before they let go."

@@ -200,3 +200,119 @@ func test_goggles_soften_a_gust() -> void:
 	# Resting in a gust with them gives full breath back.
 	check(c.wind_shell, "shell on")
 	await _done()
+
+
+## Puts the climber on plain ground at the start, half empty.
+func _half() -> void:
+	c.global_position = level.cairns[0]
+	await physics_frames(3)
+	c.stamina.value = c.stamina.max_value * 0.5
+
+
+## Sits until full (or `seconds`), then stands up.
+func _sit(seconds: float = 6.0) -> void:
+	await _hold([], 2)
+	await _hold(["rest"], 2)
+	var frames := int(seconds * 60.0)
+	for i in frames:
+		GameInput.scripted = {"_": false}
+		await tree.physics_frame
+		if c.stamina.value >= c.stamina.max_value:
+			break
+	await _hold([], 2)
+	await _hold(["rest"], 2)
+	await _hold([], 2)
+
+
+func test_two_rests_a_cairn_then_camp_food_then_nothing() -> void:
+	Expedition.new_expedition(7)
+	Expedition.climb = {"challengeId": "barranco-wall", "attemptId": "rest-test"}
+	await _load(BARRANCO, false)
+	eq(level.rests_left, ClimbLevel.REST_LIMIT, "two rests to start")
+	# Rest 1, interrupted: getting up and sitting again is the same rest.
+	await _half()
+	await _hold(["rest"], 2)
+	await physics_frames(20)
+	await _hold([], 2)
+	await _hold(["rest"], 2)
+	eq(c.state, Climber.State.GROUND, "got up")
+	await _hold([], 2)
+	await _sit()
+	eq(level.rests_left, 1, "one rest used, even sitting twice")
+	check(c.stamina.value >= c.stamina.max_value - 0.5, "rested to full")
+	# Rest 2.
+	await _half()
+	await _sit()
+	eq(level.rests_left, 0, "both rests used")
+	# Out of rests: a snack from camp.
+	var food: int = level.food_left()
+	await _half()
+	await _sit()
+	eq(level.snacks, 1, "a snack eaten")
+	eq(level.food_left(), food - ClimbLevel.SNACK, "camp food goes down")
+	check(c.stamina.value >= c.stamina.max_value - 0.5, "the snack refills you")
+	# No food to spare: sitting gives nothing back.
+	Expedition.state()["supplies"] = level.snacks * ClimbLevel.SNACK + 1
+	await _half()
+	var before := c.stamina.value
+	await _hold([], 2)
+	await _hold(["rest"], 2)
+	await physics_frames(120)
+	eq(c.state, Climber.State.REST, "sitting")
+	check(c.stamina.value <= before + 0.01, "no rests, no food: nothing comes back")
+	await _hold([], 2)
+	await _hold(["rest"], 2)
+	# The next cairn gives the rests back.
+	c.global_position = level.cairns[1]
+	await physics_frames(6)
+	eq(level.checkpoint, 1, "at cairn 1")
+	eq(level.rests_left, ClimbLevel.REST_LIMIT, "fresh rests at the cairn")
+	# What was eaten lands on the outcome.
+	eq(level.outcome_now("complete").food, ClimbLevel.SNACK, "the outcome carries the food eaten")
+	await _done()
+
+
+func test_a_rest_stone_and_the_wind_never_use_a_rest() -> void:
+	Expedition.new_expedition(7)
+	Expedition.climb = {"challengeId": "barranco-wall", "attemptId": "rest-test-2"}
+	await _load(BARRANCO, false)
+	var stone := Vector2i(-1, -1)
+	for y in level.terrain.height:
+		for x in level.terrain.width:
+			if stone.x < 0 and level.terrain.kind(Vector2i(x, y)) == Terrain.Kind.REST:
+				stone = Vector2i(x, y)
+	check(stone.x >= 0, "the wall has a rest stone")
+	c.global_position = Terrain.feet(stone)
+	await physics_frames(3)
+	c.stamina.value = c.stamina.max_value * 0.5
+	await _sit()
+	check(c.stamina.value >= c.stamina.max_value - 0.5, "the rest stone refilled")
+	eq(level.rests_left, ClimbLevel.REST_LIMIT, "a rest stone is free")
+	c.global_position = Terrain.feet(Vector2i(60, 41))
+	await physics_frames(3)
+	c.stamina.value = c.stamina.max_value * 0.5
+	var before := c.stamina.value
+	await _hold([], 2)
+	await _hold(["rest"], 2)
+	await physics_frames(60)
+	check(c.exposed and c.state == Climber.State.REST, "hunkered down on the windy ledge")
+	eq(level.rests_left, ClimbLevel.REST_LIMIT, "sitting out the wind is free")
+	check(c.stamina.value <= before + 0.01, "and gives no breath back without goggles")
+	await _done()
+
+
+func test_food_eaten_on_the_climb_comes_out_of_camp_supplies() -> void:
+	var base := TestSessions.at("barranco-wall")
+	check(not base.is_empty(), "at the wall")
+	var landed := []
+	for food in [0, 6]:
+		Expedition.session = base.duplicate(true)
+		Expedition.navigate = false
+		var p: Dictionary = Expedition.pending()
+		Expedition.climb = {"attemptId": p["attemptId"], "challengeId": p["challengeId"], "checkpoint": 0}
+		var o := TestSessions.complete(p)
+		o["food"] = food
+		eq(Expedition.finish_climb(o), "applied", "landed")
+		landed.append(int(Expedition.state()["supplies"]))
+	eq(landed[0] - landed[1], 6, "six supplies eaten on the climb are gone from camp")
+	check(Expedition.descent_effect({"result": "complete", "food": 3}).get("supplies", 0) == -3, "the way down eats from camp too")

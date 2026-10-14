@@ -17,7 +17,7 @@ func _init() -> void:
 		"meters": 4600,
 		"dangers": ["a scree bridge that gives way if you stop", "stones down the chimney"],
 		"gear": [
-			["goggles and a buff", "Dropped at the lip, where the wind takes things. Gusts push you less, and resting in one gives full breath.", "shell"],
+			["goggles and a buff", "Dropped at the lip, where the wind takes things. Gusts push you less, and sitting on windy ground gives some breath back.", "shell"],
 			["a pair of gloves", "Wedged in the chimney's niche, out of the stonefall. Rock costs less with them on.", "gloves"],
 			["trekking poles", "Leaning on the top of the last face. Walking costs less with them.", "poles"],
 		],

@@ -393,8 +393,8 @@ def main():
         print(name, "challenges:", gauntlet(m.g, kinds=kinds))
         if name == "lava_tower":
             print(name, "wildlife:", wildlife(m.g, every=4, kinds=("ants", "plant")))
-        print(name, "everlastings:", sprinkle(m.g, spacing=9 if name == "summit_night" else 5))
         print(name, "wildlife spread:", spread(m.g, name))
+        print(name, "everlastings:", sprinkle(m.g, spacing=9 if name == "summit_night" else 5, gap=10 if name == "summit_night" else 9))
         out = LEVELS / name / f"{name}.txt"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(m.text())

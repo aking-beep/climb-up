@@ -169,10 +169,24 @@ exactly (the parity test still holds); a trek layer on top
   sickness). Every obstacle costs: walking, more uphill, a hop, ice,
   climbing rock, standing in a gust (test_expedition_rules).
 
+  **Two rests a cairn, then camp food.** REST fills you up at most twice
+  between two cairns (`ClimbLevel.REST_LIMIT`). A rest lasts until you are
+  full, so getting up to dodge a stone and sitting again is the same rest.
+  Reaching the next cairn, or being sent back to one, gives both back. Out
+  of rests, a sit eats a snack from the camp's food: 3 supplies
+  (`ClimbLevel.SNACK`), taken off the expedition's supplies when the climb
+  lands, and gone for the rest of the trip. With no food to spare, sitting
+  gives nothing back. A rest stone never counts, and neither does sitting
+  out the wind on exposed ground, which keeps you safe but gives no breath
+  back (a little with the goggles and buff). The HUD shows "Rests 2", then
+  "Rests 0 (food N)"; the brief and the results say what was eaten. The
+  test bots eat nothing on the tower or the wall and one snack on the
+  summit night.
+
   **No brace button: REST in the wind.** On exposed ground a gust cannot
   take someone sitting down. The warning says "don't move, REST"; moving in
   a gust is still a slip, and standing in one nudges you and costs breath.
-  Resting in a gust gives back only 6 a second (full rest with the goggles
+  Sitting on windy ground gives nothing back (6 a second with the goggles
   and buff). The Barranco Wall's shoulder is easier: its open stretch is 6
   tiles instead of 10, with longer calms between gusts.
 
@@ -183,7 +197,7 @@ exactly (the parity test still holds); a trek layer on top
   | --- | --- |
   | Trekking poles | walking and uphill cost 30% less |
   | Gloves | rock costs 20% less |
-  | Goggles and a buff | a gust pushes and costs 60% less; full rest in a gust |
+  | Goggles and a buff | a gust pushes and costs 60% less; sitting on windy ground gives some breath back |
   | Crampons | no sliding on ice, and ice costs half |
   | Headlamp | the cold and the dark no longer slow your walk |
 
@@ -286,8 +300,9 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
 
 **Always something to do, always something earned.**
 
-- **Everlastings** (the papery Kilimanjaro flower) line the walkable ground:
-  each is a breath back, they glint so the eye finds the next one, and the
+- **Everlastings** (the papery Kilimanjaro flower) are spread along the
+  walkable ground, never two within 9 tiles (10 on the summit night), so
+  they do not bunch up: each is 5 stamina back, they glint so the eye finds the next one, and the
   count shows at the top of the screen.
 - **Fall and you drop them.** A slip that counts scatters every everlasting
   you are carrying back onto the ground where you found it: the count goes

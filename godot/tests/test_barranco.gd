@@ -96,7 +96,7 @@ func test_a_careful_climb_helping_marco_reaches_karanga() -> void:
 		eq(outcome.slips, 0, "slips")
 		check(outcome.seconds > 120, "even a bot that knows the route takes minutes, got %ds" % outcome.seconds)
 		check_pacing("Barranco Wall")
-		print("      ascent took %d s of game time, %d%% stamina left, wind strikes %d, %.0f s on loose rock, %.0f s resting, lowest %d%% of a %d bar" % [outcome.seconds, outcome.stamina_left, outcome.wind_strikes, outcome.loose_seconds, outcome.rest_seconds, int(level.lowest_stamina * 100), int(level.climber.stamina.max_value)])
+		print("      ascent took %d s of game time, %d%% stamina left, wind strikes %d, %.0f s on loose rock, %.0f s resting, lowest %d%% of a %d bar, food eaten %d" % [outcome.seconds, outcome.stamina_left, outcome.wind_strikes, outcome.loose_seconds, outcome.rest_seconds, int(level.lowest_stamina * 100), int(level.climber.stamina.max_value), level.snacks * ClimbLevel.SNACK])
 	await _done()
 
 
@@ -228,5 +228,5 @@ func test_a_tired_party_still_gets_up_the_wall() -> void:
 	check(outcome != null and outcome.result == "complete", "a tired party still reaches Karanga")
 	check(level.lowest_stamina >= 0.1, "without ever running dry (lowest %d%%)" % int(level.lowest_stamina * 100))
 	if outcome:
-		print("      tired party: %d s, %d slips, lowest %d%% of a %d bar" % [outcome.seconds, outcome.slips, int(level.lowest_stamina * 100), int(c.stamina.max_value)])
+		print("      tired party: %d s, %d slips, lowest %d%% of a %d bar, food eaten %d" % [outcome.seconds, outcome.slips, int(level.lowest_stamina * 100), int(c.stamina.max_value), level.snacks * ClimbLevel.SNACK])
 	await _done()

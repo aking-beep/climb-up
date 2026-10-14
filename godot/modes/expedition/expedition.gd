@@ -222,6 +222,13 @@ func finish_climb(outcome: Dictionary) -> String:
 			s["energy"] = maxi(0, int(s["energy"]) - cost)
 			s["lastNote"] = (String(s["lastNote"]) + " Stings and bites from the climb: energy %d." % -cost).strip_edges()
 			session["state"] = s
+		# Snacks eaten on the climb come out of the camp's food.
+		var food := int(outcome.get("food", 0))
+		if food > 0 and active():
+			var sf: Dictionary = state().duplicate(true)
+			sf["supplies"] = maxi(0, int(sf["supplies"]) - food)
+			sf["lastNote"] = (String(sf["lastNote"]) + " Food eaten on the climb: supplies -%d." % food).strip_edges()
+			session["state"] = sf
 		last = {"kind": "climb", "label": p["choiceLabel"], "before": before, "outcome": outcome}
 	climb = {}
 	save()
@@ -286,6 +293,9 @@ static func descent_effect(o: Dictionary) -> Dictionary:
 	elif a == false:
 		e["teamCondition"] = int(e.get("teamCondition", 0)) - 6
 		scores["teamwork"] = {"label": "You went down ahead of Jun and left him to Lena", "delta": -6, "mark": "descent-left"}
+	# Snacks eaten on the way down come out of the camp's food.
+	if int(o.get("food", 0)) > 0:
+		e["supplies"] = -int(o["food"])
 	if not scores.is_empty():
 		e["scores"] = scores
 	return e

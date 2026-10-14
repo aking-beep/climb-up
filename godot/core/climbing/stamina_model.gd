@@ -19,7 +19,8 @@ const RATES := {
 	"ice": 0.9,        # short careful steps on ice
 	"still": -10.0,
 	"rest": -22.0,     # sitting down (REST) on ordinary ground: the only way back on the mountain
-	"rest_gust": -6.0, # sitting tight on an exposed ledge while a gust blows
+	"rest_gust": -6.0, # hunkered down on windy ground with goggles and a buff
+	"sit": 0.0,        # sitting with no rest left, or on windy ground: safe, nothing back
 	"rest_stone": -30.0,
 	"helping": 0.0,
 	"crimp": 14.0,      # moving on small holds (the crag)

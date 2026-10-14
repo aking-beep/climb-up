@@ -20,7 +20,7 @@ func _init() -> void:
 		"gear": [
 			["crampons", "Left by a party coming down. On ice they bite: no sliding, and it costs less.", "crampons"],
 			["a headlamp", "In a niche off the switchbacks. You see your footing: the cold and the dark no longer slow your walk.", "headlamp"],
-			["goggles and a buff", "Below the crater rim, out of the wind. Gusts push you less, and resting in one gives full breath.", "shell"],
+			["goggles and a buff", "Below the crater rim, out of the wind. Gusts push you less, and sitting on windy ground gives some breath back.", "shell"],
 		],
 		"theme": {
 			"night": true,

@@ -228,12 +228,13 @@ def main():
     # The lush Barranco valley: nettles, ants and ravens among the rock.
     print("challenges:", gauntlet(g, kinds=("hop", "plant", "pit", "ants", "slabs", "raven", "hop", "plant", "ice", "ants")))
     print("wildlife:", wildlife(g, every=4, kinds=("ants", "plant")))
+    # Wildlife moved first, so the everlastings keep clear of it.
+    print("wildlife spread:", spread(g, "barranco"))
     print("everlastings:", sprinkle(g))
     # One on the long slope down from the plateau, so the walk down has
     # something to reach for too.
     if g[11][179] == ".":
         g[11][179] = "f"
-    print("wildlife spread:", spread(g, "barranco"))
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join("".join(row) for row in g) + "\n")
     print("wrote", OUT, f"{W}x{H}")

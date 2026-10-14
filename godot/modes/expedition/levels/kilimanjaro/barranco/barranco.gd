@@ -18,7 +18,7 @@ func _init() -> void:
 		"dangers": ["stones down the loose gully", "cracked slabs on the exposed ledge"],
 		"gear": [
 			["a pair of gloves", "Tucked under the first faces. Rock costs less with them on.", "gloves"],
-			["goggles and a buff", "Left below the shoulder, where the wind starts. Gusts push you less, and resting in one gives full breath.", "shell"],
+			["goggles and a buff", "Left below the shoulder, where the wind starts. Gusts push you less, and sitting on windy ground gives some breath back.", "shell"],
 			["trekking poles", "Hidden above the last face. The long walk down to camp costs less with them.", "poles"],
 		],
 		"theme": {

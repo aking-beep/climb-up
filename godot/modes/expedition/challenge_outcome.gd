@@ -28,6 +28,8 @@ var stars := 0
 ## Health lost on the climb (thorns, ants, ravens), and medicine taken for it.
 var hurt := 0
 var dosed := false
+## Camp supplies eaten on the climb (snacks once the rests ran out).
+var food := 0
 
 
 func to_expo() -> Dictionary:
@@ -56,6 +58,7 @@ func to_dict() -> Dictionary:
 	d["stars"] = stars
 	d["hurt"] = hurt
 	d["dosed"] = dosed
+	d["food"] = food
 	return d
 
 

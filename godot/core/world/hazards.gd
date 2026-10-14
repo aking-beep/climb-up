@@ -57,7 +57,7 @@ var gear_count := 0
 ## Everlastings: little flowers along the ground, a breath back each.
 var flowers := 0
 var flowers_total := 0
-const FLOWER_BREATH := 3.0
+const FLOWER_BREATH := 5.0
 var _flower_tex: Texture2D
 var _was_warned := false
 var _was_breaking := false

@@ -95,9 +95,15 @@ var helper_cost := 15.0
 var on_ice := false
 ## Gear found on this attempt (the level sets these). Crampons: ice holds
 ## like rock and costs less. Wind shell (goggles and a buff): a gust pushes
-## and costs less, and resting in one gives full breath back.
+## and costs less, and sitting on windy ground gives some breath back.
 var crampons := false
 var wind_shell := false
+## Asked once per sit, the first moment it would refill you: true when this
+## rest may (the expedition counts rests between cairns and then eats camp
+## food). Not set (the crag): every rest refills.
+var rest_gate: Callable
+var _sit_refills := true
+var _sit_asked := false
 const ICE_ACCEL := 150.0
 const ICE_DECEL := 70.0
 
@@ -290,6 +296,8 @@ func _ground(delta: float, input: Vector2) -> void:
 		return
 	if GameInput.pressed_now("rest"):
 		state = State.REST
+		_sit_asked = false
+		_sit_refills = true
 		velocity.x = 0.0
 		return
 	if GameInput.pressed_now("jump") and cramp <= 0.0 and _jump():
@@ -754,11 +762,18 @@ func _rest(delta: float, input: Vector2) -> void:
 		fall_from = global_position.y
 		return
 	rest_seconds += delta
-	last_activity = "rest_stone" if _rest_stone else "rest"
-	# Sitting tight in a gust: safe, but the wind takes some of the rest,
-	# unless you have the goggles and buff.
-	if exposed and gust == WindSchedule.Phase.BLOW and not _rest_stone and not wind_shell:
-		last_activity = "rest_gust"
+	if _rest_stone:
+		# A rest stone is shelter: always a full rest, and it never counts.
+		last_activity = "rest_stone"
+	elif exposed:
+		# Hunkered down on windy ground: safe from gusts and free, but the
+		# wind gives no breath back (a little with the goggles and buff).
+		last_activity = "rest_gust" if wind_shell else "sit"
+	else:
+		if not _sit_asked and stamina.value < stamina.max_value:
+			_sit_asked = true
+			_sit_refills = rest_gate.call() if rest_gate.is_valid() else true
+		last_activity = "rest" if _sit_refills else "sit"
 	stamina.tick(delta, last_activity)
 	_weather(delta, Vector2.ZERO)
 	if state == State.REST and (input.length() > 0.3 or GameInput.pressed_now("rest")):
