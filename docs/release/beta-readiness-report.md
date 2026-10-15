@@ -76,7 +76,7 @@ Classifications:
 | C3 | Every Crag route | PASS | `test_crag` › every route is led to the anchor: the lesson and all six graded routes (4 to 7a) sent by the bot with every bolt clipped. `test_records` and `test_online` send today's Daily route |
 | C4 | Full Kilimanjaro campaign | PASS (automated) / NOT TESTED (human) | New `test_campaign`: seeds 7, 8 and 9 go from the gate to the walk-out through the `Expedition` autoload. Every camp card is played; Lava Tower, Barranco Wall, summit night and the descent each open with their brief, and their outcomes land; the save reloads identically at every step; the run is recorded as a completion. Each climb is also played for real by bots (`test_climbs`, `test_barranco`, `test_descent`). No human has played it end to end on a phone |
 | C5 | Saves, retries, leaderboard sync, network failures | PASS | `test_flow` (resume from a cairn, identical replay), `test_rules` (bad save files refused), `test_arcade` (20 retries leave nothing behind, retry to playable in 110 ms), `test_records` and `test_online` (sync, duplicates, 401/5xx/no network) |
-| C6 | Device matrix | PASS (2 emulators) / **NOT TESTED** (physical) | `tools/android/emulator_smoke.sh` in CI on Android 10 (API 29) and Android 14 (API 34) emulators, x86_64, Pixel 6 screen, [run](https://github.com/aking-beep/climb-up/actions/runs/38795755668). Passed: install; launch, still running 25 s later; landscape in portrait and after turning the device; Home and resume; 1,500 random touches with no crash or hang; a second cold start; no game crash, ANR or Godot script error in logcat. No physical phone yet: Play's pre-launch report on the closed track covers real devices |
+| C6 | Device matrix (including on-device storage under 50 MB) | PASS (2 emulators) / **NOT TESTED** (physical) | `tools/android/emulator_smoke.sh` in CI on Android 10 (API 29) and Android 14 (API 34) emulators, x86_64, Pixel 6 screen, [run](https://github.com/aking-beep/climb-up/actions/runs/38795755668). Passed: install; launch, still running 25 s later; landscape in portrait and after turning the device; Home and resume; 1,500 random touches with no crash or hang; a second cold start; no game crash, ANR or Godot script error in logcat. No physical phone yet: Play's pre-launch report on the closed track covers real devices |
 | C7 | Frame rate, touch latency, thermal, crashes | Crashes: PASS (emulator) / frame rate, touch latency, thermal: **NOT TESTED** (physical) | Emulator: cold start 2.0 s to first frame (API 34); memory 161–164 MB PSS; no crash in 1,500 random touches on either Android version. Desktop CPU per frame: 0.5–1.1 ms. GPU frame rate, thermal and touch latency need real phones |
 
 ## D. Store compliance
@@ -169,6 +169,19 @@ audit are resolved or reduced to account steps:
    - how the icon looks on a real launcher.
 
    Play's pre-launch report and your own phones close this.
+
+**Found and fixed by the emulator test (was critical):** Godot's GLES3
+shader cache grew to **5.8 GB** on the device. The cause was a GPU driver
+that reports compiled shader sizes wrongly (the emulator's does). Android
+then killed the game for memory, after a while of play and then 1.6 s
+into every following start.
+- The shader cache is now off (`rendering/shader_compiler/shader_cache/enabled=false`).
+- A cache left by an older build is deleted at start (`Settings._drop_shader_cache`, tested).
+- The emulator test fails if the game's storage passes 50 MB. It now
+  measures 48 KB.
+
+The APK sent earlier in this session has the bug; replace it with the
+rebuilt one.
 
 **Fixed since the first audit:** recovery-code rotation (`POST
 /v1/me/rotate`, "Get a new recovery code"); publisher and support
