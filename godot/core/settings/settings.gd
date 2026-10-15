@@ -46,6 +46,46 @@ func _ready() -> void:
 	_fit_view()
 
 
+## A short notice over any screen (a save that did not land). The same
+## words are not shown again within `quiet` seconds.
+var last_notice := ""
+var _notice_label: Label
+var _notice_at := {}
+
+
+func notice(text: String, quiet: float = 0.0) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if quiet > 0.0 and _notice_at.has(text) and now - float(_notice_at[text]) < quiet:
+		return
+	_notice_at[text] = now
+	last_notice = text
+	if _notice_label == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 100
+		add_child(layer)
+		_notice_label = Label.new()
+		_notice_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+		_notice_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_notice_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_notice_label.offset_bottom = -8
+		_notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_notice_label.custom_minimum_size = Vector2(300, 0)
+		_notice_label.add_theme_font_size_override("font_size", 8)
+		_notice_label.add_theme_color_override("font_color", Color("#fff3e0"))
+		var bg := StyleBoxFlat.new()
+		bg.bg_color = Color(0.45, 0.16, 0.1, 0.92)
+		bg.set_content_margin_all(4)
+		bg.set_corner_radius_all(2)
+		_notice_label.add_theme_stylebox_override("normal", bg)
+		layer.add_child(_notice_label)
+	_notice_label.text = text
+	_notice_label.visible = true
+	get_tree().create_timer(5.0, true, false, true).timeout.connect(func() -> void:
+		if _notice_label and _notice_label.text == text:
+			_notice_label.visible = false)
+
+
 ## The shader cache is off (project.godot): some GPU drivers report a
 ## compiled shader's size wrongly, and the cache then grew to gigabytes on
 ## the device and got the game killed for memory at start. Builds before

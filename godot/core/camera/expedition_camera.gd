@@ -19,6 +19,7 @@ const FOLLOW := 3.2
 
 var _lead := Vector2.ZERO
 var _shake := 0.0
+var _fade := 2.5
 var _zoom_target := 1.0
 
 
@@ -52,10 +53,19 @@ func snap() -> void:
 	reset_physics_interpolation()
 
 
-func kick(strength: float) -> void:
+## A shake of `strength` (1 = 4 px) that dies away at `fade` per second:
+## the default lingers, a fast fade is a short hard hit (an impact).
+func kick(strength: float, fade: float = 2.5) -> void:
 	if Settings.reduced_motion:
 		return
+	last_kick = strength
+	if strength >= _shake:
+		_fade = fade
 	_shake = maxf(_shake, strength)
+
+
+## The last kick asked for, for tests (the shake itself is visual).
+var last_kick := 0.0
 
 
 func _wanted_lead() -> Vector2:
@@ -91,6 +101,6 @@ func _physics_process(delta: float) -> void:
 	zoom = Vector2(z, z)
 	if _shake > 0.0:
 		offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake * 4.0
-		_shake = maxf(0.0, _shake - delta * 2.5)
+		_shake = maxf(0.0, _shake - delta * _fade)
 	else:
 		offset = Vector2.ZERO

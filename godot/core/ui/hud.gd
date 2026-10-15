@@ -141,6 +141,11 @@ func flash_text() -> String:
 	return _flash.text
 
 
+## The stamina bar is pulsing (under 25%).
+var low_pulse := false
+var _pulse_t := 0.0
+
+
 func update_from(level: Node) -> void:
 	var c: Climber = level.climber
 	var pct := int(round(c.stamina.fraction() * 100.0))
@@ -148,6 +153,10 @@ func update_from(level: Node) -> void:
 	var fill := StyleBoxFlat.new()
 	fill.bg_color = Color("#c0573e") if pct < 25 else (Color("#d9a441") if pct < 50 else Color("#7fa36b"))
 	_bar.add_theme_stylebox_override("fill", fill)
+	# Under a quarter, the bar pulses: the arms are going.
+	low_pulse = pct < 25
+	if not low_pulse:
+		_bar.modulate.a = 1.0
 	var mate := ""
 	if level.mate_state == "helped" and level.get("mate_winded"):
 		mate = " · %s: winded" % level.mate_name()
@@ -251,3 +260,6 @@ func _process(delta: float) -> void:
 	if _flash_time > 0.0:
 		_flash_time -= delta
 		_flash.modulate.a = clampf(_flash_time, 0.0, 1.0)
+	if low_pulse:
+		_pulse_t += delta
+		_bar.modulate.a = 0.55 + 0.45 * absf(cos(_pulse_t * 4.0))

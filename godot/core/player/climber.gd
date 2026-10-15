@@ -912,9 +912,16 @@ func _breathing(delta: float) -> void:
 		_breath = 0.0
 		return
 	_breath += delta
-	if _breath > 2.4:
+	# Under a quarter of the bar the breathing comes faster and carries
+	# over the music: the arms are nearly gone.
+	var f := stamina.fraction()
+	var low := f < 0.25
+	if _breath > (lerpf(0.9, 2.4, clampf(f / 0.25, 0.0, 1.0)) if low else 2.4):
 		_breath = 0.0
-		Audio.play("breath", -12.0, 0.05)
+		if low:
+			Audio.play("breath", -16.0, 0.05, false)
+		else:
+			Audio.play("breath", -12.0, 0.05)
 
 
 func _animate(input: Vector2) -> void:

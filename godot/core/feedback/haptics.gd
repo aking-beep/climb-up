@@ -8,11 +8,16 @@ extends RefCounted
 
 ## The last buzz asked for, for tests (a buzz is not observable headless).
 static var last_ms := 0
+## The buzzes asked for, newest last (for tests; the last 16).
+static var history: Array = []
 
 
 static func tap(ms: int) -> void:
 	if not Settings.haptics or not Settings.touch_enabled():
 		return
 	last_ms = ms
+	history.append(ms)
+	if history.size() > 16:
+		history.pop_front()
 	if OS.has_feature("mobile") or OS.has_feature("web_android"):
 		Input.vibrate_handheld(ms)

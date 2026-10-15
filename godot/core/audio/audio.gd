@@ -30,14 +30,21 @@ const SETS := {
 	"topout": ["topout"],
 	"record": ["record"],
 	"perfect": ["perfect"],
+	# The action button: a short click, pitched by the verb that took the tap.
+	"tap": ["clip"],
+	# A new achievement on the results card.
+	"sting": ["perfect"],
 }
 ## Music styles (MusicBox.STYLES): made as it plays, nothing shipped.
 const MUSIC := ["camp", "crag", "lava", "barranco", "summit", "descent"]
 ## The music leads. The climber's own sounds (footsteps, hops, hands on
-## holds, chalk, breathing) are faint underneath it: this many dB quieter
-## than the level they are asked for at. Everything else (clips, catches,
-## cairns, stones) is a little quieter too (EFFECTS_DB).
-const TRIM := {"step_dirt": -24.0, "step_rock": -24.0, "grip": -22.0, "jug": -20.0, "sloper": -20.0, "pocket": -20.0,
+## holds, chalk, breathing) sit underneath it: this many dB quieter than
+## the level they are asked for at. Footsteps are faintest; a hand landing
+## on a hold is one tick that still carries over the music. Everything else
+## (clips, catches, cairns, stones) is a little quieter too (EFFECTS_DB).
+## A sound that answers the player's own tap (an accepted squeeze, the
+## clip's gate) skips the trim: play(..., body = false).
+const TRIM := {"step_dirt": -24.0, "step_rock": -24.0, "grip": -8.0, "jug": -8.0, "sloper": -8.0, "pocket": -8.0,
 	"chalk": -18.0, "breath": -16.0, "catch": -10.0, "clip": -10.0}
 const EFFECTS_DB := -4.0
 ## The music's level at full volume settings (dB).
@@ -52,8 +59,12 @@ var _wind_target := 0.0
 var _camp_target := 0.0
 var _music: MusicBox
 var _music_name := ""
-## The last effect played (for tests: the game asked for a sound).
+## The last effect played (for tests: the game asked for a sound), and
+## its level before the volume settings (dB).
 var last := ""
+var last_db := 0.0
+## Every effect asked for, newest last (for tests; the last 32).
+var history: Array = []
 
 
 func _ready() -> void:
@@ -92,11 +103,17 @@ func _loop(name: String) -> AudioStreamPlayer:
 	return p
 
 
-func play(kind: String, volume_db: float = -6.0, pitch_spread: float = 0.08) -> void:
+## Plays one of SETS. `body`: apply TRIM (the climber's own sounds sit
+## under the music); false for a sound that answers a tap. `pitch` moves
+## the whole sound (a lower tick for a squeeze that was too soon).
+func play(kind: String, volume_db: float = -6.0, pitch_spread: float = 0.08, body: bool = true, pitch: float = 1.0) -> void:
 	var names: Array = SETS.get(kind, [])
 	if names.is_empty():
 		return
 	last = kind
+	history.append(kind)
+	if history.size() > 32:
+		history.pop_front()
 	if Settings.effects_volume <= 0.001 or Settings.master_volume <= 0.001:
 		return
 	var s := _stream(names[randi() % names.size()])
@@ -105,8 +122,9 @@ func play(kind: String, volume_db: float = -6.0, pitch_spread: float = 0.08) -> 
 	var p := _voices[_next]
 	_next = (_next + 1) % _voices.size()
 	p.stream = s
-	p.volume_db = volume_db + EFFECTS_DB + float(TRIM.get(kind, 0.0)) + linear_to_db(Settings.master_volume * Settings.effects_volume)
-	p.pitch_scale = 1.0 + randf_range(-pitch_spread, pitch_spread)
+	last_db = volume_db + EFFECTS_DB + (float(TRIM.get(kind, 0.0)) if body else 0.0)
+	p.volume_db = last_db + linear_to_db(Settings.master_volume * Settings.effects_volume)
+	p.pitch_scale = pitch * (1.0 + randf_range(-pitch_spread, pitch_spread))
 	p.play()
 
 

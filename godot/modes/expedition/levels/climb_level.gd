@@ -216,7 +216,10 @@ func _ready() -> void:
 		_face_warning())
 	climber.jumped.connect(func() -> void: engage("hop"))
 	climber.mantled.connect(func() -> void: engage("mantle"))
-	climber.mantled.connect(func() -> void: camera.kick(0.0))
+	# Over the edge: the body crosses it with a kick and the top-out sting.
+	climber.mantled.connect(func() -> void:
+		camera.kick(0.5, 7.0)
+		Audio.play("topout", -10.0, 0.05))
 	climber.hurt_taken.connect(func(amount: float, reason: String) -> void:
 		camera.kick(0.3)
 		Haptics.tap(30)
@@ -925,7 +928,12 @@ func _on_helped() -> void:
 
 
 func _on_slipped(saved: bool, reason: String) -> void:
-	camera.kick(0.0 if saved else 0.8)
+	if saved:
+		camera.kick(0.0)
+	else:
+		# The hit: a hold of a few frames, then a short hard kick.
+		HitStop.freeze(self)
+		camera.kick(1.0, 9.0)
 	Haptics.tap(20 if saved else 60)
 	if saved:
 		hud.flash("%s grabs your pack. That slip doesn't count." % mate_name())
@@ -1146,6 +1154,9 @@ func _summit_moment() -> void:
 	petals.emitting = true
 	if mate and mate_state == "helped":
 		mate.global_position = climber.global_position + Vector2(-20, 0)
+	# The top: a kick and the top-out sting, then the bell and the words.
+	camera.kick(0.7, 6.0)
+	Audio.play("topout", -3.0, 0.0)
 	Audio.play("cairn", -2.0)
 	Haptics.tap(80)
 	hud.flash("Uhuru Peak, 5,895 m. The sun comes up over the whole of Africa, and you are standing on its roof.", 4.5)
@@ -1333,3 +1344,8 @@ func land() -> void:
 	if _outcome != null and Expedition.climb.get("attemptId") == attempt_id:
 		panel.hide_panel()
 		Expedition.finish_climb(_outcome.to_dict())
+
+
+func _exit_tree() -> void:
+	# Never leave the world frozen behind a scene change mid hit-stop.
+	HitStop.release()

@@ -252,6 +252,8 @@ func test_the_results_show_new_records_and_rank() -> void:
 		if i == 1:
 			var body: String = level.panel.body_text()
 			check("New personal record" in body and "fastest clean ascent 1:10 (was 1:20)" in body, "the results name the new record: " + body)
+			check(body.begins_with("1:10 · 10 s faster than your best"), "the card leads with the number: " + body.get_slice("\n", 0))
+			check("not verified" in body or "this device" in body, "and still says where the record lives")
 			check("Rank: 1st of your 2 sends (this device)" in body, "and the rank, honestly labelled: " + body)
 			eq(Records.pending()[-1]["payload"]["events"][0][1], "tie_in", "the go's event log goes with it")
 		await _done()

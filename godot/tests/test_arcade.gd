@@ -137,12 +137,15 @@ func test_the_high_point_is_measured_on_the_wall() -> void:
 	await _end(false, 11)
 	check(level.outcome["newHighPoint"], "above the best: a new high point")
 	check("NEW HIGH POINT" in level.panel.title_text(), "and it says so: " + level.panel.title_text())
+	var lead: String = level.panel.body_text().get_slice("\n", 0)
+	check(lead.ends_with("short of the anchor · 1.5 m higher than ever"), "the card leads with how far, in metres: " + lead)
 	eq(_events("new_high_point").size(), 1, "logged once")
 	eq(int(Crag.record("warm-up")["highRows"]), 11, "the record moves up")
 	await _retry()
 	await _end(false, 10)
 	check(not level.outcome["newHighPoint"], "below it: not new")
 	check("short of your best" in level.near_miss, "one row short: a near miss, in metres: " + level.near_miss)
+	check(level.panel.body_text().get_slice("\n", 0).ends_with("0.5 m below your high point"), "and the first line says how far below: " + level.panel.body_text().get_slice("\n", 0))
 	check("0.5 m" in level.near_miss, "half a metre: " + level.near_miss)
 	await _retry()
 	await _end(false, 3)
@@ -220,5 +223,23 @@ func test_the_beat_before_the_results_can_be_skipped() -> void:
 	await physics_frames(3)
 	GameInput.scripted = {"_": false}
 	check(level.panel.open, "a tap skips straight to the results")
+	await _done()
+	_fresh()
+
+
+func test_the_daily_streak_sits_beside_the_time() -> void:
+	_fresh()
+	Crag.tie_in("first-climb")
+	Crag.finish("first-climb", true, 0, 60)
+	# Yesterday's daily topped, then today's.
+	Crag.clock_override = DAY - 86400
+	Crag.finish("daily", true, 0, 90)
+	Crag.clock_override = DAY
+	Crag.current = "daily"
+	await _load("daily", "neutral")
+	await _end(true)
+	var body: String = level.panel.body_text()
+	check("2-day streak" in body, "the streak is on the time's line: " + body)
+	check(not "Daily streak:" in body, "not a sentence of its own")
 	await _done()
 	_fresh()

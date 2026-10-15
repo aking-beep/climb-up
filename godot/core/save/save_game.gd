@@ -11,16 +11,34 @@ const PATH := "user://climb_up_save.json"
 
 
 
+## Writes failed this session (the player is told: Settings.notice).
+static var failures := 0
+## For tests: makes the next writes fail as a full phone would.
+static var simulate_failure := false
+
+
 static func write(data: Dictionary, path: String = PATH) -> bool:
 	var wrapped := {"version": VERSION, "game": "climb-up", "data": data}
 	var tmp := path + ".tmp"
-	var file := FileAccess.open(tmp, FileAccess.WRITE)
+	var file: FileAccess = null if simulate_failure else FileAccess.open(tmp, FileAccess.WRITE)
 	if file == null:
-		return false
+		return _failed()
 	file.store_string(JSON.stringify(wrapped))
 	file.close()
 	# Replace in one step, so a crash mid-write never leaves half a save.
-	return DirAccess.rename_absolute(tmp, path) == OK
+	if DirAccess.rename_absolute(tmp, path) != OK:
+		return _failed()
+	return true
+
+
+## The phone did not store the game (full storage, say): the old save is
+## still whole (the write is atomic), and the player is told once a minute.
+static func _failed() -> bool:
+	failures += 1
+	var s: Node = Engine.get_main_loop().root.get_node_or_null("Settings") if Engine.get_main_loop() is SceneTree else null
+	if s and s.has_method("notice"):
+		s.notice("Your phone could not save the game. Free some storage: your last save is still there.", 60.0)
+	return false
 
 
 ## The saved data, or null. `reason` (if given) receives why not.

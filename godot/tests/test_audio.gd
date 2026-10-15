@@ -54,12 +54,31 @@ func test_the_summit_turns_to_a_major_key_at_dawn() -> void:
 
 
 func test_footsteps_and_hands_sit_under_the_music() -> void:
-	for kind in ["step_dirt", "step_rock", "grip", "jug", "sloper", "pocket", "chalk", "breath"]:
+	# Footsteps, chalk and breath stay faint under the music.
+	for kind in ["step_dirt", "step_rock", "chalk", "breath"]:
 		check(float(Audio.TRIM.get(kind, 0.0)) <= -16.0, "%s is faint under the music (%.0f dB)" % [kind, Audio.TRIM.get(kind, 0.0)])
 	# The loudest a footstep is ever asked for (-4 dB, a landing) still
 	# plays well under the music.
 	check(-4.0 + Audio.EFFECTS_DB + float(Audio.TRIM["step_dirt"]) < Audio.MUSIC_DB - 20.0, "footsteps at least 20 dB under the music")
+	# A hand landing on a hold is one tick that carries over the music:
+	# well above the footsteps, still under the music. (A reach asks for
+	# -10 to -13 dB.)
+	for kind in ["grip", "jug", "sloper", "pocket"]:
+		var reach := -12.0 + Audio.EFFECTS_DB + float(Audio.TRIM[kind])
+		var step := -4.0 + Audio.EFFECTS_DB + float(Audio.TRIM["step_dirt"])
+		check(reach >= step + 6.0, "a %s reach is clearly louder than a footstep (%.0f vs %.0f dB)" % [kind, reach, step])
+		check(reach <= Audio.MUSIC_DB - 12.0, "and still under the music (%.0f dB)" % reach)
 	Audio.play_music("lava")
 	eq(Audio.music_playing(), "lava", "a climb's music starts")
 	Audio.play_music("")
 	eq(Audio.music_playing(), "", "and stops")
+
+
+func test_a_sound_that_answers_a_tap_skips_the_trim() -> void:
+	var before := Settings.effects_volume
+	Settings.effects_volume = 1.0
+	Audio.play("chalk", -10.0, 0.0)
+	var trimmed := Audio.last_db
+	Audio.play("chalk", -10.0, 0.0, false)
+	eq(Audio.last_db, trimmed - Audio.TRIM["chalk"], "body = false leaves the trim off")
+	Settings.effects_volume = before

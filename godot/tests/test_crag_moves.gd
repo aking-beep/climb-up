@@ -164,8 +164,13 @@ func test_a_dyno_catches_the_hold_and_a_timed_tap_is_a_bonus() -> void:
 	await _load("leap-of-faith")
 	# No tap at all: the hands catch the hold and you stay on.
 	await _jump_the_blank()
+	var touch: Variant = Settings.touch_controls
+	Settings.touch_controls = true
+	HitStop.last = 0.0
 	await drive([], func() -> bool: return c.state == Climber.State.CLIMB, 2.0, "the catch")
 	eq(level.catch_quality, "good", "reached the hold: caught, no tap needed")
+	eq(Haptics.last_ms, 22, "a plain catch: the small buzz")
+	eq(HitStop.last, 0.0, "and no hold of the frame")
 	await physics_frames(60)
 	eq(c.state, Climber.State.CLIMB, "and still on a second later")
 	# One tap right as the hands land on the hold: a perfect catch.
@@ -175,6 +180,9 @@ func test_a_dyno_catches_the_hold_and_a_timed_tap_is_a_bonus() -> void:
 	var breath := c.stamina.value
 	await _tap()
 	eq(level.catch_quality, "perfect", "one tap on the contact: a perfect catch")
+	eq(Haptics.last_ms, 45, "a perfect catch: a stronger buzz")
+	check(HitStop.last > 0.0, "and the frame holds for a moment")
+	Settings.touch_controls = touch
 	eq(level.catching, 0.0, "stuck")
 	check(c.stamina.value >= breath + Climber.DYNO_COST * 0.5 - 0.5, "and half the jump's stamina back (%.1f to %.1f)" % [breath, c.stamina.value])
 	await physics_frames(20)
