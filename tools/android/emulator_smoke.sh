@@ -41,7 +41,7 @@ why_gone() {
   # Why the game's process ended, as Android recorded it (API 30+), and the
   # log lines about it.
   [ "$sdk" -ge 30 ] && adb shell dumpsys activity exit-info "$PKG" | head -40
-  grep -E "$PKG|godot|Godot|AndroidRuntime|DEBUG *:|libc *:|ActivityManager|ActivityTaskManager|lowmemorykiller" "$OUT/logcat-full.txt" \
+  grep -E "$PKG|godot|Godot|CLIMB UP|AndroidRuntime|DEBUG *:|libc *:|ActivityManager|ActivityTaskManager|lowmemorykiller" "$OUT/logcat-full.txt" \
     | grep -v "commands.monkey" | tail -60
 }
 
@@ -78,7 +78,10 @@ pss=$(adb shell dumpsys meminfo "$PKG" | grep -m1 "TOTAL PSS" | tr -s ' ' | cut 
 note "memory (total PSS): ${pss:-?} KB"
 
 # Random touches and drags, no system keys: the game must not crash.
-adb shell monkey -p "$PKG" --pct-syskeys 0 --pct-appswitch 0 --pct-nav 0 --pct-majornav 0 \
+# Touches and drags only: a stray Back key on the title would close the
+# game on purpose, which is not a crash.
+adb shell monkey -p "$PKG" --pct-touch 60 --pct-motion 30 --pct-pinchzoom 5 --pct-trackball 5 \
+  --pct-syskeys 0 --pct-appswitch 0 --pct-nav 0 --pct-majornav 0 --pct-anyevent 0 --pct-flip 0 --pct-rotation 0 \
   --throttle 120 -s 7 -v 1500 > "$OUT/monkey.txt" 2>&1
 if grep -q "Monkey finished" "$OUT/monkey.txt" && ! grep -q "CRASH\|NOT RESPONDING" "$OUT/monkey.txt"; then
   pass "1500 random touches: no crash, no ANR"
@@ -87,7 +90,15 @@ else
 fi
 sleep 2
 shot 3-after-touches
-[ -n "$(alive)" ] && pass "still running after the touches" || fail "not running after the touches"
+if [ -n "$(alive)" ]; then pass "still running after the touches"; else fail "not running after the touches"; echo "--- why:"; why_gone; echo "---"; fi
+
+# A second cold start (first launches are where start-up problems show).
+adb shell am force-stop "$PKG"
+sleep 2
+adb shell am start -W -n "$PKG/$ACT" > /dev/null
+sleep 25
+if [ -n "$(alive)" ]; then pass "second cold start: running 25 s later"; else fail "second cold start: not running 25 s later"; echo "--- why:"; why_gone; echo "---"; fi
+shot 4-second-start
 
 kill $LOGCAT 2> /dev/null
 # Only the game's own crashes count (the monkey tool can crash on its own).

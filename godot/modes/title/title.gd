@@ -29,4 +29,7 @@ func _expedition() -> void:
 
 
 func on_back() -> void:
+	# Back on the title closes the game, as Android apps do (logged, so a
+	# test or a bug report can tell a quit from a crash).
+	print("CLIMB UP: quit (Back on the title)")
 	get_tree().quit()

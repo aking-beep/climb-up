@@ -11,7 +11,57 @@
 | [`../../server/deploy/README.md`](../../server/deploy/README.md) | Deploying the records service: HTTPS, storage, backups, moderation |
 | [`../../server/deploy/site/privacy.html`](../../server/deploy/site/privacy.html) | The privacy policy (served at `/privacy`) |
 
-## Deployment requirements (what the publisher must provide)
+## Go-live checklist (what is left, in order)
+
+Everything that can be automated is: GitHub Actions builds, signs, checks
+and can upload the game, and deploys the records service. The steps
+below need your accounts. Each takes minutes.
+
+1. **Records service on Fly.io** (about $2–5/month).
+   1. Make a Fly.io account and add a payment card.
+   2. Create a token: fly.io → Account → Access Tokens → Create token.
+   3. In GitHub, add the repository secret **`FLY_API_TOKEN`**:
+      Settings → Secrets and variables → Actions → New repository
+      secret.
+   4. Run the **Deploy records service** workflow (Actions tab →
+      Run workflow). It prints the address, e.g.
+      `https://climbup-records-arc.fly.dev`, after checking `/healthz`
+      and `/privacy`.
+   5. Add the repository **variable** **`RECORDS_ENDPOINT`** with that
+      address (same page, Variables tab).
+2. **Upload key** (once, on your own computer).
+   1. Run `sh tools/release/make_upload_key.sh "CN=CLIMB UP, O=ARC Transformation Group"`.
+   2. It sets, or tells you how to set, the secrets
+      `ANDROID_UPLOAD_KEYSTORE_BASE64`, `ANDROID_UPLOAD_KEY_ALIAS` and
+      `ANDROID_UPLOAD_KEY_PASSWORD`.
+   3. Back up the `.jks` and its password offline.
+3. **Build the release.** Run the **Android** workflow (Actions → Android
+   → Run workflow).
+   - Download the `climb-up-aab` artifact.
+   - `SIGNED_WITH.txt` must say "upload key".
+   - The build talks to `RECORDS_ENDPOINT`.
+4. **Google Play Console** ($25 one-time developer registration).
+   1. Create the app `CLIMB UP` and opt in to Play App Signing.
+   2. Fill in the store listing, Data safety, content rating and target
+      audience (13+) from `play-listing.md` and `data-safety.md`.
+   3. Under Testing → Closed testing, create the track and add testers.
+   4. Upload the AAB by hand: the first upload of a new app must be
+      manual.
+   5. Optional, for later uploads from GitHub: add a service account as
+      `PLAY_SERVICE_ACCOUNT_JSON`, then run the Android workflow with
+      `play_track` set to `alpha`. Raise `ANDROID_VERSION_CODE` each
+      time.
+5. **Real phones.**
+   - Play's pre-launch report runs the closed-test build on real devices
+     automatically and shows crashes and screenshots.
+   - Also install it on at least 2 phones of your own and go through
+     `device-test-matrix.md`.
+   - `tools/android/emulator_smoke.sh` runs the same checks as CI on a
+     USB-connected phone.
+6. **Moderation.** Check name reports every few days:
+   `fly ssh console -a climbup-records-arc -C "python3 -m server.records_service.admin reports"`.
+
+## Deployment requirements (reference)
 
 1. **A host and a domain** for the records service. Any Docker host with
    ports 80 and 443, and a DNS record for the domain. Run
@@ -19,13 +69,14 @@
    `server/deploy/`.
 2. **Off-host backups.** Copy the `records-backups` volume to object
    storage nightly.
-3. **The publisher's details**: name, support email, effective date. Put
-   them in `server/deploy/site/privacy.html` and in the Play listing.
+3. **The publisher's details**: ARC Transformation Group,
+   aking@arctransformationgroup.com, effective 15 October 2026. They are
+   already in the privacy policy and the listing.
 4. **An upload key** made on a trusted machine (`android-signing.md`).
    Play App Signing turned on.
 5. **A build environment that can reach `dl.google.com` and
-   `maven.google.com`**, so Gradle can build the AAB. The cloud session
-   used for this sprint could not; see the report.
+   `maven.google.com`**, so Gradle can build the AAB. GitHub Actions can
+   (`.github/workflows/android.yml`).
 6. **The endpoint in the build.** Set `records/endpoint` and
    `records/privacy_url` in `godot/project.godot` under `[climb_up]`.
    Bump `version/code`. Run `tools/godot/export.sh android-aab`.
