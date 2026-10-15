@@ -102,6 +102,10 @@ sleep 2
 shot 3-after-touches
 if [ -n "$(alive)" ]; then pass "still running after the touches"; else fail "not running after the touches"; echo "--- why:"; why_gone; echo "---"; fi
 
+# What the game keeps on the device (save files, shader cache): a debug
+# build allows run-as. Sizes in KB, biggest first.
+note "app storage after the touches (KB): $(adb shell run-as "$PKG" sh -c 'du -a files cache app_* 2>/dev/null | sort -rn | head -8' | tr -d '\r' | tr '\n' ';')"
+
 # A second cold start (first launches are where start-up problems show).
 adb shell am force-stop "$PKG"
 sleep 2
