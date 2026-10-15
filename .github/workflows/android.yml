@@ -1,0 +1,189 @@
+# The Android release, built where Google's Maven is reachable:
+#   1. the Play upload bundle (AAB), with Gradle, signed with the upload key
+#      from repository secrets, then checked with bundletool;
+#   2. the same game as an x86_64 APK, run on an Android emulator: install,
+#      cold start, the landscape lock, background and resume, random
+#      touches, no crash (tools/android/emulator_smoke.sh).
+#
+# Secrets (Settings > Secrets and variables > Actions), see
+# docs/release/android-signing.md:
+#   ANDROID_UPLOAD_KEYSTORE_BASE64   base64 of the upload .jks
+#   ANDROID_UPLOAD_KEY_ALIAS         its alias
+#   ANDROID_UPLOAD_KEY_PASSWORD      its password (store and key)
+# Without them the AAB is signed with a throwaway key and marked NOT FOR
+# PLAY; everything else still runs.
+name: Android
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: "4.7.2"
+  BUNDLETOOL_VERSION: "1.17.2"
+
+jobs:
+  build:
+    name: Build AAB and test APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Android SDK packages for the Gradle build
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.1.0" "platform-tools" > /dev/null
+          ls "$ANDROID_HOME/build-tools"
+      - name: Cache Godot and its export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-android-${{ env.GODOT_VERSION }}
+      - name: Download Godot and the Android export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -fsSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && rm godot.zip
+          curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          dest=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$dest"
+          unzip -j -q templates.tpz "templates/android_*" "templates/version.txt" -d "$dest"
+          rm templates.tpz
+          ls -la "$dest"
+      - name: Editor settings and keys
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: |
+          keys="$RUNNER_TEMP/keys"; mkdir -p "$keys"
+          keytool -genkeypair -keystore "$keys/debug.keystore" -alias androiddebugkey -storepass android -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" 2> /dev/null
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$keys/upload.jks"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "::add-mask::$KEY_PASSWORD"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "SIGNED_WITH=upload key" >> "$GITHUB_ENV"
+          else
+            pass=$(openssl rand -hex 16)
+            echo "::add-mask::$pass"
+            keytool -genkeypair -keystore "$keys/upload.jks" -alias throwaway -storepass "$pass" -keypass "$pass" \
+              -keyalg RSA -keysize 2048 -validity 1000 -dname "CN=Throwaway CI key - NOT FOR PLAY" 2> /dev/null
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=throwaway" >> "$GITHUB_ENV"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$pass" >> "$GITHUB_ENV"
+            echo "SIGNED_WITH=throwaway key (NOT FOR PLAY: set the ANDROID_UPLOAD_* secrets)" >> "$GITHUB_ENV"
+          fi
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$keys/upload.jks" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$keys/debug.keystore" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+          mkdir -p ~/.config/godot
+          cat > ~/.config/godot/editor_settings-4.7.tres <<SETTINGS
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "$keys/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          SETTINGS
+          sed -i 's/^ *//' ~/.config/godot/editor_settings-4.7.tres
+      - name: Import the project
+        run: ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path godot --import || true
+      - name: Build the Play bundle (AAB) with Gradle
+        run: |
+          mkdir -p build/godot-android
+          ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path godot \
+            --install-android-build-template --export-release "Android Play (AAB)" ../build/godot-android/climb-up.aab
+          test -s build/godot-android/climb-up.aab
+          ls -la build/godot-android/
+      - name: Check the bundle (bundletool, jarsigner)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/bundletool.jar" \
+            "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar"
+          bt="java -jar $RUNNER_TEMP/bundletool.jar"
+          aab=build/godot-android/climb-up.aab
+          $bt validate --bundle "$aab"
+          $bt dump manifest --bundle "$aab" > build/godot-android/aab-manifest.xml
+          grep -o 'package="[^"]*"\|versionCode="[^"]*"\|versionName="[^"]*"\|screenOrientation="[^"]*"\|uses-permission[^/]*' build/godot-android/aab-manifest.xml
+          grep -q 'package="com.climbup.game"' build/godot-android/aab-manifest.xml
+          jarsigner -verify "$aab" | tail -1
+          # The download size Play will serve to a phone (arm64, xxhdpi).
+          $bt build-apks --bundle "$aab" --output "$RUNNER_TEMP/climb-up.apks" \
+            --ks "$GODOT_ANDROID_KEYSTORE_RELEASE_PATH" --ks-key-alias "$GODOT_ANDROID_KEYSTORE_RELEASE_USER" \
+            --ks-pass "pass:$GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD" --key-pass "pass:$GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD"
+          echo '{"supportedAbis":["arm64-v8a"],"supportedLocales":["en"],"screenDensity":480,"sdkVersion":34}' > "$RUNNER_TEMP/device.json"
+          $bt get-size total --apks "$RUNNER_TEMP/climb-up.apks" --device-spec "$RUNNER_TEMP/device.json" | tee build/godot-android/aab-download-size.csv
+          echo "signed with: $SIGNED_WITH" | tee build/godot-android/SIGNED_WITH.txt
+      - name: Build the emulator test APK (x86_64)
+        run: |
+          sed -i 's/^architectures\/x86_64=false/architectures\/x86_64=true/' godot/export_presets.cfg
+          ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path godot \
+            --export-debug "Android" ../build/godot-android/climb-up-x86_64.apk
+          test -s build/godot-android/climb-up-x86_64.apk
+          git checkout godot/export_presets.cfg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: climb-up-aab
+          path: |
+            build/godot-android/climb-up.aab
+            build/godot-android/aab-manifest.xml
+            build/godot-android/aab-download-size.csv
+            build/godot-android/SIGNED_WITH.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: climb-up-emulator-apk
+          path: build/godot-android/climb-up-x86_64.apk
+
+  emulator:
+    name: Emulator smoke test
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [29, 34]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: climb-up-emulator-apk
+          path: apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run the game on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: sh tools/android/emulator_smoke.sh apk/climb-up-x86_64.apk smoke-out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-smoke-api${{ matrix.api-level }}
+          path: smoke-out

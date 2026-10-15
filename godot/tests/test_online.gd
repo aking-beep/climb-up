@@ -243,6 +243,12 @@ func test_separate_accounts_on_the_records_server() -> void:
 	eq(phone.display_name, ann_name, "as Ann")
 	eq(phone.friend_code, ann.friend_code, "with her friend code")
 	check((await _client("").restore(server, "wrong-code")) != "", "a wrong code is refused")
+	# A code someone else saw: a new one retires it.
+	var old_code := ann.token
+	eq(await ann.rotate(), "", "Ann gets a new recovery code")
+	check(ann.token != old_code, "a different code")
+	check((await _client("").restore(server, old_code)) != "", "the old code no longer restores the account")
+	eq(await _client("").restore(server, ann.token), "", "the new one does")
 	eq(await bea.report(ann_name), "", "Bea reports a name")
 	# Deleting an account takes it off the boards.
 	eq(await cyd.delete_account(), "", "Cyd deletes the account")

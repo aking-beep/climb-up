@@ -40,6 +40,21 @@ class Recovery(Base):
         self.assertEqual(code, 401)
 
 
+class Rotation(Base):
+    def test_a_new_recovery_code_retires_the_old_one(self):
+        a = self.player(name="Rotator")
+        self.submit(a["token"], crag_send())
+        code, out = self.call("POST", "/v1/me/rotate", token=a["token"])
+        self.assertEqual(code, 200)
+        self.assertNotEqual(out["token"], a["token"])
+        self.assertEqual(self.call("GET", "/v1/me", token=a["token"])[0], 401, "the old code no longer works")
+        code, me = self.call("GET", "/v1/me", token=out["token"])
+        self.assertEqual((code, me["playerId"]), (200, a["playerId"]), "the new one is the same account")
+        code, export = self.call("GET", "/v1/me/export", token=out["token"])
+        self.assertEqual(len(export["crag_attempts"]), 1, "with its records")
+        self.assertEqual(self.call("POST", "/v1/me/rotate")[0], 401, "rotating needs the current code")
+
+
 class Moderation(Base):
     def setUp(self):
         super().setUp()

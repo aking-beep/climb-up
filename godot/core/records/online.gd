@@ -188,6 +188,17 @@ func _take_me(me: Dictionary) -> void:
 	visibility = String(me.get("visibility", ""))
 
 
+## A new recovery code: the server retires the old one at once (for a code
+## someone else may have seen). "" on success.
+func rotate() -> String:
+	var r := await request("POST", "/v1/me/rotate")
+	if r["code"] != 200 or String(r["body"].get("token", "")) == "":
+		return _why(r)
+	token = String(r["body"]["token"])
+	_save()
+	return ""
+
+
 ## Deletes the account and everything the service holds about it, then
 ## signs out here. "" on success.
 func delete_account() -> String:

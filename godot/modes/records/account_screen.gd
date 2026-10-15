@@ -78,10 +78,11 @@ func _signed_in() -> void:
 	text("%d finished go%s waiting to be sent." % [waiting, "" if waiting == 1 else "es"] if waiting > 0 else "Everything is sent.", 8, MUTED)
 	if waiting > 0:
 		button("Send now", _send).name = "Send"
-	text("Your recovery code restores this account on another device. Keep it private: anyone with it can use your account.", 7, MUTED)
+	text("Your recovery code restores this account on another device. Keep it private: anyone with it can use your account. If someone else may have seen it, get a new one: the old code stops working.", 7, MUTED)
 	button("Copy my recovery code", func() -> void:
 		DisplayServer.clipboard_set(o.token)
 		_say("Copied. Keep it somewhere safe.")).name = "CopyCode"
+	button("Get a new recovery code", _rotate).name = "Rotate"
 	button("Sign out on this device", func() -> void:
 		o.forget()
 		_reload()).name = "SignOut"
@@ -184,6 +185,17 @@ func _send() -> void:
 		return
 	var left := Records.pending().size()
 	_say("Sent %d. %s" % [n, "All done." if left == 0 else "%d still waiting: no connection right now, they will go later." % left])
+
+
+func _rotate() -> void:
+	if _busy:
+		return
+	_busy = true
+	var why := await Records.online.rotate()
+	_busy = false
+	if not is_inside_tree():
+		return
+	_say(why if why != "" else "New recovery code made; the old one no longer works. Copy the new one and keep it safe.")
 
 
 func _delete() -> void:

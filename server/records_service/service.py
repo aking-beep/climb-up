@@ -32,6 +32,7 @@ API (JSON over HTTPS in production; docs/records-backend.md):
   GET    /v1/leaderboards/expedition/<difficulty>?assisted=0|1&scope=global|friends
   GET    /v1/firsts
   GET    /v1/me                            the signed-in player (restoring an account from its recovery code)
+  POST   /v1/me/rotate                     a new recovery code (token); the old one stops working
   POST   /v1/reports                       {player, reason} report a public name
   GET    /healthz                          {ok, version} for the load balancer
 """
@@ -206,6 +207,14 @@ class Service:
         return 200, {"playerId": p["id"], "displayName": None if p["name_hidden"] else p["display_name"],
                      "friendCode": p["friend_code"], "visibility": p["visibility"], "ageGroup": p["age_group"],
                      "publicName": p["age_group"] != "under13", "banned": bool(p["banned"])}
+
+    def rotate(self, p):
+        """A new token (the recovery code) for this player; the old one stops
+        working at once. For a code that was shared or seen by someone else."""
+        token = secrets.token_urlsafe(32)
+        self.db.execute("UPDATE players SET token_hash=? WHERE id=?", (_hash(token), p["id"]))
+        self.db.commit()
+        return 200, {"token": token}
 
     def report(self, p, body):
         """A report about a public name, for the moderators (admin.py)."""
@@ -488,6 +497,8 @@ def make_app(service: Service, trust_proxy=False, log=None):
             status, out = 401, {"error": "sign in"}
         elif parts == ["v1", "me"] and method == "GET":
             status, out = service.me(me)
+        elif parts == ["v1", "me", "rotate"] and method == "POST":
+            status, out = service.rotate(me)
         elif parts == ["v1", "reports"] and method == "POST":
             status, out = service.report(me, body)
         elif parts == ["v1", "me"] and method == "PATCH":
