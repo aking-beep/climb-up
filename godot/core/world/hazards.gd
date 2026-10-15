@@ -9,15 +9,16 @@ extends Node2D
 ## misses. A hit is a slip (a helped teammate can still catch it).
 ##
 ## Cracked slabs (c tiles): solid until you stand on one; then it creaks and
-## goes. Keep walking and you are across. Stop, or brace in a gust, and you
+## goes. Keep walking and you are across. Stop (even to sit out a gust) and you
 ## fall. They settle back after a while.
 ##
 ## Ice (i tiles) is in Climber: little grip, so you slide, and the edge
 ## guard does not hold you there.
 ##
 ## Water caches (w): a drink, most of the bar back, once per attempt.
-## Lost gear (*): three things per climb, found off the obvious line. What
-## you find stays found across attempts (Expedition.found).
+## Gear (*): three pieces per climb, each placed before what it helps with
+## (the level says what each does). It lasts this attempt: fail the climb
+## or fall in a hole and it goes back where it was (drop_gear).
 
 signal found_gear(index: int)
 ## Something the player had to deal with: for the level's pacing log.
@@ -31,6 +32,8 @@ const ROCK_GRAVITY := 520.0
 const ROCK_MAX := 300.0
 const ROCK_HALF := 4.0
 const WATER := 0.45
+## A falling stone on a helmet: this much stamina, not a fall.
+const HELMET_HIT := 12.0
 ## Rolling stones: one every ROLL_PERIOD seconds from each b / d marker,
 ## announced by a rumble, rolling along the ground at ROLL_SPEED.
 const ROLL_PERIOD := 6.5
@@ -43,7 +46,9 @@ var terrain: Terrain
 var ground: TileMapLayer
 var climber: Climber
 var rock_period := 5.0
-## gear: [[name, text], ...] for this climb's * markers, bottom to top.
+## gear: [[name, text, kind, [x, y]], ...] for this climb's * markers. In
+## setup it is reordered to the markers' order (bottom to top), matched by
+## cell; entries without a cell fill the rest in order.
 var gear_words: Array = []
 
 var slabs := {}      # cell -> {t, state, gone_at}
@@ -56,7 +61,7 @@ var gear_count := 0
 ## Everlastings: little flowers along the ground, a breath back each.
 var flowers := 0
 var flowers_total := 0
-const FLOWER_BREATH := 3.0
+const FLOWER_BREATH := 15.0
 var _flower_tex: Texture2D
 var _was_warned := false
 var _was_breaking := false
@@ -70,7 +75,7 @@ func setup(lvl: Node, t: Terrain, g: TileMapLayer, c: Climber, period: float, wo
 	ground = g
 	climber = c
 	rock_period = period
-	gear_words = words
+	gear_words = _gear_in_order(words)
 	_rock_tex = Art.tex("res://assets/terrain/props/rock.png")
 	for y in terrain.height:
 		for x in terrain.width:
@@ -107,13 +112,15 @@ func setup(lvl: Node, t: Terrain, g: TileMapLayer, c: Climber, period: float, wo
 		var s := Sprite2D.new()
 		var at := AtlasTexture.new()
 		at.atlas = Art.tex("res://assets/terrain/props/gear.png")
-		at.region = Rect2((n % 3) * 14, 0, 14, 14)
+		var kind: String = String(gear_words[n][2]) if n < gear_words.size() and gear_words[n].size() > 2 else ""
+		var icon := maxi(0, ClimbLevel.GEAR_KINDS.find(kind)) if kind != "" else n % ClimbLevel.GEAR_KINDS.size()
+		at.region = Rect2(icon * 14, 0, 14, 14)
 		s.texture = at
 		s.position = Terrain.feet(cell) - Vector2(0, 9)
 		add_child(s)
 		var had := found.has(n)
 		if had:
-			s.modulate = Color(1, 1, 1, 0.35)
+			s.visible = false
 			gear_count += 1
 		pickups.append({"cell": cell, "kind": "gear", "index": n, "node": s, "taken": had})
 	for cell in terrain.markers.get("w", []):
@@ -274,9 +281,13 @@ func _rockfall(dt: float, now: float) -> void:
 		node.position.y += r["vy"] * dt
 		node.rotation += dt * 6.0
 		var box := Rect2(node.position - Vector2.ONE * ROCK_HALF, Vector2.ONE * ROCK_HALF * 2.0)
-		if box.intersects(climber.body_rect()) and climber.state != Climber.State.SLIP and climber.state != Climber.State.DONE:
+		if box.intersects(climber.body_rect()) and not climber.state in [Climber.State.SLIP, Climber.State.DONE, Climber.State.LOCKED, Climber.State.HELP]:
 			_shatter(r)
-			climber.slip("rock")
+			if climber.helmet:
+				climber.hurt(HELMET_HIT, "rock")
+				level.hud.flash("A stone rings off your helmet: -%d stamina." % int(HELMET_HIT), 2.0)
+			else:
+				climber.slip("rock")
 			continue
 		if terrain.is_solid(Terrain.cell_of(node.position + Vector2(0, ROCK_HALF))):
 			_shatter(r)
@@ -397,7 +408,7 @@ func _roll(dt: float, now: float) -> void:
 			st["vy"] = minf(st["vy"] + ROCK_GRAVITY * dt, ROCK_MAX)
 			n.position.y += st["vy"] * dt
 		var box := Rect2(n.position - Vector2.ONE * ROLL_HALF, Vector2.ONE * ROLL_HALF * 2.0)
-		if box.intersects(climber.body_rect()) and climber.state != Climber.State.SLIP and climber.state != Climber.State.DONE and climber.state != Climber.State.LOCKED:
+		if box.intersects(climber.body_rect()) and not climber.state in [Climber.State.SLIP, Climber.State.DONE, Climber.State.LOCKED, Climber.State.HELP]:
 			_end_roll(st)
 			climber.slip("rock")
 			continue
@@ -481,11 +492,11 @@ func _pickups() -> void:
 			level.on_water(p["key"])
 		else:
 			gear_count += 1
-			p["node"].modulate = Color(1, 1, 1, 0.35)
+			p["node"].visible = false
 			_burst(p["node"].position, Color(1.0, 0.92, 0.6), 16)
 			Audio.play("cairn", -4.0)
-			var words: Array = gear_words[mini(p["index"], gear_words.size() - 1)] if not gear_words.is_empty() else ["Lost gear", ""]
-			level.hud.flash("Found: %s. %s" % [words[0], words[1]], 4.5)
+			var words: Array = gear_words[mini(p["index"], gear_words.size() - 1)] if not gear_words.is_empty() else ["Gear", ""]
+			level.hud.flash("Found %s! %s" % [words[0], words[1]], 4.5)
 			found_gear.emit(p["index"])
 
 
@@ -518,6 +529,41 @@ func steal_flower() -> bool:
 			level.forget_taken([p["key"]])
 			return true
 	return false
+
+
+## The spec's gear entries in the order of the * markers (bottom to top,
+## then left to right), matched by their cell.
+func _gear_in_order(words: Array) -> Array:
+	var cells: Array = terrain.markers.get("*", []).duplicate()
+	cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y > b.y or (a.y == b.y and a.x < b.x))
+	var left := words.duplicate()
+	var out: Array = []
+	for cell in cells:
+		var pick: Variant = null
+		for w in left:
+			if w.size() > 3 and Vector2i(int(w[3][0]), int(w[3][1])) == cell:
+				pick = w
+				break
+		if pick == null:
+			for w in left:
+				if w.size() <= 3:
+					pick = w
+					break
+		if pick == null and not left.is_empty():
+			pick = left[0]
+		if pick != null:
+			left.erase(pick)
+			out.append(pick)
+	return out
+
+
+## Lost the climb: every piece of gear taken goes back on the ground.
+func drop_gear() -> void:
+	gear_count = 0
+	for p in pickups:
+		if p["kind"] == "gear" and p["taken"]:
+			p["taken"] = false
+			p["node"].visible = true
 
 
 func gear_total() -> int:

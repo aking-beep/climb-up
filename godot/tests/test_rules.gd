@@ -19,7 +19,7 @@ func test_climbing_drains_and_resting_recovers() -> void:
 	s.value = 20.0
 	var before := s.value
 	s.tick(1.0, "rest_stone")
-	near(s.value, before + 26.0, 0.001, "a rest stone gives 26/s")
+	near(s.value, before + 30.0, 0.001, "a rest stone gives 30/s")
 
 
 func test_walking_costs_breath_and_more_in_thin_air() -> void:
@@ -182,7 +182,7 @@ func _uphill_seconds(meters: float, acclimatization: float, drain: float) -> flo
 
 func test_the_thin_air_is_spaced_out_up_the_mountain() -> void:
 	# The four played climbs, for a party that rested well enough.
-	var climbs := {"barranco-wall": [4200.0, 1.0], "lava-tower": [4600.0, 0.85], "descent": [5300.0, 1.1], "summit-night": [5700.0, 1.15]}
+	var climbs := {"barranco-wall": [4200.0, 0.9], "lava-tower": [4600.0, 0.85], "descent": [5300.0, 1.1], "summit-night": [5700.0, 1.1]}
 	var secs := {}
 	for id in climbs:
 		secs[id] = _uphill_seconds(climbs[id][0], 100.0, climbs[id][1])
@@ -196,7 +196,7 @@ func test_the_thin_air_is_spaced_out_up_the_mountain() -> void:
 		check(f > last and f - last <= 0.15 + 0.001 or last == 0.0, "%d m: %.2f, a small step from %.2f" % [m, f, last])
 		last = f
 	# The camp's choices still count: a party not used to the height pays.
-	var raw := _uphill_seconds(5700.0, 10.0, 1.15)
+	var raw := _uphill_seconds(5700.0, 10.0, 1.1)
 	check(raw < secs["summit-night"] * 0.7, "not used to the height: %.0f s instead of %.0f s" % [raw, secs["summit-night"]])
 	check(raw >= 15.0, "hard, but still playable (%.0f s)" % raw)
 
@@ -240,3 +240,11 @@ func test_each_hold_has_its_own_hang_time() -> void:
 	check(is_inf(t["jug"]) and is_inf(t["pocket"]), "big holds and pockets stop the clock")
 	m.grip = 0.5
 	check(m.seconds_left("crimp_hang") > t["crimp_hang"], "a tight grip buys time on tiny holds")
+
+
+func test_the_weather_words_match_the_number() -> void:
+	for deg in [-0.4, 0.4, 4.6, 5.0, 23.8, 24.2, 30.0, -15.0]:
+		var w := Climate.words(deg)
+		check(not "0%" in w.replace("10%", "").replace("20%", "").replace("30%", ""), "%.1f°C: no claim of a 0%% effect: %s" % [deg, w])
+		check(not ("freezing" in w and w.begins_with("0°C")), "%.1f°C: 0°C is not called freezing: %s" % [deg, w])
+	check("freezing" in Climate.words(-15.0) and "hot" in Climate.words(30.0), "the real cold and heat are named")

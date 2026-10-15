@@ -119,9 +119,10 @@ Shows the team's energy, the stamina it buys (`55 + energy × 0.45`, capped
 **Slip:** a one-second stumble animation, then back to the last cairn with at
 least half stamina. Haptic warning and a camera kick (none with reduced motion).
 
-**Wind:** on the exposed step, a warning (streaks, haptic, hint "Wind coming.
-Stop and brace.") precedes each gust. Standing still through a gust is safe
-(the climber braces). Moving during one is a slip. This is a timing and
+**Wind:** on the exposed step, a warning (streaks, haptic, hint "Wind rising:
+don't move, REST") precedes each gust. Sitting down (REST) through a gust is
+safe; there is no separate brace. Standing in one nudges you and costs
+breath; moving during one is a slip. This is a timing and
 patience mechanic, not a reflex test: the warning is long and the schedule is
 regular.
 

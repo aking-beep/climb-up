@@ -24,6 +24,11 @@ const EVENTS := [
 	"daily_started", "daily_completed", "daily_shared",
 	"expedition_started", "expedition_abandoned", "expedition_completed",
 	"descent_completed", "achievement_earned", "settings_changed",
+	# The crag's replay loop: one attempt_ended per go (alongside the older
+	# route_completed / route_failed, which stay as they were).
+	"attempt_ended", "instant_retry_tapped", "retry_time_ms", "new_high_point", "near_miss",
+	# Records (local; see docs/records-backend.md).
+	"record_set", "record_shared",
 ]
 
 var session := ""

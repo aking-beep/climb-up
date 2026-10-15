@@ -34,16 +34,13 @@ const GRIP_BURN := 1.35
 ## the slack in the system. Land below the ground and you hit it.
 const FALL_SLACK := 1.0 * Terrain.TILE
 const GROUND_HIT := 25.0
-## A dyno is a timing move, not a mashing one: one tap of GRIP as the
-## hands reach the hold sticks it. A tap up to CATCH_EARLY before the hands
-## arrive counts (you reached for it), and so does one up to CATCH_WINDOW
-## after; within CATCH_PERFECT of the contact it is a perfect catch, which
-## gives back half the jump's cost. Snatch at the air (FLAIL taps before
-## the hold is near) and the hands miss it.
-const CATCH_WINDOW := 0.4
+## A dyno: leap from the rock, and the hands catch the hold they reach, on
+## their own. Timing is a bonus, never a trap: a tap of GRIP from
+## CATCH_EARLY before the hands arrive to CATCH_PERFECT after is a perfect
+## catch, which gives back half the jump's cost. Missing the timing (or
+## tapping in the air) costs nothing.
 const CATCH_EARLY := 0.15
 const CATCH_PERFECT := 0.15
-const FLAIL := 2
 ## Slopers: rounded holds held by friction. Moving on them loses grip
 ## (SLOPER_SLIDE a second at full speed, by the square of the speed, so
 ## half speed loses a quarter), holding still lets it settle back
@@ -58,8 +55,6 @@ const FALL_LESSONS := {
 	"pump": "Pumped: your stamina ran out. Rest on big holds, pockets and the rope before the hard bits.",
 	"crimps": "Pumped on the tiny holds. Keep moving on them, and squeeze GRIP when the meter drops below half.",
 	"sloper": "Slid off a sloper. Move slowly on them and pause to let your grip settle.",
-	"dyno-late": "Missed the catch. Tap GRIP once, just as your hands reach the hold.",
-	"dyno-flail": "Snatched too early. One tap as your hands reach the hold, not a flurry in the air.",
 	"ground": "Hit the ground: the first bolts were too far below. Clip as soon as you can low down.",
 }
 ## Once clipped you can sit back on the rope and rest, any time, as often
@@ -295,7 +290,40 @@ func _ready() -> void:
 	Settings.back_requested.connect(_on_back)
 	Audio.set_camp(0.0)
 	Audio.play_music("crag")
-	brief()
+	if Crag.quick_retry:
+		Crag.quick_retry = false
+		quick_start()
+	else:
+		brief()
+
+
+## Straight back onto the rock after Retry: the same shoes, no brief, the
+## go counted once at tie-in. The brief, the route preview and beta are
+## still in the pause menu and behind "Change shoes" on the results.
+func quick_start() -> void:
+	quick_started = true
+	if not route.get("tutorial", false):
+		wear(Crag.shoes)
+	_tie_in()
+	var best := ""
+	if prev_high_rows > 0 and not _sent_before():
+		best = " Your best: %s up." % _m_rows(prev_high_rows)
+	hud.flash("Again! %s.%s" % ["Tie in" if route.get("tutorial", false) else Crag.SHOES[shoes]["name"], best], 1.6)
+
+
+func _sent_before() -> bool:
+	if is_daily():
+		return int(Crag.daily_record()["sends"]) > 0
+	return int(Crag.record(route["id"])["sends"]) > 0
+
+
+static func _m_rows(rows: int) -> String:
+	return "%s m" % Crag._m(rows * Crag.ROW_M)
+
+
+## Rows from the foot of the line to the anchor.
+func route_rows() -> int:
+	return int(round((_start.y - _top_y) / Terrain.TILE))
 
 
 func mate_name() -> String:
@@ -440,16 +468,49 @@ func _place_clips() -> void:
 ## Not sent yet but tried: a chalk line across the route at the highest
 ## you have been, so the next go has something to beat.
 var high_mark: Node2D
+## The best height before this go (rows up the wall from the foot), and
+## where along the wall it was: for the chalk mark, passing it mid-climb,
+## and near-miss words. Daily routes keep their own, per day.
+var prev_high_rows := 0
+var prev_high_x := 0
+var high_x := 0
+var _passed_high := false
+## This go began with one tap from the results (no menu, no brief).
+var quick_started := false
+## Milliseconds from the Retry tap to playable, or -1.
+var retry_ms := -1
+## The near-miss words this go ended with ("" when there was none).
+var near_miss := ""
+## What happened on this go, for the records service to check (Records):
+## [seconds, kind, data] for the tie-in, each clip, fall, rest and catch,
+## the height once a second, and the end.
+var attempt_log: Array = []
+var _log_next := 1.0
+
+
+func log_event(kind: String, info: Variant = null) -> void:
+	attempt_log.append([snappedf(climber.clock if climber else 0.0, 0.01), kind, info])
 
 
 func _mark_high_point() -> void:
-	if is_daily():
+	var rec := Crag.daily_record() if is_daily() else Crag.record(route["id"])
+	prev_high_rows = int(rec.get("highRows", 0))
+	prev_high_x = int(rec.get("highX", 0))
+	high_mark = Node2D.new()
+	high_mark.z_index = 3
+	add_child(high_mark)
+	if _sent_before():
+		# Topped before: the record is the time, written by the anchor.
+		var secs := int(rec.get("bestSeconds", -1))
+		if secs > 0:
+			var anchor := Terrain.feet(terrain.markers["X"][0])
+			_chalk_label("best %s" % _clock(secs), anchor + Vector2(12, -18))
 		return
-	var rec := Crag.record(route["id"])
-	var rows := int(rec.get("highRows", 0))
-	if rows <= 2 or int(rec["sends"]) > 0:
+	if prev_high_rows <= 2:
 		return
-	var y := _start.y - rows * Terrain.TILE
+	# A chalk tick on the rock either side of the line at the best height,
+	# never across the holds, and a small word beside it.
+	var y := _start.y - prev_high_rows * Terrain.TILE
 	var row := Terrain.cell_of(Vector2(0, y - 1)).y
 	var xs: Array = []
 	for x in terrain.width:
@@ -457,24 +518,28 @@ func _mark_high_point() -> void:
 			xs.append(x)
 	if xs.is_empty():
 		return
-	high_mark = Node2D.new()
-	high_mark.z_index = 3
-	var line := Line2D.new()
-	line.width = 1.5
-	line.default_color = Color(1, 1, 1, 0.75)
-	line.points = PackedVector2Array([Vector2(xs.min() * Terrain.TILE - 4, y), Vector2((xs.max() + 1) * Terrain.TILE + 4, y)])
-	high_mark.add_child(line)
+	var left: float = xs.min() * Terrain.TILE
+	var right: float = (xs.max() + 1) * Terrain.TILE
+	for seg in [[left - 11.0, left - 3.0], [right + 3.0, right + 11.0]]:
+		var line := Line2D.new()
+		line.width = 1.6
+		line.default_color = Color(1, 1, 1, 0.55)
+		line.points = PackedVector2Array([Vector2(seg[0], y), Vector2(seg[1], y)])
+		high_mark.add_child(line)
+	_chalk_label("best %s" % _m_rows(prev_high_rows), Vector2(right + 13.0, y - 6.0))
+
+
+func _chalk_label(text: String, at: Vector2) -> void:
 	var l := Label.new()
-	l.text = "your high point"
+	l.text = text
 	l.add_theme_font_size_override("font_size", 7)
-	l.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	l.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.65))
 	l.add_theme_constant_override("outline_size", 3)
 	if UiFont.body():
 		l.add_theme_font_override("font", UiFont.body())
-	l.position = Vector2((xs.max() + 1) * Terrain.TILE + 6, y - 6)
+	l.position = at
 	high_mark.add_child(l)
-	add_child(high_mark)
 
 
 ## The longest gap between two bolts, in rows.
@@ -601,7 +666,7 @@ func beta_tips() -> String:
 		if i > 0 and int(c["gap"]) >= RUNOUT:
 			tips.append("Between bolts %d and %d is a long run-out (%s m): rest on the rope at bolt %d first." % [i, i + 1, Crag._m(int(c["gap"]) * Crag.ROW_M), i])
 	if dyno_count() > 0:
-		tips.append("%s across blank rock: jump from the top of the holds below, then tap GRIP once, just as your hands reach the hold." % ("A leap" if dyno_count() == 1 else "%d leaps" % dyno_count()))
+		tips.append("%s across blank rock: jump from the top of the holds below and your hands catch the hold. Tap GRIP as you arrive for a perfect catch." % ("A leap" if dyno_count() == 1 else "%d leaps" % dyno_count()))
 	if _count_kind(Terrain.Kind.SLOPER) > 0:
 		tips.append("Slopers (round grey holds): move slowly, and pause on them to let your grip settle. Squeezing does not help.")
 	if _count_kind(Terrain.Kind.POCKET) > 0:
@@ -650,6 +715,11 @@ func wear(id: String) -> void:
 func _physics_process(_delta: float) -> void:
 	if _ended or climber == null:
 		return
+	if quick_started and retry_ms < 0 and climber.state != Climber.State.LOCKED:
+		retry_ms = maxi(0, Crag.retry_landed())
+	if briefed and climber.clock >= _log_next:
+		_log_next = floorf(climber.clock) + 1.0
+		log_event("h", high_rows)
 	var pressed := GameInput.pressed_now("interact")
 	_tap = pressed and not panel.open and not previewing
 	if previewing:
@@ -678,7 +748,16 @@ func _physics_process(_delta: float) -> void:
 		_cause = ""
 	if climber.state == Climber.State.CLIMB:
 		_last_hold = terrain.hold_at(climber.body_rect())
-		high_rows = maxi(high_rows, int((_start.y - climber.global_position.y) / Terrain.TILE))
+		var up := int((_start.y - climber.global_position.y) / Terrain.TILE)
+		if up > high_rows:
+			high_rows = up
+			high_x = int(climber.global_position.x)
+		# Past your best, while it happens: once a go, never on a first go.
+		if not _passed_high and prev_high_rows > 2 and high_rows > prev_high_rows and not _sent_before():
+			_passed_high = true
+			hud.flash("NEW HIGH POINT", 1.4)
+			Audio.play("record", -6.0, 0.0)
+			Haptics.tap(25)
 	climber.on_rope = resting_rope
 	# On lead, a fall stops on the rope a little below the last bolt.
 	if climber.state == Climber.State.AIR and checkpoint > 0 and climber.global_position.y - climber.fall_from > LEAD_FALL:
@@ -754,6 +833,7 @@ func _clip() -> void:
 	c["clipped"] = true
 	c["node"].texture.region = Rect2(48, 0, 48, 88)
 	checkpoint = maxi(checkpoint, clip_target + 1)
+	log_event("clip", [clip_target, int((_start.y - climber.global_position.y) / Terrain.TILE)])
 	engage("clip")
 	Haptics.tap(15)
 	# The rope snapping in: the gate clicks, chalk off the fingers, the
@@ -803,6 +883,7 @@ func _rope(dt: float) -> void:
 	if _tap and can_rest() and not on_crimps:
 		resting_rope = true
 		rope_rests += 1
+		log_event("rest", checkpoint)
 		engage("rest")
 		hud.flash("You sit back on the rope and shake your arms out.", 1.6)
 
@@ -817,7 +898,7 @@ const LESSONS := {
 	"rest": ["Rest on the rope", "The green bar over your head is a rest: tap REST to sit back and get stamina back. Every bolt you clip refills it."],
 	"crimps": ["Tiny holds", "Tiny holds drain you fast: the seconds beside your stamina are how long your arms last here. Keep moving, and tap GRIP once when the meter over your head drops below half."],
 	"jug": ["A big hold", "Stay on big holds to shake out and get your stamina back."],
-	"dyno": ["Jump for it", "No holds above: press JUMP to leap. Tap GRIP once as the ring closes on the hold. Mashing misses."],
+	"dyno": ["Jump for it", "No holds above: press JUMP to leap, and your hands catch the hold. Tap GRIP just as you arrive for a perfect catch: stamina back."],
 	"fall": ["You fell. That's fine.", "The rope caught you at your last bolt. Climb on from here: falls are how you learn a route."],
 }
 
@@ -837,9 +918,16 @@ func _teach() -> bool:
 		if lessons_seen.has(key) or not checks[key]:
 			continue
 		lessons_seen.append(key)
+		if Crag.lessons_seen.has(key):
+			# Seen on an earlier go: a short reminder, the game keeps going.
+			hud.flash("%s: %s" % LESSONS[key], 2.6)
+			continue
+		Crag.see_lesson(key)
 		lesson = key
 		climber.lock(true)
 		var words: Array = LESSONS[key]
+		# Up top, so the climber and the button the tip is about stay in view.
+		panel.at_top = true
 		panel.show_panel("First climb · tip %d" % lessons_seen.size(), words[0], words[1], [["lesson", "Got it"]])
 		return true
 	return false
@@ -955,17 +1043,13 @@ func _on_grabbed() -> void:
 	engage("grab")
 	if _dyno_air:
 		_dyno_air = false
-		if _air_taps >= FLAIL:
-			# Snatched at the air: the hands miss the hold.
-			_cause = "dyno-flail"
-			catch_quality = "flail"
-			hud.flash("Snatched too early: you missed the hold.", 2.0)
-			climber.peel_off()
-			return
 		if climber.clock - _air_tap_at <= CATCH_EARLY:
 			_stick(true)
 			return
-		catching = CATCH_WINDOW
+		# On the rock: the hands have it. A tap in the next moment still
+		# makes it a perfect catch.
+		_stick(false)
+		catching = CATCH_PERFECT
 
 
 ## In the air after a dyno, and the catch window once the hands touch: one
@@ -976,9 +1060,8 @@ func _catch(dt: float) -> void:
 			# A tap close to the hold is a reach; one far from it is a snatch.
 			var hands_y := climber.body_rect().position.y
 			if dyno_target_y < INF and hands_y - dyno_target_y > 1.2 * Terrain.TILE:
+				# Too early to count as a reach; harmless.
 				_air_taps += 1
-				if _air_taps == FLAIL:
-					hud.flash("Wait for it...", 0.8)
 			else:
 				_air_tap_at = climber.clock
 		return
@@ -990,24 +1073,23 @@ func _catch(dt: float) -> void:
 	if catching <= 0.0:
 		return
 	if _tap:
-		_stick(CATCH_WINDOW - catching <= CATCH_PERFECT)
+		# Right on the contact: upgrade to a perfect catch.
+		_stick(true)
 		return
 	catching -= dt
-	if catching <= 0.0:
-		_cause = "dyno-late"
-		catch_quality = "late"
-		climber.peel_off()
-		hud.flash("Too late: the hold slips out of your hands.", 2.0)
 
 
 ## The catch. A perfect one (right on the contact) gives back half the
 ## jump's stamina.
 func _stick(perfect: bool) -> void:
+	var upgrade := catching > 0.0 and catch_quality == "good"
 	catching = 0.0
 	# The tap that caught the hold does nothing else (no clip, no squeeze).
 	_tap = false
 	catch_quality = "perfect" if perfect else "good"
-	engage("catch")
+	if not upgrade:
+		log_event("catch", catch_quality)
+		engage("catch")
 	Haptics.tap(35 if perfect else 22)
 	Audio.play("catch", -4.0 if perfect else -7.0, 0.05)
 	puff(climber.global_position - Vector2(0, Climber.SIZE.y), Color(1, 1, 1, 0.9), 16 if perfect else 10)
@@ -1015,6 +1097,7 @@ func _stick(perfect: bool) -> void:
 		perfect_catches += 1
 		climber.stamina.value = minf(climber.stamina.max_value, climber.stamina.value + Climber.DYNO_COST * 0.5)
 		camera.kick(0.25)
+		Audio.play("perfect", -6.0, 0.0)
 		hud.flash("Perfect catch!", 1.2)
 	else:
 		hud.flash("Caught it.", 1.0)
@@ -1079,6 +1162,7 @@ func _draw_rope() -> void:
 
 
 func _on_slipped(_saved: bool, reason: String) -> void:
+	log_event("fall", [reason, int((_start.y - climber.global_position.y) / Terrain.TILE)])
 	_fall_top = minf(climber.fall_from, climber.global_position.y)
 	fall_cause = _cause
 	if fall_cause == "":
@@ -1291,6 +1375,8 @@ func _on_back() -> void:
 
 func _tie_in() -> void:
 	briefed = true
+	attempt_log = []
+	log_event("tie_in", shoes)
 	Crag.tie_in(route["id"])
 	climber.lock(false)
 
@@ -1342,6 +1428,8 @@ func _on_choice(id: String) -> void:
 			settings_menu()
 		"paused":
 			pause_menu()
+		"retry":
+			Crag.retry(route["id"])
 		"again":
 			Crag.climb(route["id"])
 		"next":
@@ -1362,12 +1450,18 @@ func share() -> void:
 	DisplayServer.clipboard_set(text)
 	Analytics.event("daily_shared", {"date": route.get("date", "")})
 	hud.flash("Result copied: paste it anywhere.", 2.4)
+	# Back to the results at once, so there is always a way on (the card
+	# is drawn in the background).
+	if not _results_panel.is_empty():
+		panel.show_panel(_results_panel[0], _results_panel[1], _results_panel[2], _results_panel[3])
 	var lines: Array = text.split("\n").slice(2)
 	var path: String = await ShareCard.save(self, route, lines)
 	if path != "" and is_inside_tree():
 		hud.flash("Result copied, and the card saved%s." % (" (downloading)" if OS.has_feature("web") else ""), 2.4)
 
 
+## The results card as last shown: [kicker, title, body, choices].
+var _results_panel: Array = []
 ## The last result shared (for tests).
 var shared_text := ""
 
@@ -1377,7 +1471,7 @@ var shared_text := ""
 func go_stats() -> Dictionary:
 	return {"grip_taps": int(taps["grip"]), "wasted": wasted_squeezes, "rests": rope_rests, "perfect": perfect_catches, "dynos": climber.dynos,
 		"bolts": clips.size(), "clipped": _clipped(), "good_clips": good_clips, "min_sloper_grip": min_sloper_grip,
-		"causes": falls_by_cause.duplicate(), "high_rows": high_rows, "moves": climber.moves, "shoes": shoes}
+		"causes": falls_by_cause.duplicate(), "high_rows": high_rows, "high_x": high_x, "moves": climber.moves, "shoes": shoes}
 
 
 static func _clock(seconds: int) -> String:
@@ -1401,32 +1495,54 @@ func finish(sent: bool) -> void:
 	else:
 		climber.lock(true)
 	panel.hide_panel()
+	log_event("end", ["top" if sent else "lowered", high_rows, climber.slips])
 	var stats := go_stats()
-	var best_before := int(Crag.record(route["id"])["bestSeconds"])
+	var best_before := int((Crag.daily_record() if is_daily() else Crag.record(route["id"]))["bestSeconds"])
+	var best_style_before := String((Crag.daily_record() if is_daily() else Crag.record(route["id"]))["best"])
 	outcome = Crag.finish(route["id"], sent, climber.slips, int(climber.clock), checkpoint, stats)
 	outcome["sent"] = sent
 	outcome["falls"] = climber.slips
 	outcome["seconds"] = int(climber.clock)
 	outcome["stats"] = stats
 	outcome["shoes"] = shoes
+	near_miss = near_miss_words(sent)
+	outcome["nearMiss"] = near_miss
 	finished.emit(outcome)
+	var record_line: String = Records.crag_attempt(route, outcome, self)
 	var lines: Array = []
 	var head := "Lowered off"
+	var improved: Array = []
 	if sent:
 		var style: Array = Crag.STYLES[outcome["style"]]
 		head = style[0] + "!"
 		lines.append(style[1])
+		if outcome.get("better", false) and best_style_before != "":
+			improved.append("better style than your %s" % Crag.STYLES[best_style_before][0].to_lower())
 	else:
-		lines.append("Bolts clipped: %d of %d.%s" % [checkpoint, clips.size(), " A new high point!" if outcome.get("highpoint", false) else ""])
+		if outcome.get("newHighPoint", false):
+			head = "NEW HIGH POINT"
+		lines.append("Bolts clipped: %d of %d · high point %s of %s." % [checkpoint, clips.size(), _m_rows(high_rows), _m_rows(route_rows())])
+	if near_miss != "":
+		lines.push_front(near_miss)
 	# Time, against the best.
 	var time := "Time %s" % _clock(int(climber.clock))
 	if sent and int(outcome.get("fasterBy", 0)) > 0:
 		time += " · new best, %d s faster!" % int(outcome["fasterBy"])
+		improved.append("%d s faster" % int(outcome["fasterBy"]))
 	elif sent and best_before < 0:
 		time += " · your first time to beat"
 	elif best_before > 0:
 		time += " · best %s" % _clock(best_before)
 	lines.append("%s · %s · falls %d%s" % [_stars_text(int(outcome.get("stars", 0))), time, climber.slips, (" (%d to the ground)" % ground_falls) if ground_falls > 0 else ""])
+	# Grade, and the best you have done on it.
+	var best_now := String((Crag.daily_record() if is_daily() else Crag.record(route["id"]))["best"])
+	lines.append("Grade %s · best ascent: %s" % [route["grade"], Crag.STYLES[best_now][0] if best_now != "" else "not topped yet"])
+	if outcome.get("newHighPoint", false):
+		improved.append("%s higher than ever" % _m_rows(high_rows - int(outcome.get("highRowsBefore", 0))))
+	if not improved.is_empty():
+		lines.append("Better than before: " + ", ".join(improved) + ".")
+	if record_line != "":
+		lines.append(record_line)
 	# The route's challenge.
 	var ch: Array = Logbook.CHALLENGES.get(route["id"], [])
 	if is_daily():
@@ -1434,6 +1550,9 @@ func finish(sent: bool) -> void:
 			lines.append("Practice: your device's date is behind a day already played, so this go is not logged.")
 		elif sent and int(outcome.get("streak", 0)) > 1:
 			lines.append("Daily streak: %d days." % int(outcome["streak"]))
+		if not outcome.get("practice", false):
+			lines.append("Today: %d go%s%s. Same route all day: beat your time." % [int(Crag.daily_record()["attempts"]), "" if int(Crag.daily_record()["attempts"]) == 1 else "s",
+				(", best %s" % _clock(int(Crag.daily_record()["bestSeconds"]))) if int(Crag.daily_record()["bestSeconds"]) > 0 else ""])
 	if not ch.is_empty():
 		var s := stats.duplicate()
 		s["sent"] = sent
@@ -1449,28 +1568,77 @@ func finish(sent: bool) -> void:
 			if worst == "" or int(falls_by_cause[k]) > int(falls_by_cause[worst]):
 				worst = k
 		lines.append("Try next: " + String(FALL_LESSONS.get(worst, "")))
+	# The way on: Retry first after a fall short; after the top, the next
+	# route first and a replay second.
 	var choices: Array = []
-	if outcome.get("unlocked", "") != "":
-		var next := Crag.route(outcome["unlocked"])
-		lines.append("New route open: %s (%s): %s." % [next["name"], next["grade"], next.get("skill", "")])
-		choices.append(["next", "Climb %s" % next["name"]])
+	if sent:
+		if outcome.get("unlocked", "") != "":
+			var next := Crag.route(outcome["unlocked"])
+			lines.append("New route open: %s (%s): %s." % [next["name"], next["grade"], next.get("skill", "")])
+			choices.append(["next", "Next route: %s" % next["name"]])
+		elif not is_daily():
+			var next_id := Crag.next_route()
+			if next_id != "" and next_id != route["id"]:
+				outcome["suggested"] = next_id
+				choices.append(["suggested", "Next route: %s" % Crag.route(next_id)["name"]])
+		choices.append(["retry", "Replay"])
+	else:
+		choices.append(["retry", "Retry"])
 	if is_daily() and not outcome.get("practice", false):
 		choices.append(["share", "Share today's result"])
-	elif not is_daily():
-		var next_id := Crag.next_route()
-		if next_id != "" and next_id != route["id"] and outcome.get("unlocked", "") == "":
-			outcome["suggested"] = next_id
-			choices.append(["suggested", "Next up: %s" % Crag.route(next_id)["name"]])
-	choices.append(["again", "Climb it again"])
+	choices.append(["again", "Change shoes, read the brief"])
 	choices.append(["menu", "Back to the routes"])
 	hud.flash(head)
+	var props := {"route": route["id"], "sent": sent, "falls": climber.slips, "seconds": int(climber.clock), "rows": high_rows, "retry": quick_started}
+	Analytics.event("attempt_ended", props)
+	if outcome.get("newHighPoint", false):
+		Analytics.event("new_high_point", {"route": route["id"], "rows": high_rows, "before": int(outcome.get("highRowsBefore", 0))})
+	if near_miss != "":
+		Analytics.event("near_miss", {"route": route["id"], "rows": high_rows, "kind": "anchor" if "anchor" in near_miss else "best"})
 	if is_daily():
 		pass
 	elif sent:
 		Analytics.event("route_completed", {"route": route["id"], "style": outcome["style"], "falls": climber.slips, "seconds": int(climber.clock)})
 	else:
 		Analytics.event("route_failed", {"route": route["id"], "bolts": checkpoint, "falls": climber.slips, "seconds": int(climber.clock)})
-	await get_tree().create_timer(1.0 if is_inside_tree() else 0.0).timeout
+	if sent and (outcome.get("better", false) or int(outcome.get("fasterBy", 0)) > 0) or outcome.get("newHighPoint", false):
+		Audio.play("record", -5.0, 0.0)
+	# A beat to see the top or the fall, skipped by any tap.
+	var waited := 0.0
+	while is_inside_tree() and waited < 1.0:
+		await get_tree().physics_frame
+		waited += get_physics_process_delta_time()
+		if GameInput.pressed_now("interact") or GameInput.pressed_now("jump") or GameInput.pressed_now("pause") or _skip_celebration:
+			break
 	if is_inside_tree():
-		var kicker := "The crag · lesson" if route.get("tutorial", false) else "The crag · grade %s" % route["grade"]
+		var kicker := "The crag · lesson" if route.get("tutorial", false) else ("Daily route · grade %s" % route["grade"] if is_daily() else "The crag · grade %s" % route["grade"])
+		_results_panel = [kicker, "%s · %s" % [head, route["name"]], "\n".join(lines), choices]
 		panel.show_panel(kicker, "%s · %s" % [head, route["name"]], "\n".join(lines), choices)
+
+
+## Skips the beat before the results (tests, and a tap on the screen).
+var _skip_celebration := false
+
+
+## A short, true message when a go ends close to something: the best
+## height before it, or the anchor. Measured on the wall in rows (half a
+## metre each), never a made-up percentage; "" when nothing was close.
+func near_miss_words(sent: bool) -> String:
+	if sent:
+		return ""
+	var to_anchor := route_rows() - high_rows
+	var close_to_top := to_anchor > 0 and to_anchor <= 4
+	if outcome.get("newHighPoint", false):
+		if close_to_top:
+			return "New high point, and only %s from the anchor." % _m_rows(to_anchor)
+		return ""
+	var before := int(outcome.get("highRowsBefore", 0))
+	if before > 2 and not _sent_before():
+		var short := before - high_rows
+		if short == 0:
+			return "Level with your best height (%s). One more move." % _m_rows(before)
+		if short > 0 and short <= 2:
+			return "Just %s short of your best: one or two moves." % _m_rows(short)
+	if close_to_top:
+		return "Almost at the anchor: %s to go." % _m_rows(to_anchor)
+	return ""

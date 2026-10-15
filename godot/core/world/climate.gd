@@ -88,12 +88,16 @@ static func heat(deg: float) -> float:
 
 
 ## The temperature in words, with what it does.
+## Words follow the shown (rounded) degrees, so the number and the words
+## never disagree, and a 0% effect is never claimed.
 static func words(deg: float) -> String:
 	var d := int(round(deg))
-	if deg >= WARM:
-		return "%d°C · hot: every move costs %d%% more" % [d, int(round((heat(deg) - 1.0) * 100.0))]
-	if deg >= COOL:
+	var hot := int(round((heat(deg) - 1.0) * 100.0))
+	var slow := int(round((1.0 - pace(deg)) * 100.0))
+	if d >= int(WARM) and hot > 0:
+		return "%d°C · hot: every move costs %d%% more" % [d, hot]
+	if d >= int(COOL) or (d > 0 and slow == 0):
 		return "%d°C · mild" % d
-	if deg >= 0.0:
+	if d >= 0 or slow == 0:
 		return "%d°C · cool: a little slower" % d
-	return "%d°C · freezing: %d%% slower, rest works less" % [d, int(round((1.0 - pace(deg)) * 100.0))]
+	return "%d°C · freezing: %d%% slower, rest works less" % [d, slow]

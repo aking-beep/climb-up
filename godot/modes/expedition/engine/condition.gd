@@ -121,6 +121,8 @@ static func report(c: Dictionary, st: StaminaModel, energy: float, meters: float
 	var bar := "Team energy %d gives a bar of %d." % [int(energy), base]
 	if not took.is_empty():
 		bar += " Lost to " + ", ".join(took) + "."
+	if st.max_value <= ClimbLevel.MIN_BAR:
+		bar += " A climb's bar never drops below %d: rest to full before each face." % int(ClimbLevel.MIN_BAR)
 	rows.append({"tone": "good" if took.is_empty() and base >= 85 else ("bad" if not took.is_empty() or base < 70 else "info"),
 		"icon": "bolt", "title": "Stamina %d" % int(st.max_value), "text": bar})
 	# Breath: the height, and how used to it the party is.
@@ -147,7 +149,7 @@ static func report(c: Dictionary, st: StaminaModel, energy: float, meters: float
 	if c.get("hungry", false):
 		parts.append("hungry -20%")
 	var rec := int(round(st.recovery * 100.0))
-	var back := "Sitting down refills stamina at %d%% speed" % rec
+	var back := "Only REST refills stamina (standing still doesn't), at %d%% speed" % rec
 	if not parts.is_empty():
 		back += " (" + ", ".join(parts) + ")"
 	rows.append({"tone": "good" if rec >= 100 else ("bad" if rec < 75 else "info"), "icon": "heart", "title": "Rest", "text": back + "."})

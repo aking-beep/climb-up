@@ -24,6 +24,9 @@ var _foot: Label
 var _scroll: ScrollContainer
 var _v: VBoxContainer
 var open := false
+## At the top of the screen instead of the bottom: for tips about what is
+## happening below, so the climber and the buttons stay in view.
+var at_top := false
 ## Taller than this share of the screen and the panel scrolls.
 const MAX_SHARE := 0.94
 
@@ -200,6 +203,14 @@ func _size_box() -> void:
 	_scroll.custom_minimum_size = Vector2(0, minf(want, room))
 	# Shrink to this panel's content (it grows from the bottom edge, and
 	# would otherwise keep the height of a taller panel before it).
+	if at_top:
+		_box.anchor_top = 0.0
+		_box.anchor_bottom = 0.0
+		_box.offset_top = 8
+		_box.offset_bottom = _box.offset_top + _box.get_combined_minimum_size().y
+		return
+	_box.anchor_top = 1.0
+	_box.anchor_bottom = 1.0
 	_box.offset_bottom = -10
 	_box.offset_top = _box.offset_bottom - _box.get_combined_minimum_size().y
 
@@ -212,6 +223,8 @@ func _choose(id: String) -> void:
 func hide_panel() -> void:
 	visible = false
 	open = false
+	# The next panel is at the bottom unless its caller says otherwise.
+	at_top = false
 
 
 ## The ids of the choices showing (or last shown).

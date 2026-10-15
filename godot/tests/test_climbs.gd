@@ -11,6 +11,8 @@ func _load(challenge: String) -> void:
 	Settings.touch_controls = false
 	Expedition.session = TestSessions.at(challenge)
 	check(Expedition.pending() != null, "the careful party reached %s" % challenge)
+	# A fresh go: nothing left over from an earlier test's climb.
+	Expedition.climb = {}
 	Expedition.resume_climb()
 	outcome = null
 	level = load(Expedition.LEVELS[challenge]).instantiate()
@@ -58,7 +60,7 @@ func test_the_lava_tower_climbed() -> void:
 		check(outcome.stars >= 2, "a clean ascent earns at least two stars, got %d" % outcome.stars)
 		check(outcome.flowers > 0 and outcome.flowers_total > outcome.flowers - 1, "everlastings were picked on the way (%d of %d)" % [outcome.flowers, outcome.flowers_total])
 		check_pacing("Lava Tower")
-		print("      Lava Tower took %d s of game time, %d%% stamina left, %d slips, %.0f s resting" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.rest_seconds])
+		print("      Lava Tower took %d s of game time, %d%% stamina left, %d slips, %.0f s resting, lowest %d%% of a %d bar, food eaten %d" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.rest_seconds, int(level.lowest_stamina * 100), int(c.stamina.max_value), level.snacks * ClimbLevel.SNACK])
 	await _results()
 	eq(Expedition.state()["checkpoint"], "camp2", "the outcome landed: the party sleeps at Barranco")
 	check(Expedition.pending() == null, "the climb is closed")
@@ -115,7 +117,7 @@ func test_the_summit_night_climbed_helping_jun() -> void:
 		eq(outcome.result, "complete", "result")
 		eq(outcome.assisted, true, "assisted")
 		check_pacing("summit night")
-		print("      summit night took %d s of game time, %d%% stamina left, %d slips, %d caught, %d wind strikes, %.0f s resting" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.caught, outcome.wind_strikes, outcome.rest_seconds])
+		print("      summit night took %d s of game time, %d%% stamina left, %d slips, %d caught, %d wind strikes, %.0f s resting, lowest %d%% of a %d bar, food eaten %d" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.caught, outcome.wind_strikes, outcome.rest_seconds, int(level.lowest_stamina * 100), int(c.stamina.max_value), level.snacks * ClimbLevel.SNACK])
 	await _results()
 	check(Expedition.state()["summitReached"], "the summit is recorded on the expedition")
 	await _done()
@@ -201,9 +203,14 @@ func test_water_and_lost_gear() -> void:
 	eq(hz.gear_count, 0, "nothing found yet")
 	await _put(Vector2i(59, 22))
 	eq(hz.gear_count, 1, "found the gear in the chimney niche")
-	eq(Expedition.gear_found("lava-tower"), [1], "kept on the expedition")
+	# Its index: the markers' order, bottom to top.
+	var cells: Array = level.terrain.markers["*"].duplicate()
+	cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y > b.y or (a.y == b.y and a.x < b.x))
+	var n := cells.find(Vector2i(59, 22))
+	eq(String(hz.gear_words[n][2]), "gloves", "the gloves, in the chimney niche")
+	eq(Expedition.gear_found("lava-tower"), [n], "kept on the expedition")
 	check(Expedition.load_saved(), "saved")
-	eq(Expedition.gear_found("lava-tower"), [1], "and in the save")
+	eq(Expedition.gear_found("lava-tower"), [n], "and in the save")
 	await _done()
 
 
@@ -396,6 +403,8 @@ func test_falling_into_a_hole_starts_the_climb_again() -> void:
 	eq(lvl.checkpoint, 0, "and the climb starts again")
 	check(c.global_position.distance_to(lvl.cairns[0]) < 4.0, "back at the start (%s)" % c.global_position)
 	check("hole" in level.hud.flash_text(), "and it says so: " + level.hud.flash_text())
+	var why := lvl.slip_summary()
+	check("1 from holes" in why and "Try next:" in why, "the results will say what to try: " + why)
 	await _done()
 
 
@@ -479,3 +488,125 @@ func test_the_weather_changes_along_the_climb() -> void:
 	check(lvl.climate.degrees(0.2, 240.0) < now, "the night gets colder as time passes")
 	await _done()
 	check(Climate.pace(-15.0) >= Climate.SLOWEST and Climate.pace(-15.0) < 1.0, "the cold slows, within reason")
+
+
+func test_a_rest_stone_shelters_you_from_the_cold() -> void:
+	await _load("summit-night")
+	var lvl: ClimbLevel = level
+	var cell := Vector2i(-1, -1)
+	for y in lvl.terrain.height:
+		for x in lvl.terrain.width:
+			if cell.x < 0 and lvl.terrain.kind(Vector2i(x, y)) == Terrain.Kind.REST:
+				cell = Vector2i(x, y)
+	check(cell.x >= 0, "the summit night has a rest stone")
+	await _put(cell)
+	c.stamina.value = 10.0
+	GameInput.scripted = {"_": false, "rest": true}
+	await physics_frames(2)
+	GameInput.scripted = {"_": false}
+	await physics_frames(20)
+	eq(c.last_activity, "rest_stone", "sitting on the rest stone")
+	check(lvl.degrees < Climate.COOL, "in the cold (%d°C)" % lvl.degrees)
+	near(c.stamina.recovery, lvl._base_recovery, 0.001, "sheltered: the cold does not slow the rest")
+	check("sheltered" in level.hud._temp.text, "the HUD says so: " + level.hud._temp.text)
+	await _done()
+
+
+## A pause in the middle of a fall or a slip holds the moment: nothing
+## moves under the menu, and the fall or the walk back to the cairn
+## carries on after it (no cancelled falls, no skipped respawns).
+func test_a_pause_never_cancels_a_fall_or_a_slip() -> void:
+	await _load("lava-tower")
+	var lvl: ClimbLevel = level
+	# High above the start, falling.
+	c.global_position = lvl.cairns[0] - Vector2(0, 12 * T)
+	c.reset_physics_interpolation()
+	c.state = Climber.State.AIR
+	c.fall_from = c.global_position.y
+	await physics_frames(5)
+	c.lock(true)
+	var y := c.global_position.y
+	await physics_frames(60)
+	near(c.global_position.y, y, 0.5, "frozen under the pause")
+	c.lock(false)
+	eq(c.state, Climber.State.AIR, "still falling after it")
+	for i in 60 * 3:
+		await tree.physics_frame
+		if c.slips > 0:
+			break
+	eq(c.slips, 1, "and the long fall still counts")
+	# Paused during the slip itself: the respawn still happens after.
+	c.lock(true)
+	await physics_frames(90)
+	eq(c.state, Climber.State.LOCKED, "held under the menu")
+	c.lock(false)
+	for i in 120:
+		await tree.physics_frame
+		if c.state == Climber.State.GROUND:
+			break
+	check(c.global_position.distance_to(lvl.cairns[lvl.checkpoint]) < 4.0, "back at the cairn after the pause (%s)" % c.global_position)
+	await _done()
+
+
+## Quitting after a slip before the first cairn (or after a hole sent you
+## back to the start) resumes that go: the slips and the clock are kept,
+## not wiped by a fresh start.
+func test_a_go_with_no_cairn_yet_still_resumes() -> void:
+	await _load("lava-tower")
+	c.slips = 1
+	c.clock = 40.0
+	level._remember()
+	GameInput.scripted = {}
+	level.queue_free()
+	await physics_frames(2)
+	level = load(Expedition.LEVELS["lava-tower"]).instantiate()
+	root.add_child(level)
+	await physics_frames(2)
+	c = level.climber
+	check(not level.panel.open, "no brief: the go carries on")
+	eq(c.slips, 1, "the slip is kept")
+	check(c.clock >= 40.0, "and the clock")
+	check("start of the climb" in level.hud.flash_text(), "it says where you are: " + level.hud.flash_text())
+	await _done()
+
+
+## The summit night is the boss: for a party at its most worn (the
+## smallest bar a climb allows) it takes nearly everything, but it can
+## always be done by resting to full before each face.
+func test_the_summit_is_the_boss_but_never_impossible() -> void:
+	await _load("summit-night")
+	level.queue_free()
+	await physics_frames(2)
+	# Rebuild with a worn party.
+	Expedition.state()["energy"] = 0
+	Expedition.state()["health"] = 40
+	level = load(Expedition.LEVELS["summit-night"]).instantiate()
+	root.add_child(level)
+	level.finished.connect(func(o: ChallengeOutcome) -> void: outcome = o)
+	await physics_frames(2)
+	level.panel.choose("start")
+	await physics_frames(1)
+	c = level.climber
+	eq(c.stamina.max_value, ClimbLevel.MIN_BAR, "a worn party gets the smallest bar")
+	await _switchback(77, true, "step 1")
+	await _switchback(68, false, "step 2")
+	await _switchback(59, true, "step 3")
+	await drive(["move_left"], func() -> bool: return level.panel.open, 60.0, "across the crevasse to Jun")
+	await rest_up_locked()
+	level.panel.choose("help")
+	await drive([], func() -> bool: return level.panel.open, 5.0, "panel")
+	level.panel.choose("continue")
+	await physics_frames(2)
+	await _switchback(50, false, "step 4")
+	await _switchback(41, true, "step 5, under stonefall")
+	await _switchback(32, false, "the rim step, under stonefall")
+	await drive(["move_right"], func() -> bool: return tx() >= 19.5, 10.0, "to the rim cairn")
+	await rest_up(0.99)
+	await cross(108.5)
+	await rest_up(0.98)
+	await up_to(24, "Stella step")
+	await drive(["move_right"], func() -> bool: return outcome != null, 30.0, "to Stella Point")
+	check(outcome != null and outcome.result == "complete", "the summit, even worn out")
+	check(level.lowest_stamina < 0.25, "and it is the hardest: down to %d%% of the bar" % int(level.lowest_stamina * 100))
+	print("      worn-out summit: %d s, %d slips, lowest %d%% of a %d bar, food eaten %d" % [int(c.clock), c.slips, int(level.lowest_stamina * 100), int(c.stamina.max_value), level.snacks * ClimbLevel.SNACK])
+	await _done()

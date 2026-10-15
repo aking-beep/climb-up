@@ -108,10 +108,22 @@ func breather() -> void:
 
 
 func rest_up(fraction: float = 0.95) -> void:
-	GameInput.scripted = {"_": false, "rest": true}
-	await tree.physics_frame
+	# Sit (REST), and sit again after getting up to dodge something: a
+	# player rests until full, since standing gives nothing back.
+	var full := func() -> bool: return c.stamina.fraction() >= fraction and (level.get("mate_state") != "helped" or level.get("mate_breath") >= 90.0 or level.get("mate_winded"))
+	var deadline := Engine.get_physics_frames() + 90 * 60
+	var tap := true
+	while Engine.get_physics_frames() < deadline and not full.call() and not level.get("_ended"):
+		var held := {"_": false}
+		if c.state == Climber.State.GROUND and tap:
+			held["rest"] = true
+		tap = not tap
+		_hop(held)
+		GameInput.scripted = held
+		await tree.physics_frame
 	GameInput.scripted = {"_": false}
-	await drive([], func() -> bool: return c.stamina.fraction() >= fraction and (level.get("mate_state") != "helped" or level.get("mate_breath") >= 90.0 or level.get("mate_winded")), 90.0, "resting")
+	if not full.call() and not level.get("_ended"):
+		failures.append("gave up resting at %s state=%d stamina=%d/%d" % [where(), c.state, int(c.stamina.value), int(c.stamina.max_value)])
 
 
 func _slab_near(dir: int, tiles: int) -> bool:
@@ -129,7 +141,7 @@ func _on_slab() -> bool:
 	return _slab_near(1, 0)
 
 
-## Walk toward `until_x` (either way). On open ground, brace whenever a gust
+## Walk toward `until_x` (either way). On open ground, sit (REST) whenever a gust
 ## is near; never stop on a cracked slab, and only step onto slabs when the
 ## wind will stay down long enough to cross them.
 func cross(until_x: float) -> bool:
@@ -148,9 +160,9 @@ func cross(until_x: float) -> bool:
 		if _on_slab():
 			held[dir] = true
 		elif _slab_near(sign, 2) and windy and not c.wind.calm_for(c.clock, 3.0):
-			held["brace"] = true
+			held["rest"] = true
 		elif windy and not c.wind.calm_for(c.clock, 0.8):
-			held["brace"] = true
+			held["rest"] = true
 		else:
 			held[dir] = true
 		_hop(held)

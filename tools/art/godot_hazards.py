@@ -7,8 +7,9 @@ Pixel art for the climbs' hazards and finds, in the style of the Godot tiles
                                        2-3 breaking).
   godot/assets/terrain/props/rock.png        a falling rock, 10 x 10
   godot/assets/terrain/props/water.png       a water cache, 12 x 14
-  godot/assets/terrain/props/gear.png        lost gear, 3 x (14 x 14):
-                                             compass, ice axe, photograph
+  godot/assets/terrain/props/gear.png        gear to find, 7 x (14 x 14):
+                                             poles, gloves, goggles and buff,
+                                             crampons, headlamp, helmet, rope
 
     python3 tools/art/godot_hazards.py
 """
@@ -135,42 +136,111 @@ def water():
 
 
 def gear():
-    sheet = Image.new("RGBA", (42, 14))
-    # Compass: a brass disc with a red needle.
+    """Five pieces of gear, each 14 x 14, in GEAR_KINDS order (climb_level.gd):
+    trekking poles, gloves, goggles and buff, crampons, headlamp."""
+    sheet = Image.new("RGBA", (98, 14))
+    steel, dark, red, blue = rgb("#b8c0c8"), rgb("#6b737c"), rgb("#c0392b"), rgb("#2f6db0")
+    # Trekking poles: two crossed shafts with grips and baskets.
+    a = Image.new("RGBA", (14, 14))
+    p = a.load()
+    for k in range(11):
+        p[2 + k, 1 + k] = steel
+        p[11 - k, 1 + k] = steel
+    for k in range(2):
+        p[2 + k, 1 + k] = red
+        p[11 - k, 1 + k] = blue
+    for x in (11, 12, 13):
+        p[x, 11] = dark
+    for x in (0, 1, 2):
+        p[x, 11] = dark
+    sheet.paste(outline(a), (0, 0))
+    # Gloves: a red mitt, thumb out, with a grey cuff.
+    g = Image.new("RGBA", (14, 14))
+    p = g.load()
+    for y in range(2, 9):
+        for x in range(4, 10):
+            p[x, y] = red
+    for x in range(5, 9):
+        p[x, 1] = red
+    for y in range(5, 8):
+        p[2, y] = red
+        p[3, y] = red
+    for y in range(9, 12):
+        for x in range(4, 10):
+            p[x, y] = rgb("#8a939c") if y != 10 else rgb("#d0d6dc")
+    p[6, 4] = rgb("#e05a4a")
+    sheet.paste(outline(g), (14, 0))
+    # Goggles and buff: two blue lenses on a strap, a striped buff below.
+    o = Image.new("RGBA", (14, 14))
+    p = o.load()
+    for x in range(0, 14):
+        p[x, 4] = rgb("#3c3c46")
+    for cx in (4, 9):
+        for y in range(2, 7):
+            for x in range(cx - 2, cx + 2):
+                p[x, y] = blue if y > 2 else rgb("#9ccbf0")
+    for y in range(8, 12):
+        for x in range(2, 12):
+            p[x, y] = rgb("#e8a33c") if (x + y) % 3 else rgb("#7a4f9e")
+    sheet.paste(outline(o), (28, 0))
+    # Crampons: a steel frame with spikes underneath and a strap.
     c = Image.new("RGBA", (14, 14))
     p = c.load()
+    for x in range(1, 13):
+        p[x, 6] = steel
+        p[x, 7] = dark
+    for x in range(1, 13, 2):
+        p[x, 8] = steel
+        p[x, 9] = steel
+    p[0, 5] = steel
+    p[0, 4] = steel
+    for x in range(3, 11):
+        p[x, 3] = red
+    p[3, 4] = red
+    p[3, 5] = red
+    p[10, 4] = red
+    p[10, 5] = red
+    sheet.paste(outline(c), (42, 0))
+    # Headlamp: a lamp on an elastic band, its beam lit.
+    h = Image.new("RGBA", (14, 14))
+    p = h.load()
+    for k in range(10):
+        p[2 + k, 9] = rgb("#3c3c46")
+    for y in range(5, 10):
+        for x in range(4, 9):
+            p[x, y] = rgb("#e0b03c")
+    for y in range(6, 9):
+        for x in range(5, 8):
+            p[x, y] = rgb("#fff6c8")
+    for k in range(4):
+        p[9 + k // 2, 6 - k // 2 + (k % 2)] = rgb("#fff6c8")
+    sheet.paste(outline(h), (56, 0))
+    # Helmet: an orange dome with a strap.
+    m = Image.new("RGBA", (14, 14))
+    p = m.load()
+    for y in range(3, 10):
+        for x in range(2, 12):
+            if ((x - 6.5) ** 2) / 25 + ((y - 9) ** 2) / 36 <= 1.0:
+                p[x, y] = rgb("#e8782c")
+    for x in range(1, 13):
+        p[x, 9] = rgb("#b8561c")
+    p[4, 5] = rgb("#f4a868")
+    p[5, 4] = rgb("#f4a868")
+    for y in range(10, 12):
+        p[3, y] = rgb("#3c3c46")
+        p[10, y] = rgb("#3c3c46")
+    sheet.paste(outline(m), (70, 0))
+    # Rope: a coil, blue with a red fleck.
+    r = Image.new("RGBA", (14, 14))
+    p = r.load()
     for y in range(14):
         for x in range(14):
             d = ((x - 6.5) ** 2 + (y - 7) ** 2) ** 0.5
-            if d < 5.5:
-                p[x, y] = rgb("#c99a3c") if d > 4.2 else rgb("#efe6c8")
-    for k in range(4):
-        p[6, 3 + k] = rgb("#c0392b")
-        p[7, 7 + k] = rgb("#2c3e50")
-    sheet.paste(outline(c), (0, 0))
-    # An old wooden ice axe.
-    a = Image.new("RGBA", (14, 14))
-    p = a.load()
-    for k in range(10):
-        p[3 + k // 2 + (k % 2), 3 + k] = rgb("#8b5a2b")
-    for x in range(1, 10):
-        p[x, 2] = rgb("#b8c0c8")
-    p[1, 3] = rgb("#b8c0c8")
-    p[9, 3] = rgb("#8a939c")
-    sheet.paste(outline(a), (14, 0))
-    # A photograph, curling at the corner.
-    f = Image.new("RGBA", (14, 14))
-    p = f.load()
-    for y in range(3, 12):
-        for x in range(2, 12):
-            p[x, y] = rgb("#f4f1e8")
-    for y in range(4, 9):
-        for x in range(3, 11):
-            p[x, y] = rgb("#7fa0b8") if y < 6 else rgb("#6b7f5a")
-    for x in range(5, 9):
-        p[x, 5 - abs(x - 7) // 2] = rgb("#e8eef2")
-    p[11, 11] = (0, 0, 0, 0)
-    sheet.paste(outline(f), (28, 0))
+            if 3.0 <= d < 5.5 and not (2.5 < d < 3.0):
+                p[x, y] = rgb("#3a78c8") if int(d * 2) % 2 else rgb("#6ea6e0")
+    p[10, 3] = red
+    p[11, 2] = red
+    sheet.paste(outline(r), (84, 0))
     return sheet
 
 

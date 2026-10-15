@@ -139,7 +139,8 @@ def main():
     x += lowpass(rng.normal(0, 1, n), 0.1) * env(n, 0.001, 0.05) * 0.8
     write("thud", x)
     crag_sounds()
-    music()
+    # Music is made as it plays now (godot/core/audio/music_box.gd).
+    arcade_sounds()
     print("wrote", len(list(OUT.glob("*.wav"))), "placeholder sounds to", OUT)
 
 
@@ -180,39 +181,22 @@ def crag_sounds():
     write("topout", x)
 
 
-def music():
-    """Music: quiet, sparse, looping. A soft pad on two chords and a slow
-    plucked line in a pentatonic scale, so it sits under the wind instead
-    of over it. Each loop ends where it starts."""
-    def pluck(f, n):
-        t = np.arange(n) / RATE
-        return (np.sin(2 * np.pi * f * t) + 0.3 * np.sin(2 * np.pi * 2 * f * t) + 0.1 * np.sin(2 * np.pi * 3 * f * t)) * env(n, 0.006, 0.6)
-
-    def pad(freqs, n):
-        t = np.arange(n) / RATE
-        x = sum(np.sin(2 * np.pi * f * t + i) for i, f in enumerate(freqs)) / len(freqs)
-        return x * np.sin(np.pi * t / t[-1]) ** 2
-
-    for name, bars, chords, line, tempo in (
-        ("music_crag", 8, [(196.0, 293.66, 392.0), (174.61, 261.63, 349.23)], [392, 440, 523.25, 587.33, 659.25, 587.33, 523.25, 440], 2.0),
-        ("music_camp", 8, [(146.83, 220.0, 293.66), (130.81, 196.0, 261.63)], [293.66, 329.63, 392, 440, 392, 329.63, 293.66, 261.63], 2.4),
-    ):
-        bar = seconds(tempo)
-        n = bar * bars
-        x = np.zeros(n)
-        for b in range(bars):
-            x[b * bar:(b + 1) * bar] += pad(chords[(b // 2) % 2], bar) * 0.16
-        prng = np.random.default_rng(5)
-        for b in range(bars):
-            for beat in (0, 2) if b % 2 == 0 else (1,):
-                at = b * bar + beat * bar // 4
-                m = min(seconds(1.6), n - at)
-                f = line[(b * 3 + beat) % len(line)]
-                x[at:at + m] += pluck(f, m) * 0.14 * prng.uniform(0.7, 1.0)
-        fade = seconds(0.05)
-        x[:fade] *= np.linspace(0, 1, fade)
-        x[-fade:] *= np.linspace(1, 0, fade)
-        write(name, x)
+def arcade_sounds():
+    """Short cues for the replay loop, made last (own noise source) so the
+    sounds above stay byte-identical."""
+    # A new record: a quick bright two-note lift, under half a second.
+    n = seconds(0.45)
+    t = np.arange(n) / RATE
+    x = np.zeros(n)
+    for i, f in enumerate((783.99, 1174.66)):
+        at = seconds(0.07 * i)
+        m = n - at
+        x[at:] += (np.sin(2 * np.pi * f * t[:m]) + 0.25 * np.sin(2 * np.pi * 3 * f * t[:m])) * env(m, 0.002, 0.16) * 0.3
+    write("record", x)
+    # A perfect catch: a crisp high ping on top of the slap.
+    n = seconds(0.2)
+    t = np.arange(n) / RATE
+    write("perfect", np.sin(2 * np.pi * 1318.5 * t) * env(n, 0.001, 0.06) * 0.35)
 
 
 if __name__ == "__main__":

@@ -19,6 +19,8 @@ const SWAPS := [
 	["turn the bid around", "turn back before the top"],
 	["the bid", "the push for the top"],
 	["summit push", "push for the top"],
+	["the high camps", "the camps up high"],
+	["high camps", "camps up high"],
 	["high camp", "the last camp below the top"],
 	["the margin", "the safety buffer"],
 	["margin", "safety buffer"],

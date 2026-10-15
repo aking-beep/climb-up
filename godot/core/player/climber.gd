@@ -2,10 +2,10 @@ class_name Climber
 extends CharacterBody2D
 ## The player on the mountain. A small state machine over Godot's character
 ## physics: walk (with slopes), scramble, climb and traverse faces, mantle
-## onto ledges, rest, brace against wind, slip, and help a teammate.
+## onto ledges, rest (also how you sit out a gust), slip, and help a teammate.
 ##
 ## No jumping. The vocabulary is mountaineering: WALK, SCRAMBLE, CLIMB,
-## TRAVERSE, BALANCE (exposed ground), BRACE, REST, HELP, RETREAT (pause menu).
+## TRAVERSE, BALANCE (exposed ground), REST, HELP, RETREAT (pause menu).
 ## Context decides what an input does: UP on a face grabs it; UP at the top
 ## of a face mantles; UP on open ground does nothing.
 
@@ -22,7 +22,7 @@ signal hurt_taken(amount: float, reason: String)
 ## what kind of hold it took.
 signal moved(hold: int)
 
-enum State { GROUND, AIR, CLIMB, MANTLE, REST, BRACE, SLIP, HELP, LOCKED, DONE }
+enum State { GROUND, AIR, CLIMB, MANTLE, REST, SLIP, HELP, LOCKED, DONE }
 
 const T := Terrain.TILE
 const SIZE := Vector2(10, 26)
@@ -43,7 +43,7 @@ var pace := 1.0
 ## let go (0: at once, as at the crag, where running out is the pump fall).
 ## While hanging on you can only go down or sideways, slowly.
 var arms_grace := 0.0
-## The cold: multiplies how fast you walk and climb (Climate.pace).
+## The cold: multiplies how fast you walk (Climate.pace).
 var chill := 1.0
 var _arms_out := 0.0
 ## True while hanging on with nothing left (for the HUD and the level).
@@ -55,8 +55,12 @@ const SAFE_FALL := 4.0 * T
 const SLIP_TIME := 1.0
 const MANTLE_TIME := 0.45
 const HELP_TIME := 1.2
-const GUST_PUSH := 20.0
-const GUST_FIGHT := 6.0  # stamina per second, standing unbraced in a gust
+## Standing in a gust: a nudge along the ledge, never a fall, and breath.
+const GUST_PUSH := 10.0
+const GUST_FIGHT := 6.0  # stamina per second, standing (not resting) in a gust
+## Walking into a gust: you stagger, and it costs this much stamina. Only a
+## stagger you have no stamina left for is a fall (back to the cairn).
+const GUST_STAGGER := 10.0
 ## A hop: about two tiles up and two across at a walk. Not a leap; it is how
 ## you get over a boulder, a stream cut or a crack in the ice. It costs
 ## breath like a hard step, more in thin air.
@@ -93,6 +97,20 @@ var spotter_caught_last := false
 var helper_cost := 15.0
 ## Standing on ice: little grip, and the edge guard cannot hold you.
 var on_ice := false
+## Gear found on this attempt (the level sets these). Crampons: ice holds
+## like rock and costs less. Wind shell (goggles and a buff): a gust pushes
+## and costs less, and sitting on windy ground gives some breath back.
+var crampons := false
+var wind_shell := false
+## A helmet: a falling stone costs stamina (Hazards.HELMET_HIT) instead of
+## knocking you off.
+var helmet := false
+## Asked once per sit, the first moment it would refill you: true when this
+## rest may (the expedition counts rests between cairns and then eats camp
+## food). Not set (the crag): every rest refills.
+var rest_gate: Callable
+var _sit_refills := true
+var _sit_asked := false
 const ICE_ACCEL := 150.0
 const ICE_DECEL := 70.0
 
@@ -183,15 +201,33 @@ func is_climbing() -> bool:
 
 ## Stops the climber for a panel. On the rock they stay on the rock: they
 ## hang where they are and are still holding on when it closes.
+## In the middle of a move (falling, a slip, a mantle, helping) the moment
+## is frozen instead, and carries on from where it was when the panel
+## closes: a pause never cancels a fall or skips the walk back to a cairn.
 func lock(on: bool) -> void:
 	if on:
 		if state != State.DONE and state != State.LOCKED:
 			_before_lock = state
+			_held_velocity = velocity
 		if state != State.DONE:
 			state = State.LOCKED
-		velocity.x = 0.0
+		if not _frozen():
+			velocity.x = 0.0
 	elif state == State.LOCKED:
-		state = State.CLIMB if _before_lock == State.CLIMB and terrain.touches_climbable(body_rect()) else State.GROUND
+		if _frozen():
+			state = _before_lock
+			velocity = _held_velocity
+		else:
+			state = State.CLIMB if _before_lock == State.CLIMB and terrain.touches_climbable(body_rect()) else State.GROUND
+		_before_lock = State.GROUND
+
+
+## Locked mid-move: held still, to carry on after.
+func _frozen() -> bool:
+	return state == State.LOCKED and _before_lock in [State.AIR, State.SLIP, State.MANTLE, State.HELP]
+
+
+var _held_velocity := Vector2.ZERO
 
 
 var _before_lock: int = State.GROUND
@@ -243,14 +279,12 @@ func _physics_process(delta: float) -> void:
 			_mantle(delta)
 		State.REST:
 			_rest(delta, input)
-		State.BRACE:
-			_brace(delta)
 		State.SLIP:
 			_slip(delta)
 		State.HELP:
 			_help(delta)
 		State.LOCKED, State.DONE:
-			if state == State.LOCKED and _before_lock == State.CLIMB:
+			if state == State.LOCKED and (_before_lock == State.CLIMB or _frozen()):
 				velocity = Vector2.ZERO
 			else:
 				velocity.x = move_toward(velocity.x, 0.0, DECEL * delta)
@@ -267,26 +301,29 @@ func _ground(delta: float, input: Vector2) -> void:
 		return
 	if input.y < -0.5 and _climb_down_from_top():
 		return
-	if GameInput.held("brace"):
-		state = State.BRACE
-		if not _on_kind(Terrain.Kind.ICE):
-			velocity.x = 0.0
-		return
 	if GameInput.pressed_now("rest"):
 		state = State.REST
+		_sit_asked = false
+		_sit_refills = true
 		velocity.x = 0.0
 		return
 	if GameInput.pressed_now("jump") and cramp <= 0.0 and _jump():
 		return
 	on_ice = _on_kind(Terrain.Kind.ICE)
+	# Crampons bite: ice is just steep snow, no sliding.
+	var slick := on_ice and not crampons
 	var limit := (EXPOSED_WALK if exposed else (TIRED_WALK if stamina.is_tired() else WALK)) * chill
 	var target := input.x * limit
+	# Standing in a gust: the wind walks you along slowly (the edge guard
+	# below still holds you at a drop).
+	if exposed and gust == WindSchedule.Phase.BLOW and absf(input.x) <= 0.2:
+		target = GUST_PUSH * (0.4 if wind_shell else 1.0)
 	if cramp > 0.0:
 		target = 0.0
 	elif dizzy > 0.0:
 		target = target * 0.5 + sin(clock * 7.0) * 16.0
 	var rate := ACCEL if absf(target) > absf(velocity.x) else DECEL
-	if on_ice:
+	if slick:
 		rate = ICE_ACCEL if absf(target) > absf(velocity.x) and signf(target) == signf(velocity.x) else ICE_DECEL
 		if velocity.x == 0.0 and target != 0.0:
 			rate = ICE_ACCEL
@@ -299,7 +336,7 @@ func _ground(delta: float, input: Vector2) -> void:
 		if _face_ahead(int(signf(velocity.x))):
 			_grab()
 			return
-		if not on_ice:
+		if not slick:
 			velocity.x = 0.0
 	velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL)
 	var before := global_position
@@ -513,8 +550,8 @@ func _climb(delta: float, input: Vector2) -> void:
 	if stamina.is_tired():
 		speed_up *= FATIGUE_SLOW
 		speed_side *= FATIGUE_SLOW
-	speed_up *= chill
-	speed_side *= chill
+	# The cold slows walking, not climbing: on a face the arms are the clock,
+	# and a slower climb would cost more stamina than a bar can hold.
 	if can_dyno and GameInput.pressed_now("jump") and stamina.value >= DYNO_COST:
 		_dyno(input)
 		return
@@ -636,6 +673,8 @@ func hang_at(feet: Vector2) -> void:
 
 
 func _let_go() -> void:
+	arms_failing = false
+	_arms_out = 0.0
 	if on_ground_cell():
 		state = State.GROUND
 		return
@@ -734,7 +773,24 @@ func _rest(delta: float, input: Vector2) -> void:
 		fall_from = global_position.y
 		return
 	rest_seconds += delta
-	last_activity = "rest_stone" if _rest_stone else "rest"
+	if _rest_stone:
+		# A rest stone is shelter: always a full rest, and it never counts.
+		last_activity = "rest_stone"
+	elif exposed:
+		# Hunkered down on windy ground: safe from gusts and free, never
+		# moved, but the wind gives no breath back (a little with the
+		# goggles and buff), and a gust costs a little while it blows.
+		if wind_shell:
+			last_activity = "rest_gust"
+		elif gust == WindSchedule.Phase.BLOW:
+			last_activity = "sit_gust"
+		else:
+			last_activity = "sit"
+	else:
+		if not _sit_asked and stamina.value < stamina.max_value:
+			_sit_asked = true
+			_sit_refills = rest_gate.call() if rest_gate.is_valid() else true
+		last_activity = "rest" if _sit_refills else "sit"
 	stamina.tick(delta, last_activity)
 	_weather(delta, Vector2.ZERO)
 	if state == State.REST and (input.length() > 0.3 or GameInput.pressed_now("rest")):
@@ -745,31 +801,26 @@ func _rest(delta: float, input: Vector2) -> void:
 		_jump()
 
 
-func _brace(delta: float) -> void:
-	var slide := move_toward(velocity.x, 0.0, ICE_DECEL * delta) if _on_kind(Terrain.Kind.ICE) else 0.0
-	velocity = Vector2(slide, minf(velocity.y + GRAVITY * delta, MAX_FALL))
-	move_and_slide()
-	if not is_on_floor():
-		state = State.AIR
-		fall_from = global_position.y
-		return
-	last_activity = "brace"
-	stamina.tick(delta, "brace")
-	if not GameInput.held("brace"):
-		state = State.GROUND
-
-
 func _weather(delta: float, input: Vector2) -> void:
-	if not exposed or gust != WindSchedule.Phase.BLOW or state == State.BRACE:
+	# Resting (REST) is how you sit out a gust: low and still, it cannot
+	# take you.
+	if not exposed or gust != WindSchedule.Phase.BLOW or state == State.REST:
 		return
-	if absf(input.x) > 0.2 or absf(velocity.x) > 8.0:
-		wind_strikes += 1
-		wind_struck.emit()
-		slip("wind")
+	var shell := 0.4 if wind_shell else 1.0
+	# Only the player's own step counts as moving: a slide on ice, or the
+	# wind's own nudge, is never held against you.
+	if absf(input.x) > 0.2:
+		if _hurt_cool <= 0.0:
+			wind_strikes += 1
+			wind_struck.emit()
+		# A stagger: it stops you and costs breath; a fall only if that was
+		# the last of it.
+		velocity.x = 0.0
+		hurt(GUST_STAGGER * shell, "wind")
 		return
-	# Standing unbraced: the wind shoves you along the ledge and costs breath.
-	velocity.x = GUST_PUSH
-	stamina.value = maxf(0.0, stamina.value - GUST_FIGHT * delta)
+	# Standing in it: the nudge is in _ground (a slow drift the edge guard
+	# still stops), and it costs breath.
+	stamina.value = maxf(0.0, stamina.value - GUST_FIGHT * shell * delta)
 
 
 ## Something hurt you: it takes stamina, the one bar. Returns false when it
@@ -785,7 +836,7 @@ func hurt(amount: float, reason: String) -> bool:
 	Audio.play("slip", -12.0)
 	hurt_taken.emit(amount, reason)
 	if spent:
-		slip("hurt")
+		slip("wind" if reason == "wind" else "hurt")
 	return true
 
 
@@ -837,6 +888,7 @@ func _help(delta: float) -> void:
 	if _timer >= HELP_TIME:
 		stamina.spend(helper_cost)
 		spotter = true
+		_before_lock = State.GROUND
 		state = State.LOCKED
 		if _on_help.is_valid():
 			_on_help.call()
@@ -886,9 +938,7 @@ func _animate(input: Vector2) -> void:
 		State.MANTLE:
 			anim = "mantle"
 		State.REST:
-			anim = "rest"
-		State.BRACE:
-			anim = "brace"
+			anim = "brace" if exposed and gust != WindSchedule.Phase.CALM else "rest"
 		State.SLIP:
 			anim = "slip"
 		State.HELP:

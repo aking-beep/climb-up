@@ -35,8 +35,7 @@ screen, so pixel art stays sharp with no black bars.
 | Climb (on rock), pull over (at the top) | ↑ / W | up | push the stick up, or tap CLIMB |
 | Climb down, let go | ↓ / S | down | pull the stick down |
 | Talk, read, help | E / Enter | X | the context button (TALK, READ, HELP) |
-| Brace against the wind | Shift / B | shoulders | BRACE (hold) |
-| Sit and rest (HOP gets you straight up and over) | R | Y | REST |
+| Sit and rest; also how you sit out a gust (HOP gets you straight up and over) | R / Shift | Y, shoulders | REST |
 | Pause (turn back, settings, save and quit) | Esc / P | Start | II |
 
 Touch controls appear automatically on phones; the pause menu toggles them,
@@ -77,10 +76,18 @@ retreat that costs the day, not the expedition. The outcome lands once.
 exactly (the parity test still holds); a trek layer on top
 (`modes/expedition/engine/trek.gd`) adds:
 
-- **A route and a permit.** The first card is the route: the long way
-  (10 days), the steep way (9 days, starts higher, less food, harder days up)
-  or the direct way (8 days, starts higher still, the hardest climbs). When
-  the days run out before the summit, the rangers walk you down.
+- **A route and a permit: the difficulty.** The first card is the route:
+
+  | Route | Difficulty | Permit | Slips on each played climb |
+  | --- | --- | --- | --- |
+  | The long way (lemosho) | easy | 13 days | double the climb's own (tower 8, wall 6, summit 4, way down 6) |
+  | The faster way (machame) | medium | 9 days | one more (5, 4, 3, 4) |
+  | The fastest way (umbwe) | hard | 8 days | the climb's own (4, 3, 2, 3) |
+
+  The faster ways also start higher, with less food and harder days up
+  (`Trek.ROUTES`, `Trek.max_slips`). When the days run out before the
+  summit, the rangers walk you down. Each slip's health cost at camp is
+  still capped per climb, so the extra slips forgive, they do not pile up.
 - **Every choice shows what it will cost before you pick it**
   (`Trek.foresee`): the hours, the stats it moves (the route's toll on the
   way up included), and a risk band (low, medium, high) with its reasons:
@@ -154,13 +161,139 @@ exactly (the parity test still holds); a trek layer on top
   rested party; the summit is still the hardest breathing, about half as
   long again as low down for a party that rushed (`test_rules`).
 
+  **Three climbs, easy to hard.** The Lava Tower is the easy one, the
+  Barranco Wall the middle (drain 0.9, rest at 95%, fewer animals, no
+  rolling stone by the exit), the summit night the boss (drain 1.1, rest
+  at 80%, two slips, the cold and the thinnest air). On a played climb the
+  bar is never smaller than 48 (`ClimbLevel.MIN_BAR`): every face fits in
+  it, so even the summit is possible for a worn-out party that rests to
+  full before each face (test_climbs). A tired party (bar 54) gets up the
+  Barranco Wall without running dry (test_barranco).
+
+  **Only REST gives breath back.** On the mountain, standing still and
+  walking never refill the bar (`StaminaModel.still_recovers` is off on the
+  climbs; the crag keeps its standing shake-out). REST does: 22 a second,
+  30 on a rest stone, scaled by the cold and by what camp did (sleep, food,
+  sickness). Every obstacle costs: walking, more uphill, a hop, ice,
+  climbing rock, standing in a gust (test_expedition_rules).
+
+  **Two rests a cairn, then camp food.** REST fills you up at most twice
+  between two cairns (`ClimbLevel.REST_LIMIT`). A rest lasts until you are
+  full, so getting up to dodge a stone and sitting again is the same rest.
+  Reaching the next cairn, or being sent back to one, gives both back. Out
+  of rests, a sit eats a snack from the camp's food: 3 supplies
+  (`ClimbLevel.SNACK`), taken off the expedition's supplies when the climb
+  lands, and gone for the rest of the trip. With no food to spare, sitting
+  gives nothing back. A rest stone never counts, and neither does sitting
+  out the wind on exposed ground, which keeps you safe but gives no breath
+  back (a little with the goggles and buff). The HUD shows "Rests 2", then
+  "Rests 0 (food N)"; the brief and the results say what was eaten. The
+  test bots eat nothing on the tower or the wall and one snack on the
+  summit night.
+
+  **Leader points rank the boards** (`Records.leader_points`, ported to
+  the records service as `validate.leader_points`, which recomputes and
+  checks them). The score (the game's own, unchanged), and on top:
+
+  | Part | Points | When |
+  | --- | --- | --- |
+  | Team | +10 | all four summit and come home |
+  | Team | -8 per teammate | not home, on a run that reached the summit |
+  | Speed | +2 per unused permit day, up to +10 | whole team home only |
+  | Stores | +1 per 10 supplies left, up to +10 | whole team home only |
+
+  Fast at the top without your team ranks below slow with it: being
+  quick and thrifty is worth something only when everyone made it. The
+  end screen shows the breakdown; the records screen ranks by points.
+
+  **The summit rim is fairer.** It used to be 52 tiles of wind in one
+  stretch, so a gust near the end sent you all the way back. Now two open
+  saddles of 12 tiles take the wind, with a lee between them holding a
+  cairn and a rest stone (`rim_lee` in `tools/levels/kili_maps.py`, run
+  after the gauntlet so nothing below moves). A gust costs half the rim at
+  most.
+
+  **Risk on the camp cards is a spread** (`Trek.foresee`). The score now
+  counts what the choice itself does, not only the party's state:
+  - the card's own verdict: a choice scored as poor judgment or poor risk
+    management (×2.5);
+  - health lost (×2.5), energy spent beyond 4 (×1.5), team spirit lost,
+    and worse weather;
+  - a played climb behind it (tower +10, wall +22, summit night +40) or
+    the summit push (+20);
+  - going up: the height gap, the route, above 3,800 m, bad weather;
+  - a tired, exhausted or sick party, but only for choices that ask more
+    of it (resting is never riskier for being tired);
+  - running out of days.
+
+  Below 20 is LOW RISK ("little can go wrong"), 20 to 45 MEDIUM RISK ("it
+  can cost the team energy or health"), 45 and up HIGH RISK ("likely to
+  cost health, a teammate, or the climb"). Going down is always low. The
+  card says what the band means and why. A careful party sees about 30
+  low, 8 medium and 13 high choices over a trip; walks in the dark are
+  medium or high, sleeping and rest days low, the summit night high
+  (test_expedition_rules).
+
+  **No brace button: REST in the wind.** On exposed ground a gust cannot
+  take someone sitting down, and never moves them; sitting out a gust costs
+  1.5 stamina a second while it blows (with the goggles and buff it gives 6
+  back instead). Standing in a gust drifts you slowly along the ledge (the
+  edge guard still holds you) and costs breath. Walking into one is a
+  stagger: -10 stamina and you stop. It is a fall back to the cairn only
+  if that was the last of your stamina. Only the player's own step counts
+  as moving: the wind's nudge or a slide on ice never does (that used to
+  knock players standing still on the descent's icy rim back to the
+  cairn). The Barranco Wall's shoulder is easier: its open stretch is 6
+  tiles instead of 10, with longer calms between gusts.
+
+  **Gear makes a climb easier.** Each climb up hides five pieces and the
+  way down three, each placed near what it helps with
+  (`tools/levels/gear.py`; each spec entry names its cell):
+
+  | Gear | What it does |
+  | --- | --- |
+  | Trekking poles | walking and uphill cost 30% less |
+  | Gloves | rock costs 20% less |
+  | Goggles and a buff | a gust pushes and costs 60% less; sitting on windy ground gives some breath back |
+  | Crampons | no sliding on ice, and ice costs half |
+  | Headlamp | the cold and the dark no longer slow your walk |
+  | Helmet | a falling stone costs 12 stamina instead of knocking you off |
+  | Short rope | catches your next slip |
+
+  Gear lasts the attempt (and a save and resume). Fall into a hole, or
+  lose the climb, and you start again with none: it is back where you
+  found it. The brief lists what is hidden; the HUD counts it; the results
+  say what you carried.
+
+  **Fires at the cairns.** Every climb has a cairn more on its long walk
+  out (the Lava Tower's, the Barranco plateau). At any cairn you have
+  reached, FIRE offers a fire: full stamina, both rests back, your
+  teammate's breath back. It costs an hour on the expedition's clock (the
+  permit, and the leader points for speed). Once per cairn.
+
+  **The top of Kilimanjaro.** The summit night ends at Uhuru Peak at
+  sunrise (`SummitTop`, `SummitDawn`): along the rim the sky turns from
+  night to violet, rose and gold, the stars go out and the sun lifts out of
+  the cloud sea. At the top: the Uhuru sign, a string of climbers' flags,
+  everlastings in bloom, petals on the wind and a moment to look before the
+  results. All drawn in code, no new textures.
+
+  **Camp gives energy back** (`Trek.camp_recovery`): a night's sleep gives
+  about 10 low down, 6 at 4,600 m, less hungry or ill, almost double on a
+  rest day, half after a big push up; and the porters stretch the food (a
+  share of each day's supplies comes back: 40% on the long way, 30% and
+  20% on the faster ones). A careful party now reaches every climb with
+  stamina for it and gets home on all three routes; a reckless one on the
+  fastest route still does not (test_trek).
+
   **The weather** (`core/world/climate.gd`, each level's `climate`). Every
   climb has its own day, moved along by how far up the route you are and
   by the clock: the Lava Tower from hot afternoon sun on black rock (27°C)
   to a cold sunset at the top, the Barranco Wall from a sunny valley into
   cloud, the summit night from -7°C to -16°C before dawn and a pink sunrise
   at Stella Point, the way down from frost into the heat. Below 5°C you
-  walk and climb slower (up to 15%) and resting works less (up to 20%);
+  walk slower (up to 15%; climbing speed is not slowed, so a face never
+  costs more than a bar) and resting works less (up to 20%);
   above 24°C every move costs more (up to 15%). The light over the scene
   shifts with it, the HUD shows the temperature in degrees and words, and
   the brief has a Weather row.
@@ -209,15 +342,15 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
 
 - **Thin air.** Walking costs breath, a little at the tower, more on the
   summit, and more again for a party that has not acclimatized at camp.
-  Uphill costs more than flat; standing still and sitting recover.
+  Uphill costs more than flat. Only sitting down (REST) recovers.
 - **Stonefall.** Stones come down set chutes. Grit trickles over the column
   a stone is about to fall in; move across to another column, or wait
   under rock. A hit is a slip (a helped teammate can still catch it).
 - **Cracked slabs.** Pale, cracked stones that hold you while you keep
-  walking. Stop on one, or brace on one in a gust, and it drops you. They
+  walking. Stop on one, even to sit out a gust, and it drops you. They
   settle back after a while.
 - **Ice** (summit night). Little grip: you slide, and the edge guard cannot
-  hold you on ice. On the fourth switchback the ice runs up to a crevasse,
+  hold you on ice (unless you found the crampons). On the fourth switchback the ice runs up to a crevasse,
   crossed on a band of rock.
 - **One bar: stamina.** Everything that hits you takes stamina, the same
   bar walking and climbing spend. A hit you have no stamina left for is a
@@ -233,18 +366,20 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
   dives at the spot where you were: keep moving and it misses. A hit costs
   12 stamina and it flies off with one of your everlastings.
 - **Water caches** give most of the stamina bar back, once per attempt.
-- **Lost gear.** Three things per climb, hidden off the obvious line (an
-  alcove up a side face, the back of a niche, a ledge up a pinnacle). Found
-  gear stays found across attempts; the HUD and the camp screen count it.
+- **Gear.** Three pieces per climb, hidden off the obvious line (an
+  alcove up a side face, the back of a niche, a ledge up a pinnacle), each
+  making the climb easier (the table above). Lost with the attempt.
 
 **Always something to do, always something earned.**
 
-- **Everlastings** (the papery Kilimanjaro flower) line the walkable ground:
-  each is a breath back, they glint so the eye finds the next one, and the
-  count shows at the top of the screen.
+- **Everlastings** (the papery Kilimanjaro flower) are rare finds: 2 or 3
+  a climb, never two within 70 tiles (8 in all, about a tenth of what
+  there were). Each is 15 stamina back; they glint, and the count shows at
+  the top of the screen. Gear and cairns fill the way instead.
 - **Fall and you drop them.** A slip that counts scatters every everlasting
   you are carrying back onto the ground where you found it: the count goes
-  to 0 and you pick them up again on the next go. (Lost gear stays found.)
+  to 0 and you pick them up again on the next go. (Gear goes only with a
+  hole or a lost climb.)
 - **No length meter.** The HUD does not say how far along the climb you
   are; you see the next obstacle, not the distance left.
 - **An obstacle every few steps.** `tools/levels/gauntlet.py` lines every
@@ -263,7 +398,7 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
   and your best is kept; a three-star climb lifts the party at camp
   (+3 team, +2 energy).
 - **Pacing is tested.** Every climb logs each moment the player has to act
-  (a hop, a grab, a pull-over, a brace, a dodged stone, a cracked slab, a
+  (a hop, a grab, a pull-over, sitting out a gust, a dodged stone, a cracked slab, a
   rolling stone, a step onto ice, a find, a cairn). The full-ascent tests fail if a climb
   has more than 5 s of walking with nothing to do, or more than 8 s of
   walking without a real challenge (flowers and cairns do not count as
@@ -272,11 +407,11 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
   the longest gaps left are around camps, cairns and people, where the
   ground is kept clear on purpose.
 
-| Climb | Hazards | Lost gear |
+| Climb | Hazards | Gear |
 | --- | --- | --- |
-| Lava Tower | a scree bridge of cracked slabs, stonefall down the chimney (a niche halfway up to shelter), the windy lip | on the windy lip, in the chimney niche, on a ledge beyond the tower |
-| Barranco Wall | stonefall down the loose gully, cracked slabs on the exposed ledge where you brace | an alcove above ledge 2, the back of the gully niche, a ledge on the plateau |
-| Summit night | ice on two switchbacks, the crevasse, stonefall on two rock steps, cracked slabs on the windy rim, thin air | a pocket off two switchbacks, a ledge above the rim |
+| Lava Tower | a scree bridge of cracked slabs, stonefall down the chimney (a niche halfway up to shelter), the windy lip | goggles and buff on the windy lip, gloves in the chimney niche, poles above the last face |
+| Barranco Wall | stonefall down the loose gully, cracked slabs on the exposed ledge where you sit out gusts | gloves in an alcove above ledge 2, goggles and buff in the gully niche below the shoulder, poles on a ledge on the plateau |
+| Summit night | ice on two switchbacks, the crevasse, stonefall on two rock steps, cracked slabs on the windy rim, thin air | crampons and a headlamp in pockets off the switchbacks, goggles and buff on a ledge below the rim |
 
 ## The crag
 
@@ -299,12 +434,11 @@ non-climbers, with the climbing name after.
 | Sloper (z) | round grey domes | friction: moving loses grip by the square of your speed (half speed loses a quarter), holding still lets it settle back. Squeezing does nothing. The meter turns cool blue; out of grip you slide off. Move, pause, move |
 | Pocket (u) | dark holes with a lit rim | hang for free; cheap to clip from (1 stamina) |
 | Jug (J) | big incut holds | hang to shake out: stamina comes back, with chalk and a sound |
-| Blank rock | two rows with nothing | a dyno: JUMP (aim with the stick). A ring closes on the hold; tap GRIP **once** as the hands reach it. Within 0.15 s of contact is a perfect catch (half the jump's stamina back); up to 0.4 s after is a good catch; one tap up to 0.15 s before contact counts. Two or more taps before the hold is near is a snatch: the hands miss |
+| Blank rock | two rows with nothing | a dyno: JUMP (aim with the stick) and the hands catch the hold they reach, on their own: no second button. A tap of GRIP from 0.15 s before the contact to 0.15 s after is a perfect catch (half the jump's stamina back). A late tap, no tap, or mashing in the air never drops you |
 
 Every fall names its cause and what to try next ("Pumped on the tiny
 holds: keep moving and squeeze when the meter drops below half"; "Slid
-off a sloper: move slowly and pause"; "Missed the catch: tap once, just as
-your hands reach the hold"; "Snatched too early"; "Hit the ground: clip as
+off a sloper: move slowly and pause"; "Hit the ground: clip as
 soon as you can low down"). The results card repeats the most common one.
 A route tried but not sent shows a chalk line at your high point. Where
 the line goes sideways the hint says which way.
@@ -327,7 +461,7 @@ checks it makes the seven maps byte for byte.
 | 4 | Warm-up Wall | clip, rest, repeat | 16.5 m | 6 (5, 5, 5, 5, 5) | well | low | every clip from a good hold (pockets, jug, rock) |
 | 5b | Sundown Traverse | slow and steady | 19.5 m | 4 (6, 10, 12) | sporty | high, ground-fall risk | grip on the slopers never below a third |
 | 6a | The Pinch | squeeze timing | 21 m | 8 (5, 5, 5, 4, 5, 5, 5) | well | low | clean, no wasted squeezes |
-| 6b | Leap of Faith | the timed catch | 25 m | 6 (4, 7, 8, 10, 12) | sporty | high | clean, a perfect catch |
+| 6b | Leap of Faith | the leap | 25 m | 6 (4, 7, 8, 10, 12) | sporty | high | clean, a perfect catch |
 | 6c | Lion's Roof | steep ground | 25 m | 8 (5, 5, 4, 7, 7, 7, 7) | well | medium | no rests on the rope |
 | 7a | Thunderhead | all of it, run-out | 29 m | 5 (7, 10, 14, 17) | run-out | high, ground-fall risk | clean, both catches perfect |
 
@@ -349,6 +483,23 @@ checks it makes the seven maps byte for byte.
   on a sloper, 50 s on ordinary rock; jugs and pockets stop the clock. The
   stamina line shows it ("Stamina 85% (5 s here)", or "(resting)" on a
   hold that gives it back).
+- **Retry and the high point.** After a go the results put **Retry**
+  first after a fall short: one tap straight back onto the route in the
+  same shoes, no menu, no brief. After the top they put the **next route**
+  first and Replay second. Any tap skips the beat before them. The best
+  height (half a metre a row) is marked in chalk either side of the line,
+  off the holds, and **NEW HIGH POINT** shows only above an earlier one,
+  also as you pass it. A short message says when a go ended just short of
+  your best or near the anchor, only when that is true. On a replay of
+  the lesson, tips seen before become short reminders.
+- **Records.** Records and leaderboards, from the crag and expedition
+  menus: per route best time, fastest clean ascent, high point, styles,
+  first ascent on this device; the daily day's goes ranked; expeditions
+  by score with completion meaning the summit and the way down, split by
+  route; the World Passport. Friends and Global say they are not
+  connected: the online service is designed and has a tested reference
+  server (docs/records-backend.md) but is not deployed. Nothing is called
+  verified on the device.
 - **The grade curve.** Each route has a `pump` (how much every move costs)
   set so the grades ask steadily more: a careful player's lowest point
   goes 79, 71, 69, 57, 50, 45, 31% from the lesson to Thunderhead, and a
@@ -411,7 +562,7 @@ the same date and `Daily.VERSION`, opened once First Climb is sent:
 
 Barranco Camp (talk to Lena and Jun, read the signs) → the approach under
 the buttress → a scramble band → the first face → a traverse over a void →
-the rest ledge → a steeper face → the exposed ledge (brace in the gusts) →
+the rest ledge → a steeper face → the exposed ledge (REST in the gusts) →
 Marco, stuck: help him, leave him for Lena, or step back → the loose gully
 (rest in the niche halfway) → the shoulder and the view → the crouch ledge
 in the wind → the upper face → the plateau → Karanga.
@@ -518,8 +669,8 @@ godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn -- only=bar
 119 tests (a script error during a test fails it, not just a failed
 check). New this sprint: `test_crag_moves` (the route builder matches the
 tools byte for byte; slopers want a steady pace; pockets are free; a dyno
-wants one timed tap, perfect, good or a reach just before; mashing a dyno
-misses; each route tests its own skill; a traverse says which way),
+always catches the hold, and a tap on the contact makes it perfect;
+mashing never drops you; each route tests its own skill; a traverse says which way),
 `test_logbook` (styles named honestly, stars, each challenge asks for its
 skill, achievements cannot be ground out, saves survive bad data, the high
 point to beat, the next route is always clear), `test_daily` (the numbers

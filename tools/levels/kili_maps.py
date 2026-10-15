@@ -186,7 +186,8 @@ def summit_night():
     m.fill(0, 0, 131, RIM - 1, ".")
     m.fill(x0, RIM, x0 + 2, floors[-1] - 1, "L")
     m.fill(0, RIM - 3, x0 - 1, RIM - 1, "#")
-    # The rim runs east along the top and is exposed to the wind.
+    # The rim runs east along the top and is exposed to the wind (rim_lee
+    # later shelters most of it).
     for x in range(40, 92):
         m.put(x, RIM - 1, "E")
     # Stella Point: a last rock step at the east end of the rim.
@@ -369,15 +370,53 @@ def preview(m, path):
     img.resize((m.w * 6, m.h * 6), Image.NEAREST).save(path)
 
 
+# More gear, near what it helps with (tools/levels/gear.py): a helmet before
+# the stonefall, a rope before the first faces; on the way down, goggles
+# and a buff for the windy rim, poles for the scree, crampons before ice.
+EXTRA_GEAR = {
+    "lava_tower": [(40, 55), (66, 29)],
+    "summit_night": [(30, 85), (90, 40)],
+    "descent": [(14, 13), (62, 25), (70, 37)],
+}
+
+
+# Boulders to hop where the everlastings used to keep the walk busy.
+EXTRA_HOPS = {"summit_night": [(25, 76), (53, 58)]}
+
+# A cairn on the long walk out after the tower top (past the rolling
+# stone's start, out of its lane): a checkpoint, and a place for a fire.
+EXTRA_CAIRNS = {"lava_tower": [(113, 13)]}
+
+
+def rim_lee(m, rim=32):
+    """The summit rim, made fairer after the gauntlet has laid the benches
+    (so nothing below moves). Two open saddles take the wind, twelve steps
+    each; between and around them the crater edge stands up as a lee, with a
+    cairn and a rest stone mid-rim, so a gust sends you back half the rim
+    at most, not all of it."""
+    y = rim - 1
+    for x in range(40, 92):
+        if m.g[y][x] == "E":
+            m.g[y][x] = "."
+    for lo, hi in ((44, 56), (70, 82)):
+        for x in range(lo, hi):
+            if m.g[y][x] == ".":
+                m.g[y][x] = "E"
+    m.put(64, y, "K")     # cairn in the lee, mid-rim
+    m.put(66, y, "R")     # and a rest stone beside it
+
+
 def main():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from flowers import sprinkle
+    from gear import place as place_gear
     from gauntlet import gauntlet, wildlife, spread
     for name, build in (("lava_tower", lava_tower), ("summit_night", summit_night), ("descent", descent)):
         m = build()
         if name == "descent":
             # The way down is its own: no gauntlet, no flowers. Written
-            # after the others so they stay byte-identical.
+            # after the others so they stay byte-identical. It has gear.
+            print(name, "gear placed:", place_gear(m.g, EXTRA_GEAR[name]))
             out = LEVELS / name / f"{name}.txt"
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(m.text())
@@ -393,8 +432,17 @@ def main():
         print(name, "challenges:", gauntlet(m.g, kinds=kinds))
         if name == "lava_tower":
             print(name, "wildlife:", wildlife(m.g, every=4, kinds=("ants", "plant")))
-        print(name, "everlastings:", sprinkle(m.g, spacing=9 if name == "summit_night" else 5))
         print(name, "wildlife spread:", spread(m.g, name))
+        if name == "summit_night":
+            rim_lee(m)
+        if name in EXTRA_GEAR:
+            print(name, "gear placed:", place_gear(m.g, EXTRA_GEAR[name]))
+        for x, y in EXTRA_HOPS.get(name, []):
+            assert m.g[y][x] == "." and m.g[y + 1][x] in "#i", (name, x, y)
+            m.g[y][x] = "#"
+        if name in EXTRA_CAIRNS:
+            print(name, "cairns placed:", place_gear(m.g, EXTRA_CAIRNS[name], "K"))
+        print(name, "everlastings:", sprinkle(m.g, spacing=9 if name == "summit_night" else 5))
         out = LEVELS / name / f"{name}.txt"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(m.text())

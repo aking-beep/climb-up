@@ -9,18 +9,23 @@ extends ClimbLevel
 func _init() -> void:
 	spec = {
 		"id": "summit-night",
+		# The top: the Uhuru sign, flowers, and a sunrise (SummitTop, SummitDawn).
+		"summit": true,
 		"map": "res://modes/expedition/levels/kilimanjaro/summit_night/summit_night.txt",
+		"music": "summit",
 		"hud": "Summit night",
-		"difficulty": {"recovery": 0.8, "drain": 1.15, "wind": 30.0, "maxSlips": 2, "helpCost": 22.0, "rockPeriod": 4.8},
+		"difficulty": {"recovery": 0.8, "drain": 1.1, "wind": 30.0, "maxSlips": 2, "helpCost": 22.0, "rockPeriod": 4.8},
 		# Midnight cold, colder before dawn, then the sun at Stella Point.
 		"climate": {"temps": [[0.0, -7.0], [0.7, -16.0], [1.0, -10.0]], "drift": -1.0,
 			"light": [[0.0, "#9aa4d8"], [0.7, "#8e98cc"], [0.9, "#d8a8b8"], [1.0, "#ffd4b8"]]},
 		"meters": 5700,
 		"dangers": ["ice on the switchbacks", "a crevasse", "stones on the rock steps", "cracked slabs on the rim"],
 		"gear": [
-			["a frozen compass", "The glass is frosted over. It still points the way down."],
-			["an ice axe", "Left in a pocket of the slope. The pick is sharp."],
-			["a photograph of Stella Point", "Taken at dawn. The sky in it is the one coming now."],
+			["a short rope", "By the tents at Barafu. Lena can hold your next slip on it.", "rope", [29, 85]],
+			["crampons", "Left by a party coming down. On ice they bite: no sliding, and it costs less.", "crampons", [107, 67]],
+			["a headlamp", "In a niche off the switchbacks. You see your footing: the cold and the dark no longer slow your walk.", "headlamp", [10, 58]],
+			["a helmet", "On the bench below the last rock step. A falling stone costs breath instead of knocking you off.", "helmet", [90, 40]],
+			["goggles and a buff", "Below the crater rim, out of the wind. Gusts push you less, and sitting on windy ground gives some breath back.", "shell", [35, 24]],
 		],
 		"theme": {
 			"night": true,
@@ -52,22 +57,22 @@ func _init() -> void:
 		"signs": [
 			["Barafu · 4,670 m", "Midnight. The crater rim is above you, a line of headlamps on the dark."],
 			["The switchbacks", "Scree and short rock steps. The cold slows how fast your arms come back: sit at the cairns."],
-			["The crater rim", "Open to the wind. When it rises, stop and BRACE. Walk between gusts."],
+			["The crater rim", "Two open saddles take the wind; the rock between them is a lee, with a cairn and a rest stone. In a saddle, when the wind rises, don't move: stop and REST until it passes."],
 			["Stella Point · 5,756 m", "First light. Uhuru is along the rim. The way home starts here."],
 		],
 		"copy": {
 			"kicker": "Barafu · midnight",
 			"title": "Summit night",
-			"brief": "Headlamps on. Frozen switchbacks of scree and rock to the crater rim, then Stella Point at first light. The cold slows how fast your arms come back, so rest at every cairn. The rim is open to the wind. Jun is somewhere on the zigzags.",
+			"brief": "Midnight start, and your headlamp is dim. Frozen switchbacks of scree, ice and rock to the crater rim, then Stella Point at first light. The cold slows how fast your arms come back, so REST at every cairn. The rim is open to the wind: don't move in a gust, REST until it passes. Jun is somewhere on the zigzags.",
 			"backOff": "Turn the headlamps around",
 			"mateTitle": "Jun has stopped on the switchback",
 			"mateBody": "His hands have gone numb and he has dropped a glove on the scree.",
 			"decideHelped": "Jun is moving again. Now what?",
 			"decideLeft": "Lena is with Jun. Now what?",
 			"decideBody": "The crater rim is above, open to the wind. Stella Point is beyond it.",
-			"doneComplete": "Stella Point, as the sky goes pale.",
+			"doneComplete": "Uhuru Peak at sunrise: the roof of Africa.",
 			"doneRetreat": "Back down to Barafu.",
 			"doneFail": "The mountain kept the summit tonight.",
-			"vista": "The sky goes pale over the cloud sea",
+			"vista": "The sun is coming up over the cloud sea",
 		},
 	}

@@ -212,24 +212,62 @@ def water():
 
 
 def gear():
-    p = Pen(42, 14)
-    # Compass.
+    """Five pieces of gear in GEAR_KINDS order (climb_level.gd): trekking
+    poles, gloves, goggles and buff, crampons, headlamp."""
+    p = Pen(98, 14)
+    steel, steel_d = c("#c8d0d8"), c("#8a949e")
+    # Trekking poles, crossed: grips (red, blue), shafts, baskets.
     q = p.at(0)
-    q.ellipse(1.2, 1.6, 12.8, 13.2, c("#d4a344"))
-    q.ellipse(2.8, 3.2, 11.2, 11.6, c("#f6efd8"), outline=False)
-    q.poly([(7.0, 3.8), (8.0, 7.4), (6.0, 7.4)], c("#d63a2c"), outline=False)
-    q.poly([(7.0, 11.0), (8.0, 7.4), (6.0, 7.4)], c("#2c3e50"), outline=False)
-    # Ice axe.
+    q.line([(2.6, 2.4), (11.6, 12.4)], 0.9, steel)
+    q.line([(11.4, 2.4), (2.4, 12.4)], 0.9, steel)
+    q.line([(2.0, 1.6), (4.0, 3.8)], 1.4, c("#d64a3a"))
+    q.line([(12.0, 1.6), (10.0, 3.8)], 1.4, c("#3a78c8"))
+    q.ellipse(9.8, 10.8, 12.8, 12.0, c("#4a4a52"))
+    q.ellipse(1.2, 10.8, 4.2, 12.0, c("#4a4a52"))
+    # A red mitt with a grey cuff.
     q = p.at(14)
-    q.line([(4.0, 3.0), (9.4, 12.6)], 1.3, c("#a0673a"))
-    q.line([(1.4, 2.6), (6.0, 2.2), (10.6, 3.2)], 1.2, c("#c8d0d8"))
-    q.line([(10.6, 3.2), (11.6, 4.6)], 0.8, c("#9aa4ae"), outline=False)
-    # Photograph.
+    q.rrect(3.6, 1.4, 10.4, 9.6, 3.0, c("#d64a3a"))
+    q.ellipse(1.4, 4.4, 5.0, 8.2, c("#d64a3a"))
+    q.rrect(4.4, 2.4, 6.6, 6.0, 1.0, c("#f07a64"), outline=False)
+    q.rrect(3.4, 9.4, 10.6, 12.8, 0.8, c("#9aa4ae"))
+    q.line([(3.8, 11.0), (10.2, 11.0)], 0.5, c("#d8dde2"), outline=False)
+    # Goggles over a striped buff.
     q = p.at(28)
-    q.rrect(1.6, 2.6, 12.4, 12.2, 0.6, c("#f6f2e8"))
-    q.rrect(2.8, 3.8, 11.2, 9.2, 0.3, c("#86aac4"), outline=False)
-    q.poly([(2.8, 9.2), (6.0, 5.6), (8.4, 7.6), (9.6, 6.6), (11.2, 9.2)], c("#6b7f5a"), outline=False)
-    q.poly([(5.0, 7.2), (6.0, 5.6), (7.0, 7.0)], c("#f2f6fa"), outline=False)
+    q.rrect(1.4, 8.0, 12.6, 12.8, 1.6, c("#e8a33c"))
+    for x in (3.4, 6.4, 9.4):
+        q.line([(x, 8.4), (x + 1.4, 12.4)], 0.8, c("#7a4f9e"), outline=False)
+    q.line([(0.6, 4.6), (13.4, 4.6)], 1.0, c("#3c3c46"))
+    q.rrect(1.8, 2.2, 6.6, 7.0, 2.0, c("#3a78c8"))
+    q.rrect(7.4, 2.2, 12.2, 7.0, 2.0, c("#3a78c8"))
+    q.rrect(2.4, 2.8, 4.2, 4.4, 0.8, c("#a8d8f8"), outline=False)
+    q.rrect(8.0, 2.8, 9.8, 4.4, 0.8, c("#a8d8f8"), outline=False)
+    # Crampons: a steel frame, spikes below, a red strap.
+    q = p.at(42)
+    q.line([(4.0, 6.4), (4.0, 3.2), (10.0, 3.2), (10.0, 6.4)], 1.0, c("#d64a3a"))
+    q.rrect(1.2, 6.0, 12.8, 8.0, 0.8, steel)
+    for x in (2.0, 4.4, 6.8, 9.2, 11.6):
+        q.poly([(x - 0.8, 8.0), (x + 0.8, 8.0), (x, 11.2)], steel_d)
+    q.poly([(0.4, 6.4), (1.4, 6.0), (0.2, 4.0)], steel_d)
+    # Headlamp: an elastic band and a lamp, its beam lit.
+    q = p.at(56)
+    q.poly([(8.6, 5.6), (13.8, 3.0), (13.8, 11.0), (8.6, 8.4)], c("#fff2a8", 150), outline=False)
+    q.line([(0.8, 9.6), (3.0, 7.4), (8.6, 7.4)], 1.2, c("#3c3c46"))
+    q.rrect(3.4, 4.4, 9.0, 10.2, 1.4, c("#e0b03c"))
+    q.ellipse(5.0, 5.6, 8.4, 9.0, c("#fff6c8"), outline=False)
+    # Helmet: an orange dome, a brim, a dark strap.
+    q = p.at(70)
+    q.line([(3.6, 9.6), (4.6, 12.2)], 0.7, c("#3c3c46"))
+    q.line([(10.4, 9.6), (9.4, 12.2)], 0.7, c("#3c3c46"))
+    q.poly([(1.4, 9.6), (2.4, 5.4), (5.0, 2.8), (9.0, 2.8), (11.6, 5.4), (12.6, 9.6)], c("#e8782c"))
+    q.rrect(0.8, 9.0, 13.2, 10.6, 0.6, c("#b8561c"))
+    q.ellipse(3.6, 4.0, 6.4, 6.4, c("#f4a868"), outline=False)
+    # Rope: a coil, with the end tucked through.
+    q = p.at(84)
+    q.ellipse(1.6, 2.2, 12.4, 12.0, c("#3a78c8"))
+    q.ellipse(4.0, 4.6, 10.0, 9.6, (0, 0, 0, 0), outline=True)
+    q.ellipse(4.4, 5.0, 9.6, 9.2, (0, 0, 0, 0), outline=False)
+    q.line([(2.6, 7.0), (11.4, 7.0)], 0.5, c("#6ea6e0"), outline=False)
+    q.line([(9.6, 3.4), (12.4, 1.2)], 0.9, c("#d64a3a"))
     p.at(0).save("gear")
 
 

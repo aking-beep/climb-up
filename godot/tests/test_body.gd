@@ -14,6 +14,8 @@ func _load(challenge: String, prep: Callable = Callable()) -> void:
 	if prep.is_valid():
 		prep.call()
 	Expedition.climb = {}
+	# A fresh go: nothing left over from an earlier test's climb.
+	Expedition.climb = {}
 	Expedition.resume_climb()
 	outcome = null
 	level = load(Expedition.LEVELS[challenge]).instantiate()
@@ -262,7 +264,11 @@ func test_sleep_and_medicine_at_camp() -> void:
 	Expedition.medicate("jun")
 	check(not Expedition.trek()["sick"].has("jun"), "Jun is better")
 	eq(Expedition.trek()["medicine"], 1, "another dose")
-	# A night: energy back is a good sleep; none back is a bad one.
+	# A night: energy back is a good sleep; none back is a bad one. Sleep
+	# gives some back (Trek.camp_recovery), but hungry and badly ill it
+	# cannot make up for a hard night.
+	Expedition.trek()["sick"]["marco"]["stage"] = 3
+	Expedition.state()["supplies"] = 10
 	var before: Dictionary = Expedition.state().duplicate(true)
 	var s: Dictionary = Expedition.state()
 	s["elapsedHours"] = float(s["elapsedHours"]) + 10.0

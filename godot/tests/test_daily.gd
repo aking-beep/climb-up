@@ -179,5 +179,10 @@ func test_the_daily_level_offers_a_share() -> void:
 	await physics_frames(3)
 	check("CLIMB UP" in level.shared_text, "sharing gives the result as text")
 	eq(DisplayServer.clipboard_get() if DisplayServer.get_name() != "headless" else level.shared_text, level.shared_text, "copied")
+	for i in 30:
+		if level.panel.open:
+			break
+		await physics_frames(2)
+	check(level.panel.open and level.panel.has_choice("menu"), "and the results come back: never a screen with no way on")
 	await _done()
 	_daily_done()

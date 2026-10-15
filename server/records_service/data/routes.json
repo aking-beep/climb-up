@@ -1,0 +1,159 @@
+{
+  "daily": {
+    "2026-10-12": {
+      "bolts": [
+        4,
+        7,
+        12,
+        17,
+        23,
+        30
+      ],
+      "grade": "5c",
+      "mapHash": 3956934158,
+      "maxFalls": 5,
+      "rows": 35
+    },
+    "2026-10-13": {
+      "bolts": [
+        4,
+        9,
+        13,
+        18,
+        23,
+        28,
+        32,
+        37
+      ],
+      "grade": "6a+",
+      "mapHash": 544962256,
+      "maxFalls": 5,
+      "rows": 42
+    },
+    "2026-10-14": {
+      "bolts": [
+        4,
+        8,
+        11,
+        15,
+        21,
+        28
+      ],
+      "grade": "6a+",
+      "mapHash": 2510570750,
+      "maxFalls": 5,
+      "rows": 33
+    },
+    "2026-10-15": {
+      "bolts": [
+        5,
+        11,
+        21,
+        34
+      ],
+      "grade": "6b+",
+      "mapHash": 1159767075,
+      "maxFalls": 4,
+      "rows": 39
+    }
+  },
+  "routes": {
+    "first-climb": {
+      "bolts": [
+        3,
+        10,
+        17
+      ],
+      "grade": "Lesson",
+      "mapHash": 2273983654,
+      "maxFalls": 9,
+      "rows": 22
+    },
+    "leap-of-faith": {
+      "bolts": [
+        4,
+        8,
+        15,
+        23,
+        33,
+        45
+      ],
+      "grade": "6b",
+      "mapHash": 4108227232,
+      "maxFalls": 4,
+      "rows": 50
+    },
+    "lions-roof": {
+      "bolts": [
+        3,
+        8,
+        13,
+        17,
+        24,
+        31,
+        38,
+        45
+      ],
+      "grade": "6c",
+      "mapHash": 626840798,
+      "maxFalls": 3,
+      "rows": 50
+    },
+    "sundown": {
+      "bolts": [
+        6,
+        12,
+        22,
+        34
+      ],
+      "grade": "5b",
+      "mapHash": 2132211676,
+      "maxFalls": 5,
+      "rows": 39
+    },
+    "the-pinch": {
+      "bolts": [
+        3,
+        8,
+        13,
+        18,
+        22,
+        27,
+        32,
+        37
+      ],
+      "grade": "6a",
+      "mapHash": 3483663293,
+      "maxFalls": 4,
+      "rows": 42
+    },
+    "thunderhead": {
+      "bolts": [
+        5,
+        12,
+        22,
+        36,
+        53
+      ],
+      "grade": "7a",
+      "mapHash": 2470906544,
+      "maxFalls": 3,
+      "rows": 58
+    },
+    "warm-up": {
+      "bolts": [
+        3,
+        8,
+        13,
+        18,
+        23,
+        28
+      ],
+      "grade": "4",
+      "mapHash": 878098442,
+      "maxFalls": 5,
+      "rows": 33
+    }
+  },
+  "rowMetres": 0.5
+}

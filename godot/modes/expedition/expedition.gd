@@ -222,6 +222,20 @@ func finish_climb(outcome: Dictionary) -> String:
 			s["energy"] = maxi(0, int(s["energy"]) - cost)
 			s["lastNote"] = (String(s["lastNote"]) + " Stings and bites from the climb: energy %d." % -cost).strip_edges()
 			session["state"] = s
+		# Snacks eaten on the climb come out of the camp's food.
+		var food := int(outcome.get("food", 0))
+		if food > 0 and active():
+			var sf: Dictionary = state().duplicate(true)
+			sf["supplies"] = maxi(0, int(sf["supplies"]) - food)
+			sf["lastNote"] = (String(sf["lastNote"]) + " Food eaten on the climb: supplies -%d." % food).strip_edges()
+			session["state"] = sf
+		# Fires at the cairns: hours off the expedition's clock.
+		var fire := clampi(int(outcome.get("fireHours", 0)), 0, 24)
+		if fire > 0 and active():
+			var sh: Dictionary = state().duplicate(true)
+			sh["elapsedHours"] = int(sh["elapsedHours"]) + fire
+			sh["lastNote"] = (String(sh["lastNote"]) + " Fires on the climb: %d hour%s later." % [fire, "" if fire == 1 else "s"]).strip_edges()
+			session["state"] = sh
 		last = {"kind": "climb", "label": p["choiceLabel"], "before": before, "outcome": outcome}
 	climb = {}
 	save()
@@ -286,6 +300,12 @@ static func descent_effect(o: Dictionary) -> Dictionary:
 	elif a == false:
 		e["teamCondition"] = int(e.get("teamCondition", 0)) - 6
 		scores["teamwork"] = {"label": "You went down ahead of Jun and left him to Lena", "delta": -6, "mark": "descent-left"}
+	# Fires on the way down: hours on the clock.
+	if int(o.get("fireHours", 0)) > 0:
+		e["hours"] = int(e["hours"]) + clampi(int(o["fireHours"]), 0, 24)
+	# Snacks eaten on the way down come out of the camp's food.
+	if int(o.get("food", 0)) > 0:
+		e["supplies"] = -int(o["food"])
 	if not scores.is_empty():
 		e["scores"] = scores
 	return e
@@ -400,6 +420,7 @@ func _report_end() -> void:
 	if active() or _reported_end:
 		return
 	_reported_end = true
+	Records.expedition_finished(session)
 	var sc := ExpeditionEngine.score(state())
 	Analytics.event("expedition_completed", {"returned": sc["returnedSafely"], "summit": sc["summitReached"], "overall": sc["overall"],
 		"day": ExpeditionEngine.day_of(state()), "descent_played": bool(trek().get("descent", {}).get("played", false))})

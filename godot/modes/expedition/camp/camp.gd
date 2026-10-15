@@ -27,7 +27,13 @@ const STATS := [
 	["teamCondition", "Team", false], ["supplies", "Supplies", false], ["weatherRisk", "Weather risk", true],
 ]
 const CLIMB_NAMES := {"lava-tower": "the Lava Tower", "barranco-wall": "the Barranco Wall", "summit-night": "the summit night", "descent": "the way down"}
-const RISK := {"low": ["LOW RISK", Color("#3f8a4a")], "medium": ["RISKY", Color("#c9922e")], "high": ["DANGEROUS", Color("#b8432a")]}
+const RISK := {"low": ["LOW RISK", Color("#3f8a4a")], "medium": ["MEDIUM RISK", Color("#c9922e")], "high": ["HIGH RISK", Color("#b8432a")]}
+## What each band means, said under the choice you pick.
+const RISK_MEANS := {
+	"low": "Low risk: little can go wrong.",
+	"medium": "Medium risk: it can cost the team energy or health.",
+	"high": "High risk: it is likely to cost health, a teammate, or the climb.",
+}
 
 var diorama: Diorama
 var _backdrop: TextureRect
@@ -343,7 +349,11 @@ func _permit_words(s: Dictionary) -> String:
 	if t["route"] == "":
 		return ""
 	var left := Trek.hours_left(Expedition.session) / 24.0
-	return " · %s LEFT ON THE PERMIT" % (("%.1f DAYS" % left) if left > 0 else "NO DAYS")
+	if left < 0.05:
+		return " · NO DAYS LEFT ON THE PERMIT"
+	if left < 1.0:
+		return " · UNDER A DAY LEFT ON THE PERMIT (%d H)" % maxi(1, int(round(left * 24.0)))
+	return " · %.1f DAYS LEFT ON THE PERMIT" % left
 
 
 static func _short(text: String, n: int) -> String:
@@ -462,7 +472,10 @@ func _pick(i: int) -> void:
 		chips[key].preview = int(f.get("deltas", {}).get(key, 0))
 		chips[key].queue_redraw()
 	var why: Array = f.get("why", [])
-	_why.text = ("Why it's risky: " + ", ".join(why) + ".") if not why.is_empty() and String(f.get("risk", "low")) != "low" else ""
+	var band := String(f.get("risk", "low"))
+	_why.text = RISK_MEANS.get(band, "") if not f.is_empty() else ""
+	if not why.is_empty() and band != "low":
+		_why.text += " Why: " + ", ".join(why) + "."
 	_why.visible = _why.text != ""
 	_confirm.disabled = false
 	_confirm.text = "Confirm: %s" % _short(String(choice["label"]), 34)
@@ -507,7 +520,10 @@ func fit() -> int:
 				d.visible = d.text != "" and int(t[4]) > 0
 				d.max_lines_visible = maxi(1, int(t[4]))
 		if _why:
-			_why.visible = _why.text != "" and bool(t[3])
+			# What the risk band means stays on as long as it can: it is
+			# how the player reads LOW / MEDIUM / HIGH.
+			_why.visible = _why.text != "" and k <= 5
+			_why.max_lines_visible = 2
 		if _content_height() <= room:
 			break
 	# Each card exactly as tall as what it shows.
@@ -772,6 +788,19 @@ func _results(s: Dictionary) -> void:
 	for name in Plain.SCORE:
 		why = why.replace(name, Plain.score(name))
 	_text_label("Highest point %s m. %s" % [ExpeditionEngine.format_meters(sc["highestAltitude"]), why], 9, INK)
+	# What ranks this expedition on the boards.
+	var t := Trek.ensure(Expedition.session)
+	var home := 4 - (t.get("gone", []) as Array).size() if bool(s.get("returnedSafely", false)) else 0
+	var lp := Records.leader_points(s, String(t.get("route", "")), home)
+	var parts: Array = ["score %d" % int(lp["score"])]
+	if int(lp["team"]) != 0:
+		parts.append("team %+d" % int(lp["team"]))
+	if int(lp["speed"]) > 0:
+		parts.append("speed %+d" % int(lp["speed"]))
+	if int(lp["stores"]) > 0:
+		parts.append("stores %+d" % int(lp["stores"]))
+	var note := "" if int(lp["team"]) > 0 or not bool(s.get("summitReached", false)) else " Speed and stores count only when the whole team summits and comes home."
+	_text_label("Leader points %d: %s.%s" % [int(lp["points"]), ", ".join(parts), note], 9, SPRUCE if int(lp["team"]) >= 0 else EMBER)
 	for pair in [["Judgment", "judgment"], ["Risk management", "riskManagement"], ["Teamwork", "teamwork"], ["Preparation", "preparation"]]:
 		var row := HBoxContainer.new()
 		var l := _label(Plain.score(pair[0]), 9, INK, UiFont.body())

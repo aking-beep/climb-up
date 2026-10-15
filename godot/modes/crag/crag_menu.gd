@@ -22,9 +22,10 @@ func _ready() -> void:
 	var dr := Crag.daily_record()
 	var today := "new today"
 	if int(dr["sends"]) > 0:
-		today = "today: %s %d:%02d" % [Crag.STYLES[dr["best"]][0], int(dr["bestSeconds"]) / 60, int(dr["bestSeconds"]) % 60]
+		today = "today: %s %d:%02d · beat your time" % [Crag.STYLES[dr["best"]][0], int(dr["bestSeconds"]) / 60, int(dr["bestSeconds"]) % 60]
 	elif int(dr["attempts"]) > 0:
-		today = "today: %d go%s" % [int(dr["attempts"]), "" if int(dr["attempts"]) == 1 else "s"]
+		today = "today: %d go%s%s · try again" % [int(dr["attempts"]), "" if int(dr["attempts"]) == 1 else "s",
+			(", best %s m up" % Crag._m(int(dr.get("highRows", 0)) * Crag.ROW_M)) if int(dr.get("highRows", 0)) > 0 else ""]
 	var daily := button("Daily route · %s · %s · %s" % [d["name"], d["grade"], today], Crag.climb.bind("daily"))
 	if not Crag.unlocked("daily"):
 		daily.text = "Daily route · opens after First Climb"
@@ -37,6 +38,7 @@ func _ready() -> void:
 		if focus == null and not b.disabled:
 			focus = b
 	button("Logbook and achievements", func() -> void: Crag.go(Crag.LOGBOOK))
+	button("Records and leaderboards", func() -> void: Records.open("crag", Crag.MENU))
 	var back := button("Back", func() -> void: Crag.go(Crag.TITLE))
 	(focus if focus else back).grab_focus()
 
@@ -51,7 +53,8 @@ func _route_row(r: Dictionary) -> Button:
 		if int(rec["sends"]) > 0:
 			status = "%s %d:%02d" % [Crag.STYLES[rec["best"]][0], int(rec["bestSeconds"]) / 60, int(rec["bestSeconds"]) % 60]
 		elif int(rec["attempts"]) > 0:
-			status = "%d tr%s" % [int(rec["attempts"]), "y" if int(rec["attempts"]) == 1 else "ies"]
+			status = "%d tr%s%s" % [int(rec["attempts"]), "y" if int(rec["attempts"]) == 1 else "ies",
+				(", best %s m" % Crag._m(int(rec.get("highRows", 0)) * Crag.ROW_M)) if int(rec.get("highRows", 0)) > 0 else ""]
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
 	card.add_child(row)

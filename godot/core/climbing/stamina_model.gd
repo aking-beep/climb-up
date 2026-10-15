@@ -14,13 +14,15 @@ const RATES := {
 	"hang": 2.0,       # holding still on a face
 	"scramble": 3.0,   # moving on easy boulders
 	"traverse": 6.5,   # moving sideways on a face
-	"brace": 1.0,      # braced against a gust
 	"walk": 0.5,       # walking costs breath, more as the air thins
 	"walk_up": 1.6,    # walking uphill
 	"ice": 0.9,        # short careful steps on ice
 	"still": -10.0,
-	"rest": -18.0,     # sitting down on ordinary ground
-	"rest_stone": -26.0,
+	"rest": -22.0,     # sitting down (REST) on ordinary ground: the only way back on the mountain
+	"rest_gust": -6.0, # hunkered down on windy ground with goggles and a buff
+	"sit": 0.0,        # sitting with no rest left, or on windy ground: safe, nothing back
+	"sit_gust": 1.5,   # sitting out a gust: never moved, a little breath lost
+	"rest_stone": -30.0,
 	"helping": 0.0,
 	"crimp": 14.0,      # moving on small holds (the crag)
 	"crimp_hang": 12.0, # holding still on them: don't
@@ -45,6 +47,14 @@ var thin_air: float = 1.0
 var grip: float = 1.0
 ## Multiplies what being on rock costs: the shoes (crag mode).
 var shoes: float = 1.0
+## False on expedition climbs: there, standing about gives nothing back;
+## only REST (and a rest stone) does.
+var still_recovers := true
+## Gear found on this attempt: multiplies what walking (trekking poles),
+## ice (crampons) and rock (gloves) cost. 1 without it.
+var walk_gear: float = 1.0
+var ice_gear: float = 1.0
+var rock_gear: float = 1.0
 const ON_ROCK := ["climb", "hang", "traverse", "crimp", "crimp_hang", "sloper", "sloper_hang"]
 const WALKING := ["walk", "walk_up", "ice"]
 
@@ -85,10 +95,12 @@ static func gap_factor(meters: float, acclimatization: float) -> float:
 ## recovery.
 func rate(activity: String, loose: bool = false) -> float:
 	var r: float = RATES.get(activity, 0.0)
+	if activity == "still" and not still_recovers:
+		return 0.0
 	if activity in WALKING:
-		r *= thin_air
+		r *= thin_air * (ice_gear if activity == "ice" else walk_gear)
 	elif activity in ON_ROCK:
-		r *= grip * shoes
+		r *= grip * shoes * rock_gear
 	if r > 0.0:
 		return r * drain * (LOOSE_FACTOR if loose else 1.0)
 	return r * recovery

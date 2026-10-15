@@ -8,6 +8,7 @@ extends CragBot
 func _fresh_progress() -> void:
 	Crag.navigate = false
 	Crag.reset()
+	Records.delete_all()
 
 
 func test_the_title_opens_two_separate_games() -> void:
@@ -176,12 +177,14 @@ func test_a_dyno_crosses_blank_rock() -> void:
 	eq(c.state, Climber.State.CLIMB, "caught the holds above")
 	var after := c.stamina.value
 	await tree.physics_frame
-	check(level.catching > 0.0 and level.action_word == "GRIP", "and has to stick it (catching %.2f, button %s, state %d)" % [level.catching, level.action_word, c.state])
+	eq(level.catch_quality, "good", "the hands have it, no tap needed")
+	check(level.catching > 0.0 and level.action_word == "GRIP", "and a tap now makes it perfect (catching %.2f, button %s, state %d)" % [level.catching, level.action_word, c.state])
 	GameInput.scripted = {"interact": true}
 	await tree.physics_frame
 	GameInput.scripted = {"_": false}
 	await tree.physics_frame
-	eq(level.catching, 0.0, "one tap on the contact sticks it")
+	eq(level.catch_quality, "perfect", "one tap on the contact: perfect")
+	eq(level.catching, 0.0, "stuck")
 	var higher := before - c.global_position.y
 	# Tiny holds above the blank: keep tapping GRIP to stay on.
 	for i in 70:
@@ -193,7 +196,7 @@ func test_a_dyno_crosses_blank_rock() -> void:
 	await _done()
 
 
-func test_a_dyno_not_stuck_slips_off() -> void:
+func test_a_dyno_with_no_tap_still_catches_the_hold() -> void:
 	Crag.navigate = false
 	await _load("leap-of-faith")
 	var t: Terrain = level.terrain
@@ -210,8 +213,10 @@ func test_a_dyno_not_stuck_slips_off() -> void:
 	await tree.physics_frame
 	GameInput.scripted = {"_": false}
 	await drive([], func() -> bool: return c.state == Climber.State.CLIMB, 2.0, "the catch")
-	await drive([], func() -> bool: return c.state != Climber.State.CLIMB, 2.0, "no taps")
-	check(c.state != Climber.State.CLIMB, "no taps: the hold slips out of your hands")
+	eq(c.state, Climber.State.CLIMB, "jumped to the hold and caught it")
+	await physics_frames(30)
+	eq(c.state, Climber.State.CLIMB, "no tap needed to stay on")
+	eq(c.slips, 0, "no fall")
 	await _done()
 
 

@@ -18,6 +18,7 @@ func _init() -> void:
 	spec = {
 		"id": ID,
 		"map": "res://modes/expedition/levels/kilimanjaro/descent/descent.txt",
+		"music": "descent",
 		"hud": "The descent",
 		"difficulty": {"recovery": 0.75, "drain": 1.1, "wind": 34.0, "maxSlips": 3, "helpCost": 18.0, "rockPeriod": 6.0},
 		# Frost at the top, then down into the heat of the lower slopes.
@@ -25,7 +26,11 @@ func _init() -> void:
 			"light": [[0.0, "#ffe2d0"], [0.4, "#fff6ea"], [1.0, "#fff0d6"]]},
 		"meters": 5300,
 		"dangers": ["the wind on the rim", "loose scree", "ice above the rock step"],
-		"gear": [],
+		"gear": [
+			["goggles and a buff", "Left on the rim by someone who no longer needed them. Gusts push you less, and sitting on windy ground gives some breath back.", "shell", [19, 13]],
+			["trekking poles", "Stuck in the scree by the second cairn. The long slopes down cost less with them.", "poles", [63, 25]],
+			["crampons", "On the scree above the ice. On ice they bite: no sliding, and it costs less.", "crampons", [73, 35]],
+		],
 		"theme": {
 			"night": false,
 			"far": "res://assets/scenery/summit-sea.png",
@@ -62,7 +67,7 @@ func _init() -> void:
 		"copy": {
 			"kicker": "Stella Point · sunrise",
 			"title": "The way down",
-			"brief": "You stood on the summit. Now the expedition is getting down. The rim is open to the wind (stop and BRACE in a gust), the scree slopes are long, there is one rock step to climb down (stand at the edge and push DOWN), and ice above it. Jun is on the rim with nothing left in his legs.",
+			"brief": "You stood on the summit. Now the expedition is getting down. The rim is open to the wind (don't move in a gust: stop and REST until it passes), the scree slopes are long, there is one rock step to climb down (stand at the edge and push DOWN), and ice above it. Jun is on the rim with nothing left in his legs.",
 			"backOff": "",
 			"mateTitle": "Jun can't get up",
 			"mateBody": "He sits on the rim, shaking. He gave everything on the way up.",

@@ -175,7 +175,7 @@ static func _generate(date: String, tier: int, sub: int) -> Dictionary:
 	if map == "":
 		return {}
 	var name := "%s %s" % [NAMES_A[rng.range_int(0, NAMES_A.size() - 1)], NAMES_B[rng.range_int(0, NAMES_B.size() - 1)]]
-	var skill: String = {"crimps": "Squeeze timing", "slopers": "Slow and steady", "pockets": "Clip, rest, repeat", "dyno": "The timed catch", "traverse": "Sideways"}[featured]
+	var skill: String = {"crimps": "Squeeze timing", "slopers": "Slow and steady", "pockets": "Clip, rest, repeat", "dyno": "The leap", "traverse": "Sideways"}[featured]
 	return {"id": "daily", "date": date, "version": VERSION, "seed": seed_for(date, sub), "sub": sub, "name": name,
 		"grade": GRADES[tier], "tier": tier, "level": ["easy", "moderate", "hard", "harder", "very hard"][tier],
 		"falls": 5 if tier < 3 else 4, "gripDrain": 0.35 + 0.15 * tier, "skill": skill,

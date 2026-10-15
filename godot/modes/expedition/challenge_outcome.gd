@@ -28,6 +28,10 @@ var stars := 0
 ## Health lost on the climb (thorns, ants, ravens), and medicine taken for it.
 var hurt := 0
 var dosed := false
+## Camp supplies eaten on the climb (snacks once the rests ran out).
+var food := 0
+## Hours spent at fires on the climb (added to the expedition's clock).
+var fire_hours := 0
 
 
 func to_expo() -> Dictionary:
@@ -56,6 +60,8 @@ func to_dict() -> Dictionary:
 	d["stars"] = stars
 	d["hurt"] = hurt
 	d["dosed"] = dosed
+	d["food"] = food
+	d["fireHours"] = fire_hours
 	return d
 
 

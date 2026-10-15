@@ -11,6 +11,8 @@ func _ready() -> void:
 	Expedition.session = TestSessions.at("barranco-wall")
 	await bot._load()
 	Expedition.session = TestSessions.at("barranco-wall")
+	# A fresh go: nothing left over from an earlier test's climb.
+	Expedition.climb = {}
 	Expedition.resume_climb()
 	bot.level.attempt_id = Expedition.climb["attemptId"]
 	var level: Node = bot.level

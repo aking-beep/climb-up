@@ -13,6 +13,8 @@ func _level(challenge: String, before: Callable = Callable()) -> Node:
 	Expedition.climb = {}
 	if before.is_valid():
 		before.call()
+	# A fresh go: nothing left over from an earlier test's climb.
+	Expedition.climb = {}
 	Expedition.resume_climb()
 	var level: Node = load(Expedition.LEVELS[challenge]).instantiate()
 	root.add_child(level)

@@ -282,3 +282,66 @@ func test_someone_sent_down_changes_the_rest_of_the_trip() -> void:
 	check("Lena and Marco" in end[1], "the ending names them: " + end[1])
 	await tree.process_frame
 	SaveGame.erase()
+
+
+## Sleep gives energy back at camp: most low down and fed, less high up,
+## hungry or ill, more on a rest day. Without it a party that slept every
+## night reached the summit on empty.
+func test_a_night_at_camp_gives_energy_back() -> void:
+	var session := TestSessions.at("lava-tower")
+	var s: Dictionary = session["state"].duplicate(true)
+	Trek.ensure(session)["sick"] = {}
+	s["altitude"] = 3000
+	s["supplies"] = 80
+	var low := Trek.camp_recovery(session, s, 10.0)
+	s["altitude"] = 4600
+	var high := Trek.camp_recovery(session, s, 10.0)
+	var rest := Trek.camp_recovery(session, s, 24.0)
+	s["supplies"] = 10
+	var hungry := Trek.camp_recovery(session, s, 10.0)
+	s["supplies"] = 80
+	Trek.ensure(session)["sick"] = {"marco": {"kind": "ams", "stage": 2}}
+	var ill := Trek.camp_recovery(session, s, 10.0)
+	print("      a night's energy back: low %d, at 4,600 m %d, rest day %d, hungry %d, ill %d" % [low, high, rest, hungry, ill])
+	check(low > high and high > 0, "most low down, still some up high")
+	check(rest > high, "a rest day gives more")
+	check(hungry < high and ill < high, "hunger and illness give less")
+
+
+## The long way is the easy way: a careful party on any route gets to
+## each played climb with stamina for it, and home.
+func test_every_route_reaches_its_climbs_with_stamina() -> void:
+	const METERS := {"lava-tower": 4600.0, "barranco-wall": 4200.0, "summit-night": 5700.0}
+	for route in 3:
+		for seed in [7, 11, 23, 42]:
+			SaveGame.erase()
+			Expedition.navigate = false
+			Expedition.new_expedition(seed)
+			var bars := {}
+			for n in 80:
+				if not Expedition.active():
+					break
+				var p: Variant = Expedition.pending()
+				if p != null:
+					var st := Expedition.state()
+					bars[p["challengeId"]] = roundf(StaminaModel.max_for_energy(float(st["energy"])) * Condition.of(Expedition.session)["stamina"])
+					Expedition.finish_climb(TestSessions.complete(p))
+					continue
+				var d: Dictionary = Expedition.trek().get("descent", {})
+				if not d.is_empty() and not d.get("played", false):
+					Expedition.finish_descent({"attemptId": d["attemptId"], "challengeId": "descent", "result": "complete", "staminaLeft": 60, "slips": 0, "assisted": true, "regrouped": false, "seconds": 300})
+					continue
+				var card := Expedition.card()
+				var pick := route if card["id"] == "trek-route" else 0
+				if card["id"] != "trek-route":
+					for i in card["choices"].size():
+						if TestSessions.CAREFUL.has(card["choices"][i]["label"]):
+							pick = i
+				Expedition.choose(pick)
+			if route == 0:
+				check(bars.get("barranco-wall", 0) >= 70, "the long way, seed %d: a bar of %d for the Barranco Wall" % [seed, bars.get("barranco-wall", 0)])
+				check(ExpeditionEngine.score(Expedition.state())["returnedSafely"], "the long way, seed %d: everyone home" % seed)
+			# The Lava Tower takes about 50 of a bar (the climb bots): 65 is room.
+			check(bars.get("lava-tower", 0) >= 65, "route %d seed %d: a bar of %d for the Lava Tower" % [route, seed, bars.get("lava-tower", 0)])
+			print("      route %d seed %d: bars %s, %s" % [route, seed, bars, "home" if ExpeditionEngine.score(Expedition.state())["returnedSafely"] else "not home"])
+	SaveGame.erase()

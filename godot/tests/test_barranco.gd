@@ -96,7 +96,7 @@ func test_a_careful_climb_helping_marco_reaches_karanga() -> void:
 		eq(outcome.slips, 0, "slips")
 		check(outcome.seconds > 120, "even a bot that knows the route takes minutes, got %ds" % outcome.seconds)
 		check_pacing("Barranco Wall")
-		print("      ascent took %d s of game time, %d%% stamina left, wind strikes %d, %.0f s on loose rock, %.0f s resting" % [outcome.seconds, outcome.stamina_left, outcome.wind_strikes, outcome.loose_seconds, outcome.rest_seconds])
+		print("      ascent took %d s of game time, %d%% stamina left, wind strikes %d, %.0f s on loose rock, %.0f s resting, lowest %d%% of a %d bar, food eaten %d" % [outcome.seconds, outcome.stamina_left, outcome.wind_strikes, outcome.loose_seconds, outcome.rest_seconds, int(level.lowest_stamina * 100), int(level.climber.stamina.max_value), level.snacks * ClimbLevel.SNACK])
 	await _done()
 
 
@@ -111,25 +111,86 @@ func test_leaving_marco_is_reported() -> void:
 	await _done()
 
 
-func test_walking_in_a_gust_on_exposed_ground_is_a_slip_and_bracing_is_safe() -> void:
+func test_walking_in_a_gust_on_exposed_ground_is_a_slip_and_resting_is_safe() -> void:
 	await _load()
 	var start: Vector2i = level.terrain.markers["K"][0]
 	# Put the climber on the exposed ledge, at the next gust.
 	c.global_position = Terrain.feet(Vector2i(60, 41))
 	await physics_frames(5)
-	while c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW:
-		GameInput.scripted = {"_": false, "brace": true}
+	# Sit down (REST) while the wind is rising, and stay sat through the gust.
+	GameInput.scripted = {"_": false}
+	while c.wind.phase_at(c.clock) != WindSchedule.Phase.CALM:
 		await tree.physics_frame
+	while c.wind.phase_at(c.clock) != WindSchedule.Phase.WARN:
+		await tree.physics_frame
+	await drive(["rest"], func() -> bool: return c.state == Climber.State.REST, 1.0, "sit down")
+	while c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW:
+		GameInput.scripted = {"_": false}
+		await tree.physics_frame
+	await physics_frames(1)
 	check(c.exposed, "on exposed ground")
-	await drive(["brace"], func() -> bool: return c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW, 3.0, "braced gust")
-	eq(c.slips, 0, "braced through a gust")
-	while c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW:
-		GameInput.scripted = {"_": false, "brace": true}
+	eq(c.state, Climber.State.REST, "sitting as the gust hits")
+	var x0 := c.global_position.x
+	await drive([], func() -> bool: return c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW, 3.0, "sat out the gust")
+	eq(c.slips, 0, "resting through a gust is safe")
+	check(absf(c.global_position.x - x0) < 0.5, "the gust does not push someone sitting")
+	# Stand up (REST again) in the calm, then stand still in the next gust:
+	# pushed along the ledge, and it costs breath.
+	while c.wind.phase_at(c.clock) != WindSchedule.Phase.CALM:
 		await tree.physics_frame
-	await drive(["move_right"], func() -> bool: return c.state == Climber.State.SLIP, 2.0, "walk into the gust")
-	eq(c.slips, 1, "walking in a gust slips")
+	await drive(["rest"], func() -> bool: return c.state == Climber.State.GROUND, 1.0, "stand up")
+	GameInput.scripted = {"_": false}
+	while c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW:
+		await tree.physics_frame
+	x0 = c.global_position.x
+	var before := c.stamina.value
+	await physics_frames(20)
+	check(absf(c.global_position.x - x0) > 0.2, "standing in a gust gets nudged along (%.1f px, state %d, slips %d)" % [c.global_position.x - x0, c.state, c.slips])
+	check(c.stamina.value < before, "standing in a gust costs stamina")
+	eq(c.slips, 0, "standing in a gust never sends you back")
+	# Walking into a gust: a stagger that costs stamina, not a fall.
+	while c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW:
+		GameInput.scripted = {"_": false}
+		await tree.physics_frame
+	before = c.stamina.value
+	await drive(["move_right"], func() -> bool: return c.wind_strikes > 0, 1.0, "walk into the gust")
 	eq(c.wind_strikes, 1, "wind strike counted")
+	eq(c.slips, 0, "a stagger, not a fall")
+	check(c.stamina.value <= before - Climber.GUST_STAGGER + 0.5, "the stagger costs stamina")
+	# With nothing left, the stagger is a fall.
+	while c.wind.phase_at(c.clock) == WindSchedule.Phase.BLOW:
+		GameInput.scripted = {"_": false}
+		await tree.physics_frame
+	while c.wind.phase_at(c.clock) != WindSchedule.Phase.BLOW:
+		GameInput.scripted = {"_": false}
+		await tree.physics_frame
+	c.stamina.value = 2.0
+	for i in 60:
+		if c.state == Climber.State.SLIP:
+			break
+		GameInput.scripted = {"_": false, "move_right": true}
+		await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	eq(c.slips, 1, "spent and staggered: a fall")
 	var _unused := start
+	await _done()
+
+
+## Standing still on ice in a gust (the descent's rim): the wind's nudge
+## must never count as moving.
+func test_standing_on_ice_in_a_gust_is_not_a_fall() -> void:
+	await _load()
+	c.global_position = Terrain.feet(Vector2i(60, 41))
+	await physics_frames(3)
+	c.on_ice = true
+	for i in 60 * 6:
+		GameInput.scripted = {"_": false}
+		# As on ice: nothing slows the nudge.
+		if c.wind.phase_at(c.clock) == WindSchedule.Phase.BLOW:
+			c.velocity.x = maxf(c.velocity.x, 30.0)
+		await tree.physics_frame
+	eq(c.slips, 0, "no fall from standing still")
+	eq(c.wind_strikes, 0, "and no wind strike")
 	await _done()
 
 
@@ -181,4 +242,27 @@ func test_retreat_from_the_pause_menu_is_always_open() -> void:
 	level.panel.choose("retreat")
 	await physics_frames(2)
 	check(outcome != null and outcome.result == "retreat", "retreat outcome")
+	await _done()
+
+
+## The middle climb is passable for a worn party, not only a fresh one:
+## energy 10 at camp (a stamina bar of about 60), and still to Karanga,
+## helping Marco, without running out. The summit is the hard one.
+func test_a_tired_party_still_gets_up_the_wall() -> void:
+	Expedition.new_expedition(7)
+	Expedition.state()["energy"] = 10
+	Settings.touch_controls = false
+	level = load(LEVEL).instantiate()
+	root.add_child(level)
+	level.finished.connect(func(o: ChallengeOutcome) -> void: outcome = o)
+	await physics_frames(2)
+	level.panel.choose("start")
+	await physics_frames(1)
+	c = level.climber
+	check(c.stamina.max_value <= 62, "a small bar (%d)" % c.stamina.max_value)
+	await climb_the_wall("help")
+	check(outcome != null and outcome.result == "complete", "a tired party still reaches Karanga")
+	check(level.lowest_stamina >= 0.1, "without ever running dry (lowest %d%%)" % int(level.lowest_stamina * 100))
+	if outcome:
+		print("      tired party: %d s, %d slips, lowest %d%% of a %d bar, food eaten %d" % [outcome.seconds, outcome.slips, int(level.lowest_stamina * 100), int(c.stamina.max_value), level.snacks * ClimbLevel.SNACK])
 	await _done()

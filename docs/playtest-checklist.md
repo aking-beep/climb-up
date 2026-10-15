@@ -69,7 +69,7 @@ Do each mid-climb, once on the expedition and once at the crag:
 - [ ] Stick: does walking start and stop where your thumb says? Any drift?
 - [ ] JUMP: does a hop come the moment you tap? Over thistles and ants too?
 - [ ] CLIMB / pushing up on rock: does it grab when you expect?
-- [ ] BRACE in a gust: is it easy to hold while you watch the wind line?
+- [ ] REST in a gust: is it easy to sit down in time when the wind line warns, and to stand up after?
 - [ ] REST: easy to find when the bar is low?
 - [ ] ACT (talk, read, help): does it say the right word at the right time?
 
@@ -94,6 +94,8 @@ Do each mid-climb, once on the expedition and once at the crag:
 - [ ] Battery now ___ %, after ___ minutes. Phone warm / hot / normal?
 - [ ] Any crash or freeze? What were you doing?
 - [ ] Screenshots of anything odd (power + volume down).
+- [ ] Camp cards: do LOW / MEDIUM / HIGH RISK match how risky each choice feels? Is the line under the choice clear?
+- [ ] Summit rim: do the two windy saddles and the cairn between them feel fair after a gust?
 
 Send the filled page back (a photo is fine) and the next round of fixes
 comes from it.

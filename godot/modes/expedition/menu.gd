@@ -9,7 +9,7 @@ func _ready() -> void:
 	kicker("Kilimanjaro · Lemosho route, as a game")
 	title("Climb Up", 22)
 	text("How high you climb isn't how you win.", 9, MUTED)
-	text("Ten days on the mountain with Lena, Marco and Jun. Make the calls at camp. Climb the Lava Tower, the Barranco Wall and the summit night yourself, and then the hardest part: bringing everyone back down.")
+	text("Eight to thirteen days on the mountain with Lena, Marco and Jun. Make the calls at camp. Climb the Lava Tower, the Barranco Wall and the summit night yourself, and then the hardest part: bringing everyone back down.")
 	text("A game, not a guide: altitude, illness and medicine here are simplified game rules, not advice for a real mountain.", 7, MUTED)
 	if has_save:
 		var s: Dictionary = Expedition.state()
@@ -20,13 +20,14 @@ func _ready() -> void:
 	var fresh := button("New expedition", _new, not has_save)
 	if not has_save:
 		fresh.grab_focus()
+	button("Records and leaderboards", func() -> void: Records.open("expedition", "res://modes/expedition/menu.tscn"))
 	button("Graphics: %s" % ["Full", "Reduced", "Low power"][Settings.quality], _quality)
 	button("Reduced motion: %s" % ("On" if Settings.reduced_motion else "Off"), _motion)
 	button("Back", func() -> void: Expedition.go("res://modes/title/title.tscn"))
 	if Settings.touch_enabled():
 		text("Left thumb moves (push up on rock to climb); right thumb jumps and acts (talk, climb, help). II pauses.", 8, MUTED)
 	else:
-		text("Keys: arrows or WASD · UP on rock climbs · SPACE jump · E talk / climb · Shift brace · R rest · Esc pause.", 8, MUTED)
+		text("Keys: arrows or WASD · UP on rock climbs · SPACE jump · E talk / climb · R rest (also in a gust) · Esc pause.", 8, MUTED)
 
 
 func _continue() -> void:
