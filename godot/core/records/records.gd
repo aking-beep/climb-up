@@ -2,12 +2,13 @@ extends Node
 ## Personal records and leaderboards (autoload `Records`).
 ##
 ## Everything here is the player's own and lives on this device
-## (user://climb_up_records.json). Nothing is "verified" or "global": that
-## needs the online service in docs/records-backend.md, which is designed
-## but not deployed. Until a server confirms an attempt, every record says
-## it is on this device, and Global and Friends boards say they are not
-## connected. Finished attempts wait in a queue (with their event log) so
-## they can be sent once a service exists; the queue never decides a rank.
+## (user://climb_up_records.json). Nothing here is "verified" or "global":
+## that is the online service's (docs/records-backend.md), and only in a
+## build that names one and once the player has an account (Online).
+## Finished attempts wait in a queue (with their event log) and are sent
+## when they can be: after each finished go, at start and when the app
+## comes back (sync_soon). Offline, they wait; the queue never decides a
+## rank, and nothing local is lost whatever the network does.
 ##
 ## Crag, per route: best time, fastest clean ascent (no falls), highest
 ## point, the dates of the onsight, flash and redpoint, the first ascent
@@ -48,15 +49,30 @@ var scope := "personal"
 var back_to := "res://modes/title/title.tscn"
 
 var data: Dictionary = {}
-## Where online submissions would go; null while there is no service.
-## See Online (core/records/online.gd).
+## The online service's client (core/records/online.gd).
 var online: Online
+## A sync round is running (one at a time).
+var syncing := false
+## The last round: {t, accepted, waiting}.
+var last_sync := {}
 
 
 func _ready() -> void:
 	online = Online.new()
 	online.host = self
 	load_records()
+	sync_soon()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_RESUMED:
+		sync_soon()
+
+
+## Sends what is waiting, after this frame, if there is an account.
+func sync_soon() -> void:
+	if online and online.configured() and not syncing:
+		(func() -> void: await sync()).call_deferred()
 
 
 func _blank() -> Dictionary:
@@ -211,6 +227,7 @@ func crag_attempt(route: Dictionary, outcome: Dictionary, level: Node) -> String
 		"beta": bool(Crag.record(id).get("beta", false)) if id != "daily" else false,
 		"go": go, "events": level.get("attempt_log") if level and level.get("attempt_log") != null else []})
 	save()
+	sync_soon()
 	for n in news:
 		Analytics.event("record_set", {"route": id, "kind": n[0]})
 	var words: Array = news.map(func(n: Array) -> String: return n[1])
@@ -343,6 +360,7 @@ func expedition_finished(session: Dictionary) -> Dictionary:
 	_enqueue("expedition", {"run": run, "state": keep, "route": run["route"],
 		"history": s.get("history", []).map(func(h: Dictionary) -> String: return String(h.get("choice", "")))})
 	save()
+	sync_soon()
 	if run["newBest"]:
 		Analytics.event("record_set", {"route": "expedition", "kind": "score"})
 	return run
@@ -474,9 +492,11 @@ func pending() -> Array:
 ## server accepted. Accepted entries are marked verified with the server's
 ## time; rejected ones say why and are never shown as verified.
 func sync() -> int:
-	if not online.configured():
+	if not online.configured() or syncing:
 		return 0
+	syncing = true
 	var accepted := 0
+	var mine := data
 	for e in pending():
 		var reply: Dictionary = await online.submit(e)
 		if reply.get("ok", false):
@@ -488,7 +508,12 @@ func sync() -> int:
 		else:
 			e["status"] = "rejected"
 			e["reason"] = String(reply.get("reason", ""))
+	syncing = false
+	# The records were deleted while this round ran: keep them deleted.
+	if not is_same(mine, data):
+		return accepted
 	save()
+	last_sync = {"t": now(), "accepted": accepted, "waiting": pending().size()}
 	return accepted
 
 

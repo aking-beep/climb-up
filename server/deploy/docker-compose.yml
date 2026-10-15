@@ -1,0 +1,47 @@
+# Production: the records service behind Caddy (automatic HTTPS from
+# Let's Encrypt), the database on a named volume, a daily backup.
+#   cd server/deploy && RECORDS_DOMAIN=records.example.com docker compose up -d --build
+# See server/deploy/README.md.
+services:
+  records:
+    build: {context: ../.., dockerfile: server/Dockerfile}
+    restart: unless-stopped
+    environment:
+      RECORDS_TRUST_PROXY: "1"
+      RECORDS_BLOCKED_WORDS: /config/blocked-words.txt
+    volumes:
+      - records-data:/data
+      - ./blocked-words.txt:/config/blocked-words.txt:ro
+    expose: ["8080"]
+    logging: {driver: json-file, options: {max-size: "20m", max-file: "5"}}
+
+  backup:
+    build: {context: ../.., dockerfile: server/Dockerfile}
+    restart: unless-stopped
+    depends_on: [records]
+    volumes:
+      - records-data:/data:ro
+      - records-backups:/backups
+    # Once a day; keeps the newest 14. Copy /backups off this host as well.
+    # A failed backup (or no database yet) is logged and retried in 5 minutes.
+    command: ["sh", "-c", "while true; do if python3 -m server.records_service.backup --db /data/records.sqlite --out /backups --keep 14; then sleep 86400; else echo '{\"event\":\"backup_failed\"}'; sleep 300; fi; done"]
+    healthcheck: {disable: true}
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [records]
+    ports: ["80:80", "443:443"]
+    environment:
+      RECORDS_DOMAIN: ${RECORDS_DOMAIN:?set RECORDS_DOMAIN to the service's domain}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./site:/srv/site:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  records-data:
+  records-backups:
+  caddy-data:
+  caddy-config:

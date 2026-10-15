@@ -1,0 +1,71 @@
+# Every push and pull request: the records service's tests, its container,
+# and the whole game test suite headless (Godot), including the online
+# records flow against a fresh server.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  server:
+    name: Records service
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Unit tests
+        run: python3 -m unittest discover -s server/records_service/tests -t . -v
+      - name: Container builds and answers its health check
+        run: |
+          docker build -t climbup-records -f server/Dockerfile .
+          docker run -d --name rec -p 8080:8080 climbup-records
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8080/healthz && exit 0; sleep 1; done
+          docker logs rec; exit 1
+
+  game:
+    name: Game tests (Godot headless)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}
+      - name: Download Godot
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && rm godot.zip
+      - name: Import the project
+        run: ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --import --path godot || true
+      - name: Start a fresh records server
+        run: |
+          python3 -m server.records_service.service --db "$RUNNER_TEMP/records.sqlite" --port 8181 > "$RUNNER_TEMP/server.log" 2>&1 &
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8181/healthz && exit 0; sleep 1; done
+          exit 1
+      - name: Test suite
+        env:
+          RECORDS_SERVER: http://127.0.0.1:8181
+        run: ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --fixed-fps 60 --path godot res://tests/runner.tscn
+      - name: Server log
+        if: always()
+        run: tail -n 200 "$RUNNER_TEMP/server.log" || true

@@ -1,15 +1,17 @@
 # Records and leaderboards: architecture and backend
 
-**Status.** Local records and the leaderboard screens are in the game.
-The online service has a reference implementation with tests
-(`server/records_service`), and the game's client has been checked
-against it end to end on a developer machine. **The service is not
-deployed and there are no production credentials.**
-
-So the shipped build:
-- shows Global and Friends boards as "not connected";
-- labels every record "this device, not verified";
-- never invents names, numbers or ranks.
+**Status (0.9.0-beta.1).**
+- The service is ready to deploy: `server/deploy/` has Docker, HTTPS via
+  Caddy, backups, health checks, logging and moderation tools. Steps are
+  in `server/deploy/README.md`.
+- The game has sign-up, recovery and the Global and Friends boards.
+- Both are tested end to end against a live local server, with separate
+  accounts (`godot/tests/test_online.gd`, run by CI).
+- **No production instance is deployed yet.** A build talks to a
+  service only when `climb_up/records/endpoint` names one. Without it:
+  - Global and Friends say "not connected";
+  - every record is labelled "this device, not verified";
+  - nothing made up is ever shown.
 
 ## 1. The Godot side as it stands
 

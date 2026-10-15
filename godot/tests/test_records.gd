@@ -331,7 +331,14 @@ func test_sync_with_the_reference_server() -> void:
 	check(await lead(), "a real send of the Warm-up Wall")
 	await physics_frames(5)
 	await _done()
-	var sent := await Records.sync()
+	# A finished go is sent on its own (Records.sync_soon): let that round
+	# finish, then send anything left.
+	for i in 600:
+		if not Records.syncing:
+			break
+		await physics_frames(1)
+	await Records.sync()
+	var sent: int = Records.data["queue"].filter(func(e: Dictionary) -> bool: return e["status"] == "accepted").size()
 	eq(sent, 1, "the server accepted the go")
 	check(Records.data["queue"][-1]["serverTime"] > 0, "with the server's time")
 	var board: Dictionary = await o.request("GET", "/v1/leaderboards/crag/warm-up")

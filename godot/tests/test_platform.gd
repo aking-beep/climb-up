@@ -347,3 +347,15 @@ func test_analytics_are_local_and_private() -> void:
 	Analytics.write_to_disk = keep_disk
 	Crag.reset()
 	await physics_frames(2)
+
+
+func test_no_shader_cache_is_kept_on_the_device() -> void:
+	check(not ProjectSettings.get_setting("rendering/shader_compiler/shader_cache/enabled", true), "the shader cache is off")
+	# One left by an older build is removed at start.
+	var root := "user://test_shader_cache"
+	DirAccess.make_dir_recursive_absolute(root + "/CanvasShaderGLES3/abc")
+	var f := FileAccess.open(root + "/CanvasShaderGLES3/abc/1.cache", FileAccess.WRITE)
+	f.store_string("x")
+	f.close()
+	Settings._drop_shader_cache(root)
+	check(not DirAccess.dir_exists_absolute(root), "an old shader cache is deleted")

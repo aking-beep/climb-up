@@ -63,6 +63,10 @@ func _ready() -> void:
 		scene.hazards.flowers = int(scene.hazards.flowers_total * 0.8)
 		scene.finish("complete")
 		await get_tree().create_timer(hold if not spots.is_empty() else 2.0).timeout
+		if "clean" in OS.get_cmdline_user_args() and scene.get("hud"):
+			# For store art: no HUD, no messages.
+			scene.hud.visible = false
+			await get_tree().process_frame
 		get_viewport().get_texture().get_image().save_png(out + "_0.png")
 		get_tree().quit(0)
 		return
