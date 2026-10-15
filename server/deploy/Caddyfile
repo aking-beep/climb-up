@@ -1,0 +1,15 @@
+# HTTPS for the records service. Caddy gets and renews the certificate.
+{$RECORDS_DOMAIN} {
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		-Server
+	}
+	request_body {
+		max_size 256KB
+	}
+	# No access log here: the service logs each request without addresses
+	# (the privacy policy says so).
+	reverse_proxy records:8080
+}

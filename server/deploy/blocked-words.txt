@@ -1,0 +1,3 @@
+# Extra words a public name may not contain, one a line (lower case).
+# The service already blocks a starter list (service.py BLOCKED); add more
+# here and restart the service.

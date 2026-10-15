@@ -8,7 +8,8 @@ In production (deploy/README.md) it runs behind a TLS proxy (Caddy) with the
 database on a persistent volume, configured from the environment:
 RECORDS_DB, RECORDS_PORT, RECORDS_BIND, RECORDS_TRUST_PROXY (read the
 client address from X-Forwarded-For), RECORDS_BLOCKED_WORDS (a file of
-extra words names may not contain). Every request is logged as one JSON
+extra words names may not contain), RECORDS_ACCOUNTS_PER_HOUR (new
+accounts allowed from one address in an hour). Every request is logged as one JSON
 line (no tokens, no addresses). GET /healthz checks the database.
 
 Accounts are anonymous device accounts: the server makes the player id and
@@ -55,7 +56,9 @@ VERSION = "1.1.0"
 ## slurs and obvious abuse, and any listed in RECORDS_BLOCKED_WORDS.
 BLOCKED = ("admin", "moderator", "official", "climbup", "support", "staff",
            "fuck", "shit", "cunt", "nigg", "fag", "rape", "nazi", "hitler", "porn", "sex", "kill")
-ACCOUNTS_PER_HOUR = 10   # new accounts from one address in an hour
+# New accounts from one address in an hour (RECORDS_ACCOUNTS_PER_HOUR).
+# Generous: players on one mobile carrier or school network share an address.
+ACCOUNTS_PER_HOUR = 30
 REPORTS_PER_DAY = 10     # reports from one player in a day
 RATE_LIMIT = 30          # submissions
 RATE_WINDOW = 60         # seconds
@@ -128,6 +131,7 @@ class Service:
             if col not in pcols:
                 self.db.execute(f"ALTER TABLE players ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
         self._new_accounts = {}
+        self.accounts_per_hour = ACCOUNTS_PER_HOUR
         # Databases from before leader points: add the column (old runs
         # rank by their score).
         cols = [r[1] for r in self.db.execute("PRAGMA table_info(expedition_runs)")]
@@ -142,7 +146,7 @@ class Service:
         now = self.clock()
         if address:
             times = [t for t in self._new_accounts.get(address, []) if t > now - 3600]
-            if len(times) >= ACCOUNTS_PER_HOUR:
+            if len(times) >= self.accounts_per_hour:
                 return 429, {"error": "too many new accounts from here; try again later"}
             times.append(now)
             self._new_accounts[address] = times
@@ -513,7 +517,7 @@ def _json_log(entry):
     sys.stdout.flush()
 
 
-def serve(db, port, bind="", trust_proxy=False):
+def serve(db, port, bind="", trust_proxy=False, accounts_per_hour=ACCOUNTS_PER_HOUR):
     from socketserver import ThreadingMixIn
     from wsgiref.simple_server import WSGIRequestHandler, WSGIServer, make_server
 
@@ -525,6 +529,7 @@ def serve(db, port, bind="", trust_proxy=False):
             pass
 
     service = Service(db)
+    service.accounts_per_hour = accounts_per_hour
     _json_log({"event": "start", "version": VERSION, "port": port, "db": os.path.basename(db), "trust_proxy": trust_proxy})
     make_server(bind, port, make_app(service, trust_proxy, _json_log), server_class=Server, handler_class=Quiet).serve_forever()
 
@@ -538,4 +543,4 @@ if __name__ == "__main__":
     ap.add_argument("--trust-proxy", action="store_true", default=os.environ.get("RECORDS_TRUST_PROXY", "") == "1")
     args = ap.parse_args()
     load_blocked_words(os.environ.get("RECORDS_BLOCKED_WORDS", ""))
-    serve(args.db, args.port, args.bind, args.trust_proxy)
+    serve(args.db, args.port, args.bind, args.trust_proxy, int(os.environ.get("RECORDS_ACCOUNTS_PER_HOUR", ACCOUNTS_PER_HOUR)))

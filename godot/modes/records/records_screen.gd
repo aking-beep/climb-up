@@ -1,13 +1,21 @@
 extends Screen
 ## Records and leaderboards: Crag, Expedition and the World Passport, each
 ## as Personal, Friends and Global. Personal is the player's own records on
-## this device. Friends and Global need the online service, which is not
-## running: they say so, and show nothing made up. Free for everyone.
+## this device. Friends and Global come from the online service: in a build
+## without one they say they are not connected and show nothing made up;
+## with one, Global reads the server's boards (anyone may look) and Friends
+## needs an account (the account screen). Free for everyone.
 
 ## Two taps to delete, so a stray tap cannot.
 var _delete_armed := false
 ## The text of the last record shared (for tests).
 var shared := ""
+## The online board's rows go here once they arrive.
+var board_box: VBoxContainer
+## True once the online board has loaded (or failed), for tests.
+var board_done := false
+## The route the online crag board shows ("daily" for today's).
+static var online_route := "warm-up"
 
 
 func _ready() -> void:
@@ -21,14 +29,20 @@ func _ready() -> void:
 		Records.scope = id
 		_reload())
 	if Records.scope != "personal":
-		_not_connected()
+		if not Records.online.available():
+			_not_connected()
+		else:
+			_online()
 	elif Records.board == "crag":
 		_crag()
 	elif Records.board == "expedition":
 		_expedition()
 	else:
 		_passport()
-	text("On this device only, not verified. Verified records need the online service.", 7, MUTED)
+	if Records.scope == "personal" or not Records.online.available():
+		text("On this device only, not verified. Verified records need the online service.", 7, MUTED)
+	else:
+		text("Checked by the CLIMB UP service (server time decides who was first). Your Personal tab is this device's records, not verified.", 7, MUTED)
 	var del := button("Delete my records on this device", _delete)
 	del.name = "Delete"
 	var back := button("Back", on_back)
@@ -73,6 +87,135 @@ func _not_connected() -> void:
 	var waiting := Records.pending().size()
 	if waiting > 0:
 		text("%d finished go%s saved on this device, ready to send for checking once the service exists." % [waiting, "" if waiting == 1 else "es"], 8, MUTED)
+
+
+# --- Online boards --------------------------------------------------------
+
+func _online() -> void:
+	var o := Records.online
+	if o.under_age:
+		text("Online boards are for players %d and over. Your records stay on this device." % Online.MIN_ACCOUNT_AGE, 8, MUTED)
+		board_done = true
+		return
+	if Records.scope == "friends" and not o.signed_in():
+		text("Friends boards need a free account: add friends by their code and compare climbs.", 8)
+		button("Sign up or restore an account", _account, true).name = "Account"
+		board_done = true
+		return
+	if Records.board == "crag":
+		var pick := OptionButton.new()
+		pick.name = "RoutePick"
+		pick.add_theme_font_size_override("font_size", 8)
+		var ids: Array = Crag.ROUTES.map(func(r: Dictionary) -> String: return r["id"])
+		ids.append("daily")
+		for id in ids:
+			var r: Dictionary = Crag.route(id) if id != "daily" else {"grade": "", "name": "Daily route, today"}
+			pick.add_item(("%s %s" % [r["grade"], r["name"]]).strip_edges())
+		if not online_route in ids:
+			online_route = "warm-up"
+		pick.select(ids.find(online_route))
+		pick.item_selected.connect(func(i: int) -> void:
+			online_route = ids[i]
+			_reload())
+		card.add_child(pick)
+	board_box = VBoxContainer.new()
+	board_box.add_theme_constant_override("separation", 2)
+	card.add_child(board_box)
+	_line("Loading...", 8, MUTED)
+	_load_board()
+	if o.signed_in():
+		button("My account and friends", _account).name = "Account"
+	else:
+		button("Sign up to appear on the boards", _account, true).name = "Account"
+
+
+func _load_board() -> void:
+	var o := Records.online
+	var scope := Records.scope
+	var sections: Array = []
+	if Records.board == "crag":
+		var kind := "daily" if online_route == "daily" else "crag"
+		var id := Crag.today() if online_route == "daily" else online_route
+		sections.append(["Fastest sends", await o.board(kind, id, scope, "board=time")])
+		sections.append(["Fastest clean (no falls)", await o.board(kind, id, scope, "board=clean")])
+		var f := await o.firsts()
+		if f["ok"]:
+			var scope_key := "crag:" + ("daily:" + id if kind == "daily" else id)
+			for e in f["firsts"]:
+				if e["scope"] == scope_key:
+					sections.push_front(["First verified ascent: %s, %s" % [e["display"], _date(int(e["received"]))], {"ok": true, "entries": [], "note": true}])
+	elif Records.board == "expedition":
+		for d in ["standard", "hard", "hardest"]:
+			sections.append([Records.DIFFICULTY_NAMES[d], await o.board("expedition", d, scope, "assisted=0")])
+	else:
+		sections.append(["", {"ok": true, "entries": [], "passport": true}])
+	if not is_inside_tree() or board_box == null:
+		return
+	for c in board_box.get_children():
+		c.queue_free()
+	for sec in sections:
+		var res: Dictionary = sec[1]
+		if res.get("passport", false):
+			_line(Records.passport()["globalNote"] if Records.passport()["globalNote"] != "" else "Passport rankings start when there are places on more continents.", 8, MUTED)
+			continue
+		_line(sec[0], 7 if not res.get("note", false) else 8, MUTED if not res.get("note", false) else INK)
+		if res.get("note", false):
+			continue
+		if not res["ok"]:
+			_line(res["reason"], 8, MUTED)
+			continue
+		if res["entries"].is_empty():
+			_line("Nobody yet." if Records.scope == "global" else "Nobody yet: add friends on your account.", 8, MUTED)
+		for e in res["entries"].slice(0, 10):
+			_entry(e)
+	board_done = true
+
+
+func _entry(e: Dictionary) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	board_box.add_child(row)
+	var what := ""
+	if e.has("seconds"):
+		what = Records._clock(int(e["seconds"]))
+	else:
+		what = "%d points%s" % [int(e["points"]), " · summit and down" if e.get("complete", false) else ""]
+	var me := String(e["player"]) == Records.online.display_name and Records.online.display_name != ""
+	var l := Label.new()
+	l.text = "%s  %s  %s%s" % [Records.ordinal(int(e["rank"])), e["player"], what, "  (you)" if me else ""]
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.add_theme_font_size_override("font_size", 8)
+	l.add_theme_color_override("font_color", INK if not me else Color("#1f3d34"))
+	if UiFont.body():
+		l.add_theme_font_override("font", UiFont.body())
+	row.add_child(l)
+	if not me and Records.online.signed_in() and not String(e["player"]) in ["a climber", "a deleted account"]:
+		var b := Button.new()
+		b.text = "Report"
+		b.add_theme_font_size_override("font_size", 7)
+		UiStyle.paper_button(b)
+		b.pressed.connect(func() -> void:
+			b.disabled = true
+			var why := await Records.online.report(String(e["player"]))
+			if is_instance_valid(b):
+				b.text = "Reported" if why == "" else "Try later")
+		row.add_child(b)
+
+
+func _line(value: String, size: int, color: Color) -> void:
+	var l := Label.new()
+	l.text = value
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(290, 0)
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", color)
+	if UiFont.body():
+		l.add_theme_font_override("font", UiFont.body())
+	board_box.add_child(l)
+
+
+func _account() -> void:
+	Transition.go(get_tree(), "res://modes/records/account_screen.tscn")
 
 
 func _crag() -> void:
