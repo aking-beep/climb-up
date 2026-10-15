@@ -59,7 +59,7 @@ Classifications:
 | # | Item | Status | Evidence |
 | --- | --- | --- | --- |
 | C1 | All tests rerun | PASS | Server: **43 tests OK**. Game: **184 passed, 0 failed**, with `RECORDS_SERVER` set, so the live-server tests ran instead of being skipped |
-| C2 | CI | PASS (simulated) / pending on GitHub | `.github/workflows/ci.yml`: server unit tests, the Docker image and its health check, Godot 4.7.2 headless suite against a fresh server. The same steps were run on a **fresh clone** with no import cache: 43 OK, 184 passed. That run also caught and fixed a test-order leak in the new campaign test. The first GitHub Actions run happens on the PR |
+| C2 | CI | PASS | `.github/workflows/ci.yml`: server unit tests, the Docker image and its health check, and the Godot 4.7.2 headless suite against a fresh server. **GitHub Actions run 38779986667 on PR #14 passed** (both the "Records service" and "Game tests (Godot headless)" jobs, commit 8b69cf7). The same steps on a fresh local clone also passed and caught a test-order leak in the new campaign test, now fixed |
 | C3 | Every Crag route | PASS | `test_crag` › every route is led to the anchor: the lesson and all six graded routes (4 to 7a) sent by the bot with every bolt clipped. `test_records` and `test_online` send today's Daily route |
 | C4 | Full Kilimanjaro campaign | PASS (automated) / NOT TESTED (human) | New `test_campaign`: seeds 7, 8 and 9 go from the gate to the walk-out through the `Expedition` autoload. Every camp card is played; Lava Tower, Barranco Wall, summit night and the descent each open with their brief, and their outcomes land; the save reloads identically at every step; the run is recorded as a completion. Each climb is also played for real by bots (`test_climbs`, `test_barranco`, `test_descent`). No human has played it end to end on a phone |
 | C5 | Saves, retries, leaderboard sync, network failures | PASS | `test_flow` (resume from a cairn, identical replay), `test_rules` (bad save files refused), `test_arcade` (20 retries leave nothing behind, retry to playable in 110 ms), `test_records` and `test_online` (sync, duplicates, 401/5xx/no network) |
@@ -174,4 +174,4 @@ See `docs/release/README.md`. In short:
 4. Complete Play Console:
    - listing, support email and Data safety;
    - content rating and target audience (13+).
-5. CI green on the PR.
+5. Keep CI green. It passed on PR #14.
