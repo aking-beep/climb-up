@@ -9,7 +9,15 @@
 	request_body {
 		max_size 256KB
 	}
-	# No access log here: the service logs each request without addresses
-	# (the privacy policy says so).
-	reverse_proxy records:8080
+	# The privacy policy (the game and the store listing link here).
+	handle /privacy {
+		root * /srv/site
+		rewrite * /privacy.html
+		file_server
+	}
+	# Everything else is the service. No access log here: the service logs
+	# each request without addresses (the privacy policy says so).
+	handle {
+		reverse_proxy records:8080
+	}
 }

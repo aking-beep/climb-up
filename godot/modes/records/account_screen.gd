@@ -52,7 +52,10 @@ func _sign_up() -> void:
 	consent.name = "Consent"
 	consent.text = "I agree to the privacy policy"
 	consent.add_theme_font_size_override("font_size", 8)
-	consent.add_theme_color_override("font_color", INK)
+	for key in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		consent.add_theme_color_override(key, INK)
+	if UiFont.body():
+		consent.add_theme_font_override("font", UiFont.body())
 	card.add_child(consent)
 	var make := button("Create my account", _create, true)
 	make.name = "Create"
@@ -94,6 +97,20 @@ func _field(label: String, hint: String, kind: int) -> LineEdit:
 	f.virtual_keyboard_type = kind
 	f.custom_minimum_size = Vector2(0, 20)
 	f.add_theme_font_size_override("font_size", 9)
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(1, 1, 1, 0.9)
+	box.border_color = Color(0.8, 0.76, 0.68)
+	box.set_border_width_all(1)
+	box.set_corner_radius_all(2)
+	box.content_margin_left = 6
+	f.add_theme_stylebox_override("normal", box)
+	var on := box.duplicate()
+	on.border_color = Color("#1f3d34")
+	f.add_theme_stylebox_override("focus", on)
+	f.add_theme_color_override("font_color", INK)
+	f.add_theme_color_override("font_placeholder_color", MUTED)
+	if UiFont.body():
+		f.add_theme_font_override("font", UiFont.body())
 	card.add_child(f)
 	return f
 

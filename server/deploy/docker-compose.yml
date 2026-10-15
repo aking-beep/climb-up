@@ -36,6 +36,7 @@ services:
       RECORDS_DOMAIN: ${RECORDS_DOMAIN:?set RECORDS_DOMAIN to the service's domain}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./site:/srv/site:ro
       - caddy-data:/data
       - caddy-config:/config
 

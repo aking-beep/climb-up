@@ -9,6 +9,7 @@ holds a complete production setup:
 | `docker-compose.yml` | The service, Caddy (HTTPS), and a daily backup job |
 | `Caddyfile` | TLS with automatic Let's Encrypt certificates, HSTS, a 256 KB request limit |
 | `blocked-words.txt` | Extra words public names may not contain |
+| `site/privacy.html` | The privacy policy, served at `https://$RECORDS_DOMAIN/privacy`. Fill in the publisher, contact and date before launch |
 
 ## What you need before you start
 
@@ -38,6 +39,7 @@ The Android build reads the endpoint from `project.godot`:
 ```ini
 [climb_up]
 records/endpoint="https://records.example.com"
+records/privacy_url="https://records.example.com/privacy"
 ```
 
 Then rebuild the release (`tools/godot/export.sh android-release`). With
