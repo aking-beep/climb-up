@@ -1,10 +1,24 @@
 # Device test matrix: closed beta 0.9.0-beta.1
 
-**Status: no physical device has been tested.** The readiness sprint ran
-in a cloud container with no Android device, emulator, KVM or USB. Every
-row below is NOT TESTED until a person runs it on that phone and fills
-it in. Results from desktop and headless runs are listed separately.
-They are not device evidence.
+**Status:**
+- **Emulators: PASS on every push**, in the *Android* workflow on
+  Android 10 (API 29) and Android 14 (API 34).
+- **Physical phones: NOT TESTED.**
+
+Every phone row below stays NOT TESTED until a person runs it on that
+phone. Play's pre-launch report for the closed-test build adds real
+devices automatically. `tools/android/emulator_smoke.sh` runs the same
+automated checks on a phone plugged in over USB.
+
+## Emulators (automated, every push)
+
+| Image | Install | Launch, running 25 s later | Landscape in portrait | After turning | Home and resume | 1,500 random touches | Second cold start | Game crashes, ANRs, script errors | Cold start | Memory (PSS) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Android 14 (API 34), x86_64, Pixel 6 screen | PASS | PASS | PASS (ROTATION_90) | PASS (ROTATION_270) | PASS (same process) | PASS | PASS | none | 2.0 s | 161 MB |
+| Android 10 (API 29), x86_64, Pixel 6 screen | PASS | PASS | PASS (ROTATION_90) | PASS (ROTATION_270) | PASS (same process) | PASS | PASS | none | slower (shared CI runner) | 164 MB |
+
+Emulators render with a software GPU, so they say nothing about real
+frame rate, heat or touch feel.
 
 ## Phones (minimum set for the closed beta)
 

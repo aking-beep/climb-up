@@ -55,6 +55,23 @@ Before a beta build that should talk to the records service, set
 `records/endpoint` and `records/privacy_url` under `[climb_up]` in
 `godot/project.godot` (see `server/deploy/README.md`).
 
+### Building it on GitHub (recommended)
+
+`.github/workflows/android.yml` builds the AAB with Gradle on every push
+and pull request, validates it with bundletool, and runs the game on two
+emulators. To sign it for Play:
+
+1. Run `sh tools/release/make_upload_key.sh "CN=CLIMB UP, O=ARC Transformation Group"`
+   on your own computer.
+2. Add the three secrets it prints (`ANDROID_UPLOAD_KEYSTORE_BASE64`,
+   `ANDROID_UPLOAD_KEY_ALIAS`, `ANDROID_UPLOAD_KEY_PASSWORD`). With the
+   GitHub CLI signed in, the script can set them for you.
+3. Run the workflow (Actions → Android → Run workflow) and download the
+   `climb-up-aab` artifact. `SIGNED_WITH.txt` must say "upload key".
+
+Without the secrets the bundle is signed with a throwaway key, and the
+Play upload step refuses it.
+
 ### The AAB needs the Gradle build
 
 Play accepts only Android App Bundles (`.aab`). Godot builds an AAB with
