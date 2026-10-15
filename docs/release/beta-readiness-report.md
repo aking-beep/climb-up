@@ -83,11 +83,11 @@ Classifications:
 
 | # | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| D1 | Privacy policy | PASS | `server/deploy/site/privacy.html`, served by the service itself at `/privacy` (tested). Publisher ARC Transformation Group, contact aking@arctransformationgroup.com, effective 15 October 2026 |
+| D1 | Privacy policy | PASS | `server/deploy/site/privacy.html`, served by the service itself at `/privacy` (tested). Publisher ARC Labs, contact arclabs@arctransformationgroup.com, effective 15 October 2026 |
 | D2 | Data safety | PASS | `docs/release/data-safety.md`, answers traced to the code. No ads, no sharing, encrypted in transit, in-app deletion |
 | D3 | Age protections, consent, deletion, name moderation | PASS | `docs/release/age-and-moderation.md`. No accounts under 13 (tested). Consent is required before anything is sent (tested). Deletion is in the app (tested). Moderation tools (tested). Open items are listed there |
 | D4 | Closed-test assets | PASS (desktop-rendered) | `store/icon-512.png`, `store/feature-graphic-1024x500.png`, 5 screenshots at 1440 × 810 rendered by the game. They were not captured on a phone |
-| D5 | Support info | PASS | ARC Transformation Group, aking@arctransformationgroup.com (`play-listing.md`, the privacy policy, the release notes, `store/whatsnew`) |
+| D5 | Support info | PASS | ARC Labs, arclabs@arctransformationgroup.com (`play-listing.md`, the privacy policy, the release notes, `store/whatsnew`) |
 | D6 | Release notes | PASS | `docs/release/play-listing.md` |
 
 ## Test commands and results

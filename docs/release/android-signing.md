@@ -27,7 +27,7 @@ signing key is not affected.
    ```sh
    keytool -genkeypair -v -keystore climbup-upload.jks -alias climbup-upload \
      -keyalg RSA -keysize 4096 -validity 10000 \
-     -dname "CN=CLIMB UP, O=ARC Transformation Group"
+     -dname "CN=CLIMB UP, O=ARC Labs"
    ```
    Use a long random password. Keep it in a password manager.
 2. **Back it up.** Keep two copies of the `.jks` and its password,
@@ -61,7 +61,7 @@ Before a beta build that should talk to the records service, set
 and pull request, validates it with bundletool, and runs the game on two
 emulators. To sign it for Play:
 
-1. Run `sh tools/release/make_upload_key.sh "CN=CLIMB UP, O=ARC Transformation Group"`
+1. Run `sh tools/release/make_upload_key.sh "CN=CLIMB UP, O=ARC Labs"`
    on your own computer.
 2. Add the three secrets it prints (`ANDROID_UPLOAD_KEYSTORE_BASE64`,
    `ANDROID_UPLOAD_KEY_ALIAS`, `ANDROID_UPLOAD_KEY_PASSWORD`). With the

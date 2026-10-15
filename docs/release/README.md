@@ -30,7 +30,7 @@ below need your accounts. Each takes minutes.
    5. Add the repository **variable** **`RECORDS_ENDPOINT`** with that
       address (same page, Variables tab).
 2. **Upload key** (once, on your own computer).
-   1. Run `sh tools/release/make_upload_key.sh "CN=CLIMB UP, O=ARC Transformation Group"`.
+   1. Run `sh tools/release/make_upload_key.sh "CN=CLIMB UP, O=ARC Labs"`.
    2. It sets, or tells you how to set, the secrets
       `ANDROID_UPLOAD_KEYSTORE_BASE64`, `ANDROID_UPLOAD_KEY_ALIAS` and
       `ANDROID_UPLOAD_KEY_PASSWORD`.
@@ -69,8 +69,8 @@ below need your accounts. Each takes minutes.
    `server/deploy/`.
 2. **Off-host backups.** Copy the `records-backups` volume to object
    storage nightly.
-3. **The publisher's details**: ARC Transformation Group,
-   aking@arctransformationgroup.com, effective 15 October 2026. They are
+3. **The publisher's details**: ARC Labs,
+   arclabs@arctransformationgroup.com, effective 15 October 2026. They are
    already in the privacy policy and the listing.
 4. **An upload key** made on a trusted machine (`android-signing.md`).
    Play App Signing turned on.

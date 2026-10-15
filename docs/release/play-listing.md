@@ -52,8 +52,8 @@ Everyone / PEGI 3. The game mentions altitude sickness as game fiction
 
 | Field | Value |
 | --- | --- |
-| Developer name | ARC Transformation Group |
-| Support email (required, public) | aking@arctransformationgroup.com |
+| Developer name | ARC Labs |
+| Support email (required, public) | arclabs@arctransformationgroup.com |
 | Website (optional) | none for the beta |
 | Privacy policy URL | `https://<records domain>/privacy` (`server/deploy/site/privacy.html`) |
 
@@ -82,7 +82,7 @@ Everyone / PEGI 3. The game mentions altitude sickness as game fiction
 >   recovery code, report a name, delete your account in the game.
 > - Landscape, works offline. Your records wait on the device and are sent when you're back online.
 >
-> Please report bugs and anything that felt unfair to aking@arctransformationgroup.com.
+> Please report bugs and anything that felt unfair to arclabs@arctransformationgroup.com.
 
 ## Beta tester instructions (for the opt-in page or email)
 
