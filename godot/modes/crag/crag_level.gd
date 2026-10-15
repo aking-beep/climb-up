@@ -835,11 +835,10 @@ func _clip() -> void:
 	checkpoint = maxi(checkpoint, clip_target + 1)
 	log_event("clip", [clip_target, int((_start.y - climber.global_position.y) / Terrain.TILE)])
 	engage("clip")
-	Haptics.tap(15)
-	# The rope snapping in: the gate clicks, chalk off the fingers, the
-	# quickdraw jumps, a bell.
-	Audio.play("clip", -3.0, 0.06)
-	Audio.play("cairn", -8.0)
+	Haptics.tap(28)
+	# The rope snapping in: one click of the gate (louder than any chime),
+	# chalk off the fingers, the quickdraw jumps.
+	Audio.play("clip", -2.0, 0.06, false)
 	puff(Vector2(c["cell"]) * Terrain.TILE + Vector2(4, 9), Color(1, 1, 1, 0.8), 10)
 	var draw: Node2D = c["node"]
 	if not Settings.reduced_motion:
@@ -964,14 +963,18 @@ func _grip(dt: float) -> void:
 		_burst = _burst + 1 if _grip_cool > 0.001 else 0
 		if grip > WASTED_ABOVE or _burst >= 2:
 			wasted_squeezes += 1
-		# A tap during the cooldown waits for it, so no tap goes unanswered.
+		# A tap during the cooldown waits for it, so no tap goes unanswered;
+		# it answers at once with a quiet, lower tick (it adds no grip now).
 		if _grip_cool > 0.001:
 			_squeeze_queued = true
+			Audio.play("chalk", -16.0, 0.0, false, 0.75)
 	if (squeeze or _squeeze_queued) and _grip_cool <= 0.001:
 		_squeeze_queued = false
 		grip = minf(1.0, grip + GRIP_TAP)
 		_grip_cool = GRIP_COOLDOWN
-		Audio.play("chalk", -14.0, 0.15)
+		# An accepted squeeze: felt and heard over the music.
+		Haptics.tap(15)
+		Audio.play("chalk", -10.0, 0.15, false)
 		puff(climber.global_position - Vector2(0, Climber.SIZE.y), Color(1, 1, 1, 0.6), 4)
 	grip = maxf(0.0, grip)
 	# A tight grip saves stamina; a slack one burns it.
@@ -1090,13 +1093,15 @@ func _stick(perfect: bool) -> void:
 	if not upgrade:
 		log_event("catch", catch_quality)
 		engage("catch")
-	Haptics.tap(35 if perfect else 22)
+	Haptics.tap(45 if perfect else 22)
 	Audio.play("catch", -4.0 if perfect else -7.0, 0.05)
 	puff(climber.global_position - Vector2(0, Climber.SIZE.y), Color(1, 1, 1, 0.9), 16 if perfect else 10)
 	if perfect:
 		perfect_catches += 1
 		climber.stamina.value = minf(climber.stamina.max_value, climber.stamina.value + Climber.DYNO_COST * 0.5)
-		camera.kick(0.25)
+		# A perfect catch hits like an impact: a hold, then a kick.
+		HitStop.freeze(self)
+		camera.kick(0.5, 9.0)
 		Audio.play("perfect", -6.0, 0.0)
 		hud.flash("Perfect catch!", 1.2)
 	else:
@@ -1205,19 +1210,29 @@ func _on_slip_finished() -> void:
 			climber.stamina.value = maxf(1.0, climber.stamina.value - GROUND_HIT)
 			Haptics.tap(90)
 			Audio.play("thud", -2.0)
-			camera.kick(1.0)
+			_impact(1.3)
 			puff(_start, Color("#a58b6c"), 18)
 			hud.flash("You hit the ground! A %s m fall, and the bolt was too low to stop it. %s" % [Crag._m(snappedf(last_fall_m, 0.5)), FALL_LESSONS.get(fall_cause, "")], 3.6)
 		else:
 			climber.hang_at(land)
+			_impact(1.0)
 			hud.flash("A %s m fall: the rope catches you below bolt %d. %s" % [Crag._m(snappedf(last_fall_m, 0.5)), checkpoint, FALL_LESSONS.get(fall_cause, "")], 3.6)
 		# Hanging on the rope after a fall: a fresh rest bar before you try
 		# again.
 		rope_left = ROPE_REST
 	else:
 		climber.respawn(_start)
+		_impact(1.0)
 		hud.flash(FALL_LESSONS.get(fall_cause, ""), 3.2)
 	camera.snap()
+
+
+## The moment a fall ends (the rope catches, or the ground): the world
+## holds for a few frames, then one short hard kick. Reduced motion keeps
+## the hold and skips the kick (ExpeditionCamera.kick).
+func _impact(strength: float) -> void:
+	HitStop.freeze(self)
+	camera.kick(strength, 9.0)
 
 
 ## Where a lead fall from `top_y` (feet, px) ends: as far below the last
@@ -1642,3 +1657,8 @@ func near_miss_words(sent: bool) -> String:
 	if close_to_top:
 		return "Almost at the anchor: %s to go." % _m_rows(to_anchor)
 	return ""
+
+
+func _exit_tree() -> void:
+	# Never leave the world frozen behind a scene change mid hit-stop.
+	HitStop.release()

@@ -359,3 +359,19 @@ func test_no_shader_cache_is_kept_on_the_device() -> void:
 	f.close()
 	Settings._drop_shader_cache(root)
 	check(not DirAccess.dir_exists_absolute(root), "an old shader cache is deleted")
+
+
+func test_reduced_motion_keeps_the_camera_still_on_impacts() -> void:
+	var cam := ExpeditionCamera.new()
+	root.add_child(cam)
+	var was := Settings.reduced_motion
+	Settings.reduced_motion = true
+	cam.last_kick = 0.0
+	cam.kick(1.3, 9.0)
+	eq(cam.last_kick, 0.0, "reduced motion: no kick, however hard the hit")
+	Settings.reduced_motion = false
+	cam.kick(1.3, 9.0)
+	eq(cam.last_kick, 1.3, "otherwise the hit kicks the camera")
+	Settings.reduced_motion = was
+	cam.queue_free()
+	await physics_frames(1)

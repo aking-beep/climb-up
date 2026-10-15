@@ -116,7 +116,13 @@ func test_a_lead_fall_is_twice_the_height_above_the_bolt() -> void:
 	c.stamina.value = 0.0
 	await drive([], func() -> bool: return c.state == Climber.State.SLIP, 3.0, "letting go")
 	eq(c.slips, 1, "a fall")
+	HitStop.last = 0.0
+	level.camera.last_kick = 0.0
 	await drive([], func() -> bool: return c.state != Climber.State.SLIP, 3.0, "on the rope")
+	check(HitStop.last > 0.0, "the rope's catch holds the frame")
+	check(level.camera.last_kick >= 1.0, "then a hard kick (%.1f)" % level.camera.last_kick)
+	await physics_frames(10)
+	eq(Engine.time_scale, 1.0, "and time runs again")
 	eq(c.state, Climber.State.CLIMB, "back on the rock")
 	var above := bolt.y - high
 	var below := c.global_position.y - bolt.y
@@ -249,6 +255,19 @@ func test_tiny_holds_need_taps_and_a_bolt_asks_to_be_clipped() -> void:
 	await _still_frames(90)
 	var slack := 100.0 - c.stamina.value
 	check(slack > tapped * 1.8, "without taps the tiny holds burn stamina (%.1f vs %.1f with taps)" % [slack, tapped])
+	# An accepted squeeze is felt and heard over the music.
+	var touch: Variant = Settings.touch_controls
+	Settings.touch_controls = true
+	Haptics.last_ms = 0
+	await physics_frames(20)
+	GameInput.scripted = {"interact": true}
+	await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	await tree.physics_frame
+	eq(Haptics.last_ms, 15, "a squeeze: a short buzz")
+	eq(Audio.last, "chalk", "and the chalk")
+	eq(Audio.last_db, -10.0 + Audio.EFFECTS_DB, "with no body trim")
+	Settings.touch_controls = touch
 	await _done()
 	# A bolt asks; climbing on without tapping leaves it unclipped.
 	await _load("warm-up")
@@ -267,7 +286,10 @@ func test_tiny_holds_need_taps_and_a_bolt_asks_to_be_clipped() -> void:
 
 func test_a_clip_offers_a_rest_on_the_rope() -> void:
 	Crag.navigate = false
+	var touch: Variant = Settings.touch_controls
 	await _load("warm-up")
+	Settings.touch_controls = true
+	Haptics.history.clear()
 	var guard := 0
 	while level.clip_target < 0 and guard < 60 * 20:
 		guard += 1
@@ -279,6 +301,8 @@ func test_a_clip_offers_a_rest_on_the_rope() -> void:
 		if level.checkpoint > 0:
 			break
 	eq(level.checkpoint, 1, "a tap: clipped")
+	check(28 in Haptics.history, "the clip: one firm buzz (%s)" % [Haptics.history])
+	check("clip" in Audio.history and not "cairn" in Audio.history.slice(Audio.history.rfind("clip")), "one click of the gate, no second chime")
 	GameInput.scripted = {"_": false}
 	await tree.physics_frame
 	check(level.can_rest() and level.action_word == "REST", "then the button offers a rest (%s)" % level.action_word)
@@ -305,6 +329,7 @@ func test_a_clip_offers_a_rest_on_the_rope() -> void:
 	check(not level.resting_rope and level.rope_left <= 0.0, "a bar is only a little: it runs out")
 	check(not level.can_rest(), "until the next clip")
 	check(c.stamina.value <= 40.0 + Crag.MAX_FALLS * 0 + CragLevel.ROPE_REST + 2.0, "worth at most %d stamina (%.0f)" % [int(CragLevel.ROPE_REST), c.stamina.value])
+	Settings.touch_controls = touch
 	await _done()
 
 
