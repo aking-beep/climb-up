@@ -21,7 +21,12 @@ fail() { echo "FAIL  $1" | tee -a "$OUT/summary.txt"; fails=$((fails + 1)); }
 note() { echo "INFO  $1" | tee -a "$OUT/summary.txt"; }
 shot() { adb exec-out screencap -p > "$OUT/$1.png"; }
 rotation() { adb shell dumpsys window displays | grep -o -m1 "mCurrentRotation=[A-Z_0-9]*" | cut -d= -f2; }
-alive() { adb shell pidof "$PKG" | tr -d '\r'; }
+alive() {
+  # The game's pid, or "" if it is not running (pidof, then the process list).
+  p=$(adb shell pidof "$PKG" | tr -d '\r')
+  [ -z "$p" ] && p=$(adb shell ps -A 2> /dev/null | tr -d '\r' | awk -v n="$PKG" '$NF == n {print $2; exit}')
+  echo "$p"
+}
 
 : > "$OUT/summary.txt"
 note "device: $(adb shell getprop ro.product.model | tr -d '\r'), Android $(adb shell getprop ro.build.version.release | tr -d '\r') (API $(adb shell getprop ro.build.version.sdk | tr -d '\r')), $(adb shell getprop ro.product.cpu.abi | tr -d '\r')"
@@ -40,9 +45,11 @@ sdk=$(adb shell getprop ro.build.version.sdk | tr -d '\r')
 why_gone() {
   # Why the game's process ended, as Android recorded it (API 30+), and the
   # log lines about it.
+  echo "foreground: $(adb shell dumpsys activity activities | grep -m1 -E 'mResumedActivity|topResumedActivity' | tr -d '\r')"
+  adb shell ps -A | grep -i climbup
   [ "$sdk" -ge 30 ] && adb shell dumpsys activity exit-info "$PKG" | head -40
   grep -E "$PKG|godot|Godot|CLIMB UP|AndroidRuntime|DEBUG *:|libc *:|ActivityManager|ActivityTaskManager|lowmemorykiller" "$OUT/logcat-full.txt" \
-    | grep -v "commands.monkey" | tail -60
+    | grep -v "commands.monkey" | grep -E "$PKG|godot|Godot|CLIMB UP|died|Killing|kill" | tail -40
 }
 
 start=$(adb shell am start -W -n "$PKG/$ACT" | tr -d '\r')
@@ -82,11 +89,14 @@ note "memory (total PSS): ${pss:-?} KB"
 # game on purpose, which is not a crash.
 adb shell monkey -p "$PKG" --pct-touch 60 --pct-motion 30 --pct-pinchzoom 5 --pct-trackball 5 \
   --pct-syskeys 0 --pct-appswitch 0 --pct-nav 0 --pct-majornav 0 --pct-anyevent 0 --pct-flip 0 --pct-rotation 0 \
+  --ignore-crashes --ignore-timeouts --ignore-security-exceptions \
   --throttle 120 -s 7 -v 1500 > "$OUT/monkey.txt" 2>&1
-if grep -q "Monkey finished" "$OUT/monkey.txt" && ! grep -q "CRASH\|NOT RESPONDING" "$OUT/monkey.txt"; then
-  pass "1500 random touches: no crash, no ANR"
+# Other apps on the device may crash under the touches; only the game's
+# own crashes and ANRs count (here and in the logcat check below).
+if grep -q "Monkey finished" "$OUT/monkey.txt" && ! grep -E "CRASH: $PKG|NOT RESPONDING: $PKG" "$OUT/monkey.txt" > /dev/null; then
+  pass "1500 random touches: the game did not crash or hang"
 else
-  fail "monkey: $(grep -m3 'CRASH\|NOT RESPONDING\|aborted' "$OUT/monkey.txt" | tr '\n' ' ')"
+  fail "monkey: $(grep -m3 "CRASH\|NOT RESPONDING\|aborted" "$OUT/monkey.txt" | tr '\n' ' ')"
 fi
 sleep 2
 shot 3-after-touches
