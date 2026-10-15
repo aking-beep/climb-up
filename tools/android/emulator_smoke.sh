@@ -105,6 +105,9 @@ if [ -n "$(alive)" ]; then pass "still running after the touches"; else fail "no
 # What the game keeps on the device (save files, shader cache): a debug
 # build allows run-as. Sizes in KB, biggest first.
 note "app storage after the touches (KB): $(adb shell run-as "$PKG" sh -c 'du -a files cache app_* 2>/dev/null | sort -rn | head -8' | tr -d '\r' | tr '\n' ';')"
+kb=$(adb shell run-as "$PKG" sh -c 'du -s . 2>/dev/null' | tr -d '\r' | cut -f1)
+# Saves and records are a few hundred KB; a runaway cache once reached 5.8 GB.
+if [ -n "$kb" ] && [ "$kb" -lt 51200 ]; then pass "on-device storage stays small (${kb} KB)"; else fail "on-device storage is ${kb:-?} KB (over 50 MB)"; fi
 
 # A second cold start (first launches are where start-up problems show).
 adb shell am force-stop "$PKG"

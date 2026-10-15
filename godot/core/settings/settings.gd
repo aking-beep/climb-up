@@ -40,9 +40,32 @@ var share_usage := false
 func _ready() -> void:
 	# The back button is the game's to handle (pause, or back a screen).
 	get_tree().set_quit_on_go_back(false)
+	_drop_shader_cache()
 	load_settings()
 	get_tree().root.size_changed.connect(_fit_view)
 	_fit_view()
+
+
+## The shader cache is off (project.godot): some GPU drivers report a
+## compiled shader's size wrongly, and the cache then grew to gigabytes on
+## the device and got the game killed for memory at start. Builds before
+## that may have left one behind: remove it. The game's shaders are few and
+## small, so compiling them each start costs little.
+static func _drop_shader_cache(root: String = "user://shader_cache") -> void:
+	if not DirAccess.dir_exists_absolute(root):
+		return
+	var stack: Array[String] = [root]
+	var dirs: Array[String] = []
+	while not stack.is_empty():
+		var d: String = stack.pop_back()
+		dirs.append(d)
+		for f in DirAccess.get_files_at(d):
+			DirAccess.remove_absolute(d.path_join(f))
+		for sub in DirAccess.get_directories_at(d):
+			stack.append(d.path_join(sub))
+	dirs.reverse()
+	for d in dirs:
+		DirAccess.remove_absolute(d)
 
 
 ## Pixel art stays sharp at a whole-number scale. The scale is the one that
