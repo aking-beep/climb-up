@@ -48,3 +48,6 @@ __pycache__/
 
 # Godot exports (tools/godot/export.sh)
 build/
+*.keystore
+*.aab
+keystore.properties

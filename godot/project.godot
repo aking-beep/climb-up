@@ -8,6 +8,7 @@ config/description="A mountaineering adventure. How high you climb isn't how you
 run/main_scene="res://modes/title/title.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 config/icon="res://assets/ui/icon.png"
+config/version="0.9.0-beta.1"
 
 [autoload]
 
@@ -27,7 +28,7 @@ window/size/window_width_override=1440
 window/size/window_height_override=810
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-window/handheld/orientation=0
+window/handheld/orientation=4
 
 [input_devices]
 
