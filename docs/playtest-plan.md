@@ -33,6 +33,12 @@ at mid-range prices (e.g. 4 GB RAM), at least 4 older or low-end Android
 devices, and as many iPhones as can be tested through the web build (no
 native iOS build exists). Note each device's model and OS version.
 
+## Invite
+
+Send [playtest-invite.md](playtest-invite.md). It tells testers that
+records are on their phone, that Friends and Global say "not connected",
+and how to copy the usage log from Settings.
+
 ## Sessions
 
 - **Day 0, moderated (30 min, video call or in person, screen shared or

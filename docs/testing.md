@@ -1,6 +1,35 @@
 # Testing
 
-## Automated (run before every push)
+> **Running the external playtest?** Testers play the **Godot** build, not
+> the Expo app below:
+> - **Android:** the APK (`tools/godot/export.sh android`, or the
+>   `climb-up-emulator-apk`/`climb-up-aab` artifacts of the *Android*
+>   workflow).
+> - **iPhone:** the web build in Safari (`tools/godot/export.sh web`).
+>
+> Follow [playtest-plan.md](playtest-plan.md) for the session script and
+> [playtest-checklist.md](playtest-checklist.md) for the phone checks.
+> Everything below `## Expo prototype` is the older React Native
+> prototype, kept for its unit tests.
+
+## Godot game (the beta)
+
+```bash
+godot --headless --path godot --import
+python3 -m server.records_service.service --db /tmp/records.sqlite --port 8181 &
+RECORDS_SERVER=http://127.0.0.1:8181 godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
+python3 -m unittest discover -s server/records_service/tests -t .
+```
+
+Without `RECORDS_SERVER` the online-records tests are skipped and the rest
+run as usual. GitHub Actions runs all of this on every push (`CI`), and
+the *Android* workflow builds the Play bundle and runs the game on Android
+10 and 14 emulators (`tools/android/emulator_smoke.sh`, which also works on
+a phone over USB).
+
+## Expo prototype
+
+### Automated (run before every push)
 
 ```bash
 npm test            # Jest: engine, coordinator, save, simulation, runtime
@@ -22,17 +51,10 @@ npx expo-doctor     # needs network for 2 of its 21 checks
 | `src/features/climbing/__tests__/presentation-test.ts` | sprite clip timing, camera follow and bounds, reduced-motion shake, parallax ordering |
 | `src/features/climbing/__tests__/runtime-test.ts` | 60 Hz simulation independent of display rate, stall handling, immutable frames, low-power publishing, hints, held buttons released when the teammate sheet opens |
 
-## Godot prototype
+### The Expo prototype on a phone (not the beta)
 
-```bash
-godot --headless --path godot --import
-godot --headless --fixed-fps 60 --path godot res://tests/runner.tscn
-```
-
-22 tests, including a scripted climber that plays the whole Barranco Wall.
-See [godot/README.md](../godot/README.md).
-
-## On a phone
+This is the old React Native prototype. External testers do not install
+it: see the note at the top.
 
 ```bash
 npm install
@@ -48,7 +70,7 @@ npx eas-cli@latest build --profile development --platform android   # or ios
 npx expo start --dev-client
 ```
 
-### Manual checklist for the three climbs
+#### Manual checklist for the three climbs (Expo prototype)
 
 1. Start a new expedition and play to Shira 2: *Walk the forest and set
    camp*, *Sleep under the trees*, *Break camp and keep a patient pace*,
