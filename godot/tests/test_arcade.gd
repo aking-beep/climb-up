@@ -225,3 +225,21 @@ func test_the_beat_before_the_results_can_be_skipped() -> void:
 	check(level.panel.open, "a tap skips straight to the results")
 	await _done()
 	_fresh()
+
+
+func test_the_daily_streak_sits_beside_the_time() -> void:
+	_fresh()
+	Crag.tie_in("first-climb")
+	Crag.finish("first-climb", true, 0, 60)
+	# Yesterday's daily topped, then today's.
+	Crag.clock_override = DAY - 86400
+	Crag.finish("daily", true, 0, 90)
+	Crag.clock_override = DAY
+	Crag.current = "daily"
+	await _load("daily", "neutral")
+	await _end(true)
+	var body: String = level.panel.body_text()
+	check("2-day streak" in body, "the streak is on the time's line: " + body)
+	check(not "Daily streak:" in body, "not a sentence of its own")
+	await _done()
+	_fresh()

@@ -664,3 +664,57 @@ func test_the_grades_climb_in_steady_steps() -> void:
 	var hard: float = (k["6b"] + k["6c"] + k["7a"]) / 3.0
 	check(easy - hard >= 15.0, "the curve is felt: casual lowest %d%% on the easy routes, %d%% on the hard ones" % [easy, hard])
 	_fresh_progress()
+
+
+func test_low_stamina_pulses_and_breathes_over_the_music() -> void:
+	Crag.navigate = false
+	await _load("warm-up")
+	c.stamina.value = c.stamina.max_value * 0.6
+	level.hud.update_from(level)
+	check(not level.hud.low_pulse, "plenty left: the bar is steady")
+	c.stamina.value = c.stamina.max_value * 0.2
+	level.hud.update_from(level)
+	check(level.hud.low_pulse, "under a quarter: the bar pulses")
+	var effects := Settings.effects_volume
+	Settings.effects_volume = 1.0
+	Audio.last = ""
+	c._breathing(2.2)
+	eq(Audio.last, "breath", "and breathing comes sooner than the usual 2.4 s")
+	eq(Audio.last_db, -16.0 + Audio.EFFECTS_DB, "over the music: no body trim")
+	Settings.effects_volume = effects
+	await _done()
+
+
+func test_the_action_button_clicks_for_the_verb_that_took_the_tap() -> void:
+	Crag.navigate = false
+	await _load("thunderhead")
+	var t: Terrain = level.terrain
+	# Tiny holds away from the bolts: the button says GRIP.
+	var crimp := Vector2i(-1, -1)
+	for y in range(t.height - 1, 0, -1):
+		var near_bolt := false
+		for q in t.markers["Q"]:
+			if absi(q.y - y) < 3:
+				near_bolt = true
+		for x in t.width:
+			if not near_bolt and t.kind(Vector2i(x, y)) == Terrain.Kind.CRIMP and t.kind(Vector2i(x, y - 1)) == Terrain.Kind.CRIMP and crimp.x < 0:
+				crimp = Vector2i(x + 1, y)
+	c.hang_at(Terrain.feet(crimp))
+	c.stamina.value = 100.0
+	await physics_frames(2)
+	eq(level.action_word, "GRIP", "on tiny holds the button is GRIP")
+	Audio.history.clear()
+	level.panel.show_panel("x", "x", "x", [["x", "ok"]])
+	GameInput.scripted = {"interact": true}
+	await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	await tree.physics_frame
+	check(not "tap" in Audio.history, "no click while a panel is up")
+	level.panel.hide_panel()
+	await physics_frames(2)
+	GameInput.scripted = {"interact": true}
+	await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	await tree.physics_frame
+	check("tap" in Audio.history, "a tap on GRIP clicks (%s)" % [Audio.history])
+	await _done()

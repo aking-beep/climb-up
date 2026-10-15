@@ -158,6 +158,8 @@ var rope_rests := 0
 ## Every tap, by what it did: grip, clip, catch, rest, go, or none (a tap
 ## that did nothing).
 var taps := {"grip": 0, "clip": 0, "catch": 0, "rest": 0, "go": 0, "none": 0}
+## The action button's click, by the verb that took the tap.
+const TAP_PITCH := {"climb": 1.0, "grip": 1.18, "catch": 1.3, "rest": 0.8, "go": 0.9}
 var _grip_cool := 0.0
 ## Beta taken on this route (a clean first go is a flash, not an onsight).
 var beta := false
@@ -730,6 +732,10 @@ func _physics_process(_delta: float) -> void:
 	if _tap:
 		var kind := "catch" if catching > 0.0 or _dyno_air else action_word.to_lower()
 		taps[kind if taps.has(kind) else "none"] += 1
+		# A short click for the verb that took the tap, pitched by the verb
+		# (the clip has its own gate click). Nothing while a panel is up.
+		if TAP_PITCH.has(kind):
+			Audio.play("tap", -20.0, 0.02, false, TAP_PITCH[kind])
 	if panel.open:
 		# Reading: nothing runs down while a panel is up.
 		_draw_rope()
@@ -1550,6 +1556,8 @@ func finish(sent: bool) -> void:
 		time += " · your first time to beat"
 	elif best_before > 0:
 		time += " · best %s" % _clock(best_before)
+	if is_daily() and sent and int(outcome.get("streak", 0)) > 1:
+		time += " · %d-day streak" % int(outcome["streak"])
 	lines.append("%s · %s · falls %d%s" % [_stars_text(int(outcome.get("stars", 0))), time, climber.slips, (" (%d to the ground)" % ground_falls) if ground_falls > 0 else ""])
 	# Grade, and the best you have done on it.
 	var best_now := String((Crag.daily_record() if is_daily() else Crag.record(route["id"]))["best"])
@@ -1565,8 +1573,6 @@ func finish(sent: bool) -> void:
 	if is_daily():
 		if outcome.get("practice", false):
 			lines.append("Practice: your device's date is behind a day already played, so this go is not logged.")
-		elif sent and int(outcome.get("streak", 0)) > 1:
-			lines.append("Daily streak: %d days." % int(outcome["streak"]))
 		if not outcome.get("practice", false):
 			lines.append("Today: %d go%s%s. Same route all day: beat your time." % [int(Crag.daily_record()["attempts"]), "" if int(Crag.daily_record()["attempts"]) == 1 else "s",
 				(", best %s" % _clock(int(Crag.daily_record()["bestSeconds"]))) if int(Crag.daily_record()["bestSeconds"]) > 0 else ""])
@@ -1627,6 +1633,9 @@ func finish(sent: bool) -> void:
 		waited += get_physics_process_delta_time()
 		if GameInput.pressed_now("interact") or GameInput.pressed_now("jump") or GameInput.pressed_now("pause") or _skip_celebration:
 			break
+	if is_inside_tree() and not outcome.get("achievements", []).is_empty():
+		# A new achievement: one short sting as the card comes up.
+		Audio.play("sting", -4.0, 0.0)
 	if is_inside_tree():
 		var kicker := "The crag · lesson" if route.get("tutorial", false) else ("Daily route · grade %s" % route["grade"] if is_daily() else "The crag · grade %s" % route["grade"])
 		_results_panel = [kicker, "%s · %s" % [head, route["name"]], "\n".join(lines), choices]

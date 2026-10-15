@@ -248,3 +248,19 @@ func test_the_weather_words_match_the_number() -> void:
 		check(not "0%" in w.replace("10%", "").replace("20%", "").replace("30%", ""), "%.1f°C: no claim of a 0%% effect: %s" % [deg, w])
 		check(not ("freezing" in w and w.begins_with("0°C")), "%.1f°C: 0°C is not called freezing: %s" % [deg, w])
 	check("freezing" in Climate.words(-15.0) and "hot" in Climate.words(30.0), "the real cold and heat are named")
+
+
+func test_a_save_that_does_not_land_is_told_and_keeps_the_old_one() -> void:
+	SaveGame.write({"keep": 1}, "user://test_notice.json")
+	var before := SaveGame.failures
+	SaveGame.simulate_failure = true
+	check(not SaveGame.write({"keep": 2}, "user://test_notice.json"), "a write that fails says so")
+	SaveGame.simulate_failure = false
+	eq(SaveGame.failures, before + 1, "counted")
+	check("could not save" in Settings.last_notice, "the player is told: " + Settings.last_notice)
+	eq(SaveGame.read("user://test_notice.json")["keep"], 1, "and the last save is still whole")
+	# A save that lands says nothing new.
+	Settings.last_notice = ""
+	check(SaveGame.write({"keep": 3}, "user://test_notice.json"), "a good write")
+	eq(Settings.last_notice, "", "no notice")
+	SaveGame.erase("user://test_notice.json")

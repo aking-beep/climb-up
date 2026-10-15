@@ -30,6 +30,10 @@ const SETS := {
 	"topout": ["topout"],
 	"record": ["record"],
 	"perfect": ["perfect"],
+	# The action button: a short click, pitched by the verb that took the tap.
+	"tap": ["clip"],
+	# A new achievement on the results card.
+	"sting": ["perfect"],
 }
 ## Music styles (MusicBox.STYLES): made as it plays, nothing shipped.
 const MUSIC := ["camp", "crag", "lava", "barranco", "summit", "descent"]
