@@ -32,6 +32,18 @@ if adb install -r "$APK" > "$OUT/install.txt" 2>&1; then pass "install"; else fa
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 0
 adb logcat -c
+# Every buffer, from the start, into a file (the device's own ring buffer
+# rolls over during the touch test and would lose an early crash).
+adb logcat -b all -v threadtime > "$OUT/logcat-full.txt" 2>&1 &
+LOGCAT=$!
+sdk=$(adb shell getprop ro.build.version.sdk | tr -d '\r')
+why_gone() {
+  # Why the game's process ended, as Android recorded it (API 30+), and the
+  # log lines about it.
+  [ "$sdk" -ge 30 ] && adb shell dumpsys activity exit-info "$PKG" | head -40
+  grep -E "$PKG|godot|Godot|AndroidRuntime|DEBUG *:|libc *:|ActivityManager|ActivityTaskManager|lowmemorykiller" "$OUT/logcat-full.txt" \
+    | grep -v "commands.monkey" | tail -60
+}
 
 start=$(adb shell am start -W -n "$PKG/$ACT" | tr -d '\r')
 echo "$start" > "$OUT/start.txt"
@@ -39,7 +51,7 @@ total=$(echo "$start" | grep -o "TotalTime: [0-9]*" | grep -o "[0-9]*")
 note "cold start (activity drawn): ${total:-?} ms"
 sleep 25
 pid=$(alive)
-if [ -n "$pid" ]; then pass "running 25 s after launch (pid $pid)"; else fail "not running after launch"; fi
+if [ -n "$pid" ]; then pass "running 25 s after launch (pid $pid)"; else fail "not running after launch"; echo "--- why:"; why_gone; echo "---"; fi
 shot 1-launch
 r=$(rotation)
 case "$r" in ROTATION_90|ROTATION_270) pass "landscape with the device in portrait ($r)";; *) fail "orientation is $r, not landscape";; esac
@@ -77,13 +89,17 @@ sleep 2
 shot 3-after-touches
 [ -n "$(alive)" ] && pass "still running after the touches" || fail "not running after the touches"
 
-adb logcat -d > "$OUT/logcat.txt"
-if grep -E "FATAL EXCEPTION|Fatal signal|ANR in $PKG" "$OUT/logcat.txt" > "$OUT/crashes.txt"; then
-  fail "crash in logcat: $(head -3 "$OUT/crashes.txt" | tr '\n' ' ')"
+kill $LOGCAT 2> /dev/null
+# Only the game's own crashes count (the monkey tool can crash on its own).
+{ grep -E "Fatal signal.*\($PKG\)|ANR in $PKG" "$OUT/logcat-full.txt"
+  grep -A2 "FATAL EXCEPTION" "$OUT/logcat-full.txt" | grep "Process: $PKG"; } > "$OUT/crashes.txt"
+if [ -s "$OUT/crashes.txt" ]; then
+  fail "the game crashed: $(head -3 "$OUT/crashes.txt" | tr '\n' ' ')"
+  why_gone
 else
-  pass "no crash or ANR in logcat"
+  pass "no crash or ANR of the game in logcat"
 fi
-errs=$(grep -c "SCRIPT ERROR\|USER ERROR" "$OUT/logcat.txt")
+errs=$(grep -c "SCRIPT ERROR\|USER ERROR" "$OUT/logcat-full.txt")
 [ "$errs" -eq 0 ] && pass "no Godot script errors in logcat" || fail "$errs Godot script errors in logcat"
 
 echo "---"

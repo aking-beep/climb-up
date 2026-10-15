@@ -1,0 +1,25 @@
+# Render Blueprint: the CLIMB UP records service (server/), one instance
+# with a 1 GB persistent disk. Render provides HTTPS. New > Blueprint, pick
+# this repository. A disk needs a paid instance (Starter). The service also
+# writes daily backups to /data/backups. See server/deploy/README.md.
+services:
+  - type: web
+    name: climbup-records
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
+    plan: starter
+    numInstances: 1
+    healthCheckPath: /healthz
+    autoDeploy: false
+    envVars:
+      - key: RECORDS_TRUST_PROXY
+        value: "1"
+      - key: RECORDS_BACKUP_DIR
+        value: /data/backups
+      - key: RECORDS_BACKUP_KEEP
+        value: "14"
+    disk:
+      name: records-data
+      mountPath: /data
+      sizeGB: 1

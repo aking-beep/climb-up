@@ -12,6 +12,17 @@
 #   ANDROID_UPLOAD_KEY_PASSWORD      its password (store and key)
 # Without them the AAB is signed with a throwaway key and marked NOT FOR
 # PLAY; everything else still runs.
+#
+# Repository variables (same page, Variables tab):
+#   RECORDS_ENDPOINT      the records service, e.g. https://climbup-records.fly.dev
+#                         (its privacy page, <endpoint>/privacy, is linked too)
+#   ANDROID_VERSION_CODE  overrides the version code (every Play upload needs a higher one)
+#
+# Uploading to Play from here (optional): the secret PLAY_SERVICE_ACCOUNT_JSON
+# (a Google Cloud service account invited in Play Console > Users and
+# permissions, with release rights), then Run workflow with play_track
+# "alpha" (closed testing) or "internal". The very first upload of a new app
+# must be done by hand in Play Console.
 name: Android
 
 on:
@@ -20,6 +31,12 @@ on:
     branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      play_track:
+        description: "Upload the AAB to this Google Play track (needs the PLAY_SERVICE_ACCOUNT_JSON secret and the upload key secrets)"
+        type: choice
+        options: [none, internal, alpha]
+        default: none
 
 permissions:
   contents: read
@@ -105,6 +122,23 @@ jobs:
           export/android/debug_keystore_pass = "android"
           SETTINGS
           sed -i 's/^ *//' ~/.config/godot/editor_settings-4.7.tres
+      - name: Point the build at the records service
+        env:
+          ENDPOINT: ${{ vars.RECORDS_ENDPOINT }}
+          VERSION_CODE: ${{ vars.ANDROID_VERSION_CODE }}
+        run: |
+          if [ -n "$ENDPOINT" ]; then
+            case "$ENDPOINT" in https://*) ;; *) echo "RECORDS_ENDPOINT must be https://" >&2; exit 1;; esac
+            ENDPOINT=${ENDPOINT%/}
+            sed -i "s|^records/endpoint=.*|records/endpoint=\"$ENDPOINT\"|; s|^records/privacy_url=.*|records/privacy_url=\"$ENDPOINT/privacy\"|" godot/project.godot
+            curl -fsS "$ENDPOINT/healthz" && echo " <- the service answers"
+          else
+            echo "No RECORDS_ENDPOINT: this build keeps records on the device (online boards say not connected)."
+          fi
+          if [ -n "$VERSION_CODE" ]; then
+            sed -i "s|^version/code=.*|version/code=$VERSION_CODE|" godot/export_presets.cfg
+          fi
+          grep -n "^records/" godot/project.godot; grep -n "^version/" godot/export_presets.cfg
       - name: Import the project
         run: ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --path godot --import || true
       - name: Build the Play bundle (AAB) with Gradle
@@ -147,6 +181,25 @@ jobs:
             build/godot-android/aab-manifest.xml
             build/godot-android/aab-download-size.csv
             build/godot-android/SIGNED_WITH.txt
+      - name: Upload to Google Play
+        if: github.event_name == 'workflow_dispatch' && inputs.play_track != 'none'
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          case "$SIGNED_WITH" in "upload key") ;; *) echo "::error::Not signed with the upload key: set the ANDROID_UPLOAD_* secrets."; exit 1;; esac
+          [ -n "$PLAY_JSON" ] || { echo "::error::Set the PLAY_SERVICE_ACCOUNT_JSON secret."; exit 1; }
+          printf %s "$PLAY_JSON" > "$RUNNER_TEMP/play.json"
+          echo "PLAY_JSON_FILE=$RUNNER_TEMP/play.json" >> "$GITHUB_ENV"
+      - name: Send the bundle to Play
+        if: github.event_name == 'workflow_dispatch' && inputs.play_track != 'none'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJson: ${{ env.PLAY_JSON_FILE }}
+          packageName: com.climbup.game
+          releaseFiles: build/godot-android/climb-up.aab
+          track: ${{ inputs.play_track }}
+          status: completed
+          whatsNewDirectory: store/whatsnew
       - uses: actions/upload-artifact@v4
         with:
           name: climb-up-emulator-apk

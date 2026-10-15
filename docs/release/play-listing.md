@@ -48,16 +48,15 @@ no user-to-user communication (names on leaderboards only). Expect
 Everyone / PEGI 3. The game mentions altitude sickness as game fiction
 (the cards say "Game fiction, not medical advice").
 
-## Contact and support (fill in before submitting)
+## Contact and support
 
 | Field | Value |
 | --- | --- |
-| Developer name | **[publisher name]** |
-| Support email (required, public) | **[support email]** |
-| Website (optional) | **[website]** |
-| Privacy policy URL | `https://<records domain>/privacy` (`server/deploy/site/privacy.html`; fill in its publisher, contact and date first) |
+| Developer name | ARC Transformation Group |
+| Support email (required, public) | aking@arctransformationgroup.com |
+| Website (optional) | none for the beta |
+| Privacy policy URL | `https://<records domain>/privacy` (`server/deploy/site/privacy.html`) |
 
-The privacy page also needs the same publisher, contact and effective date.
 
 ## Closed test setup
 
@@ -83,7 +82,7 @@ The privacy page also needs the same publisher, contact and effective date.
 >   recovery code, report a name, delete your account in the game.
 > - Landscape, works offline. Your records wait on the device and are sent when you're back online.
 >
-> Please report bugs and anything that felt unfair to [support email].
+> Please report bugs and anything that felt unfair to aking@arctransformationgroup.com.
 
 ## Beta tester instructions (for the opt-in page or email)
 

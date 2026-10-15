@@ -1,17 +1,52 @@
 # Deploying the records service (closed beta)
 
-One small Linux host running Docker is enough for the beta. This directory
-holds a complete production setup:
+Three ways to run it. All use the same image (`server/Dockerfile`), which:
+- runs as an unprivileged user;
+- serves the privacy policy at `/privacy`;
+- answers `/healthz`.
+
+| Option | Cost (approx.) | HTTPS | Backups | You need |
+| --- | --- | --- | --- | --- |
+| **Fly.io** (`fly.toml`) | about $2–5/month (shared-cpu-1x, 256 MB, 1 GB volume) | Fly | Fly's daily volume snapshots, plus the service's own daily backups in `/data/backups` | A Fly account and `flyctl` |
+| **Render** (`/render.yaml`) | about $7–8/month (Starter plus a 1 GB disk) | Render | Render's daily disk snapshots, plus the service's own backups | A Render account |
+| **Your own VM** (`docker-compose.yml`) | about $5/month | Caddy, Let's Encrypt | A daily backup job | A VM, a domain, an off-host backup copy |
+
+Prices are estimates; check the provider's current pricing.
+
+### Fly.io
+
+From the repository root, with `flyctl` signed in:
+
+```sh
+fly launch --no-deploy --copy-config --config server/deploy/fly.toml --name climbup-records-<you>
+fly volumes create records_data --size 1 --region iad --config server/deploy/fly.toml
+fly deploy --config server/deploy/fly.toml --dockerfile server/Dockerfile
+curl https://climbup-records-<you>.fly.dev/healthz
+```
+
+Optional: `fly certs add records.<your-domain>` and a CNAME record for
+your own domain.
+
+### Render
+
+New → Blueprint, then pick this repository. `render.yaml` at the
+repository root defines the service and its disk. After the first deploy,
+the service is at `https://climbup-records.onrender.com` or similar.
+
+### Your own VM (Docker Compose with Caddy)
+
+This directory holds a complete setup:
 
 | Piece | What it does |
 | --- | --- |
-| `../Dockerfile` | The service image. Standard library only, runs as a non-root user, has a health check |
+| `../Dockerfile` | The service image. Standard library only. Drops to a non-root user after taking ownership of the data volume (`../entrypoint.sh`). Has a health check |
+| `fly.toml`, `../../render.yaml` | The Fly.io and Render setups above |
 | `docker-compose.yml` | The service, Caddy (HTTPS), and a daily backup job |
 | `Caddyfile` | TLS with automatic Let's Encrypt certificates, HSTS, a 256 KB request limit |
 | `blocked-words.txt` | Extra words public names may not contain |
 | `site/privacy.html` | The privacy policy, served at `https://$RECORDS_DOMAIN/privacy`. Fill in the publisher, contact and date before launch |
 
-## What you need before you start
+#### What you need before you start
 
 1. **A host.** Any VM with Docker and Docker Compose and ports 80 and 443
    open. 1 vCPU and 512 MB RAM is plenty for a beta.
@@ -20,7 +55,7 @@ holds a complete production setup:
 3. **An off-host copy of the backups.** For example a nightly `rclone` or
    `rsync` of the `records-backups` volume to object storage.
 
-## Start it
+#### Start it
 
 ```sh
 git clone https://github.com/aking-beep/climb-up && cd climb-up/server/deploy

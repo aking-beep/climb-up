@@ -1,0 +1,64 @@
+# Deploys the records service to Fly.io from GitHub: Actions > Deploy records
+# service > Run workflow. Creates the app and its volume the first time,
+# deploys server/Dockerfile with server/deploy/fly.toml, then checks
+# https://<app>.fly.dev/healthz and /privacy.
+#
+# Needs one repository secret: FLY_API_TOKEN (fly.io > Account > Access
+# Tokens > Create token, or `fly tokens create org`). Optional repository
+# variable FLY_APP (default climbup-records-arc) and FLY_REGION (default iad).
+# After the first deploy set the repository variable RECORDS_ENDPOINT to the
+# printed address so release builds talk to it (.github/workflows/android.yml).
+name: Deploy records service
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-records
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      APP: ${{ vars.FLY_APP || 'climbup-records-arc' }}
+      REGION: ${{ vars.FLY_REGION || 'iad' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the token
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::error::Add the FLY_API_TOKEN repository secret first (see the comment at the top of this workflow)."
+            exit 1
+          fi
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Server tests before deploying
+        run: python3 -m unittest discover -s server/records_service/tests -t .
+      - name: Create the app and its volume (first time only)
+        run: |
+          if ! flyctl status -a "$APP" > /dev/null 2>&1; then
+            flyctl apps create "$APP"
+          fi
+          if ! flyctl volumes list -a "$APP" --json | grep -q '"name": *"records_data"'; then
+            flyctl volumes create records_data --size 1 --region "$REGION" -a "$APP" --yes
+          fi
+      - name: Deploy
+        run: |
+          flyctl deploy . --config server/deploy/fly.toml --dockerfile server/Dockerfile \
+            -a "$APP" --primary-region "$REGION" --remote-only --ha=false --wait-timeout 300
+      - name: Check it answers
+        run: |
+          url="https://$APP.fly.dev"
+          for i in $(seq 1 30); do curl -fsS "$url/healthz" && break; sleep 5; done
+          curl -fsS "$url/healthz"
+          curl -fsS "$url/privacy" | grep -q "CLIMB UP privacy policy"
+          echo
+          echo "The records service is live at $url"
+          echo "Set the repository variable RECORDS_ENDPOINT=$url, then run the Android workflow."
+          echo "### Records service live: $url" >> "$GITHUB_STEP_SUMMARY"
+          echo "Set the repository variable \`RECORDS_ENDPOINT\` to \`$url\`, then run the **Android** workflow." >> "$GITHUB_STEP_SUMMARY"

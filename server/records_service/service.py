@@ -9,7 +9,9 @@ database on a persistent volume, configured from the environment:
 RECORDS_DB, RECORDS_PORT, RECORDS_BIND, RECORDS_TRUST_PROXY (read the
 client address from X-Forwarded-For), RECORDS_BLOCKED_WORDS (a file of
 extra words names may not contain), RECORDS_ACCOUNTS_PER_HOUR (new
-accounts allowed from one address in an hour). Every request is logged as one JSON
+accounts allowed from one address in an hour), RECORDS_PRIVACY_FILE (an
+HTML page served at /privacy), RECORDS_BACKUP_DIR and RECORDS_BACKUP_KEEP
+(daily backups made by the service itself, for single-machine hosts). Every request is logged as one JSON
 line (no tokens, no addresses). GET /healthz checks the database.
 
 Accounts are anonymous device accounts: the server makes the player id and
@@ -139,6 +141,8 @@ class Service:
         if "points" not in cols:
             self.db.execute("ALTER TABLE expedition_runs ADD COLUMN points INTEGER")
         self.clock = clock or (lambda: int(time.time()))
+        # The privacy policy, served at /privacy (bytes; None for none).
+        self.privacy_page = None
 
     # --- accounts --------------------------------------------------------
 
@@ -424,8 +428,11 @@ def _hash(token):
 # --- HTTP ------------------------------------------------------------------------
 
 def _client_address(environ, trust_proxy):
+    """The client's address. Behind a proxy, the last X-Forwarded-For entry:
+    the one the nearest proxy (Caddy, Fly.io, Render) added. Earlier entries
+    come from the client and can be made up."""
     if trust_proxy and environ.get("HTTP_X_FORWARDED_FOR"):
-        return environ["HTTP_X_FORWARDED_FOR"].split(",")[0].strip()
+        return environ["HTTP_X_FORWARDED_FOR"].split(",")[-1].strip()
     return environ.get("REMOTE_ADDR", "")
 
 
@@ -479,6 +486,10 @@ def make_app(service: Service, trust_proxy=False, log=None):
         status, out = 404, {"error": "not found"}
         if parts == ["healthz"] and method == "GET":
             status, out = service.health()
+        elif parts == ["privacy"] and method == "GET" and service.privacy_page:
+            data = service.privacy_page
+            start_response("200 OK", [("Content-Type", "text/html; charset=utf-8"), ("Content-Length", str(len(data)))])
+            return [data]
         elif parts[:2] == ["v1", "players"] and method == "POST":
             status, out = service.create_player(body, _client_address(environ, trust_proxy))
         elif parts[:2] == ["v1", "leaderboards"] and method == "GET" and len(parts) == 4:
@@ -528,7 +539,30 @@ def _json_log(entry):
     sys.stdout.flush()
 
 
-def serve(db, port, bind="", trust_proxy=False, accounts_per_hour=ACCOUNTS_PER_HOUR):
+def start_backups(db, out, keep=14, every=86400, log=None):
+    """Backs the database up now and then every `every` seconds, in a
+    background thread (hosts with one machine and a volume, e.g. Fly.io or
+    Render; the compose deploy runs its own backup job instead)."""
+    from . import backup
+
+    def loop():
+        while True:
+            try:
+                path = backup.backup(db, out, keep)
+                if log:
+                    log({"event": "backup", "file": os.path.basename(path)})
+                wait = every
+            except Exception as e:  # logged and retried, never fatal
+                if log:
+                    log({"event": "backup_failed", "error": repr(e)[:200]})
+                wait = 300
+            time.sleep(wait)
+    t = threading.Thread(target=loop, daemon=True, name="backups")
+    t.start()
+    return t
+
+
+def serve(db, port, bind="", trust_proxy=False, accounts_per_hour=ACCOUNTS_PER_HOUR, privacy_file="", backup_dir=""):
     from socketserver import ThreadingMixIn
     from wsgiref.simple_server import WSGIRequestHandler, WSGIServer, make_server
 
@@ -541,6 +575,11 @@ def serve(db, port, bind="", trust_proxy=False, accounts_per_hour=ACCOUNTS_PER_H
 
     service = Service(db)
     service.accounts_per_hour = accounts_per_hour
+    if privacy_file and os.path.exists(privacy_file):
+        with open(privacy_file, "rb") as f:
+            service.privacy_page = f.read()
+    if backup_dir:
+        start_backups(db, backup_dir, int(os.environ.get("RECORDS_BACKUP_KEEP", "14")), log=_json_log)
     _json_log({"event": "start", "version": VERSION, "port": port, "db": os.path.basename(db), "trust_proxy": trust_proxy})
     make_server(bind, port, make_app(service, trust_proxy, _json_log), server_class=Server, handler_class=Quiet).serve_forever()
 
@@ -554,4 +593,5 @@ if __name__ == "__main__":
     ap.add_argument("--trust-proxy", action="store_true", default=os.environ.get("RECORDS_TRUST_PROXY", "") == "1")
     args = ap.parse_args()
     load_blocked_words(os.environ.get("RECORDS_BLOCKED_WORDS", ""))
-    serve(args.db, args.port, args.bind, args.trust_proxy, int(os.environ.get("RECORDS_ACCOUNTS_PER_HOUR", ACCOUNTS_PER_HOUR)))
+    serve(args.db, args.port, args.bind, args.trust_proxy, int(os.environ.get("RECORDS_ACCOUNTS_PER_HOUR", ACCOUNTS_PER_HOUR)),
+          os.environ.get("RECORDS_PRIVACY_FILE", ""), os.environ.get("RECORDS_BACKUP_DIR", ""))

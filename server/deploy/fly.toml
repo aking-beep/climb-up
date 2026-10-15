@@ -1,0 +1,43 @@
+# Fly.io: the records service on one machine with a 1 GB volume. Fly
+# provides HTTPS and takes daily volume snapshots; the service also writes
+# its own daily backups to /data/backups.
+#
+# From the repository root:
+#   fly launch --no-deploy --copy-config --config server/deploy/fly.toml --name <app-name>
+#   fly volumes create records_data --size 1 --region <region> --config server/deploy/fly.toml
+#   fly deploy --config server/deploy/fly.toml --dockerfile server/Dockerfile
+# Then the service is at https://<app-name>.fly.dev (or add your domain with
+# `fly certs add`). See server/deploy/README.md.
+app = "climbup-records-arc"
+primary_region = "iad"
+
+[build]
+  dockerfile = "../Dockerfile"
+
+[env]
+  RECORDS_TRUST_PROXY = "1"
+  RECORDS_BACKUP_DIR = "/data/backups"
+  RECORDS_BACKUP_KEEP = "14"
+
+[[mounts]]
+  source = "records_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # SQLite on one volume: exactly one machine, always on.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

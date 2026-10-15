@@ -11,6 +11,7 @@ import json
 import os
 import sqlite3
 import tempfile
+import time
 import unittest
 
 from server.records_service import admin, backup
@@ -24,6 +25,18 @@ class Health(Base):
         self.assertEqual(code, 200)
         self.assertTrue(out["ok"])
         self.assertEqual(out["version"], svc.VERSION)
+
+
+class PrivacyPage(Base):
+    def test_the_privacy_policy_is_served_when_configured(self):
+        self.assertEqual(self.call("GET", "/privacy")[0], 404, "none configured: not found")
+        self.s.privacy_page = b"<h1>policy</h1>"
+        status = {}
+        out = b"".join(self.app({"REQUEST_METHOD": "GET", "PATH_INFO": "/privacy", "wsgi.input": io.BytesIO()},
+                                lambda s, h: status.update(s=s, h=dict(h))))
+        self.assertTrue(status["s"].startswith("200"))
+        self.assertIn("text/html", status["h"]["Content-Type"])
+        self.assertEqual(out, b"<h1>policy</h1>")
 
 
 class Recovery(Base):
@@ -123,8 +136,9 @@ class Throttle(Base):
         self.assertEqual(self.s.create_player({"age": 30}, "203.0.113.5")[0], 201, "an hour later it is fine")
 
     def test_the_proxy_address_is_used_only_when_trusted(self):
-        env = {"REMOTE_ADDR": "10.0.0.2", "HTTP_X_FORWARDED_FOR": "198.51.100.7, 10.0.0.2"}
-        self.assertEqual(svc._client_address(env, True), "198.51.100.7")
+        # The client sent a made-up address first; the proxy appended the real one.
+        env = {"REMOTE_ADDR": "10.0.0.2", "HTTP_X_FORWARDED_FOR": "203.0.113.66, 198.51.100.7"}
+        self.assertEqual(svc._client_address(env, True), "198.51.100.7", "the proxy's entry, not the client's")
         self.assertEqual(svc._client_address(env, False), "10.0.0.2")
 
 
@@ -151,6 +165,21 @@ class Errors(Base):
         self.assertEqual(lines[-1]["status"], 200)
         self.assertNotIn(a["token"], text)
         self.assertNotIn("203.0.113.9", text)
+
+
+class BackgroundBackups(unittest.TestCase):
+    def test_the_service_backs_itself_up(self):
+        d = tempfile.mkdtemp()
+        db = os.path.join(d, "records.sqlite")
+        svc.Service(db).db.close()
+        lines = []
+        svc.start_backups(db, os.path.join(d, "b"), keep=3, every=3600, log=lines.append)
+        for _ in range(50):
+            if lines:
+                break
+            time.sleep(0.05)
+        self.assertEqual(lines[0]["event"], "backup")
+        self.assertEqual(len(os.listdir(os.path.join(d, "b"))), 1)
 
 
 class Storage(unittest.TestCase):

@@ -27,7 +27,7 @@ signing key is not affected.
    ```sh
    keytool -genkeypair -v -keystore climbup-upload.jks -alias climbup-upload \
      -keyalg RSA -keysize 4096 -validity 10000 \
-     -dname "CN=CLIMB UP, O=<publisher>, C=<country>"
+     -dname "CN=CLIMB UP, O=ARC Transformation Group"
    ```
    Use a long random password. Keep it in a password manager.
 2. **Back it up.** Keep two copies of the `.jks` and its password,
