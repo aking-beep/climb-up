@@ -19,8 +19,10 @@ func _brief(path: String) -> bool:
 
 
 func test_the_whole_campaign_from_the_gate_to_the_walk_out() -> void:
+	var nav := Expedition.navigate
 	for seed in [7, 8, 9]:
 		await _campaign(seed)
+	Expedition.navigate = nav
 
 
 func _campaign(seed: int) -> void:
@@ -74,4 +76,3 @@ func _campaign(seed: int) -> void:
 	print("      %d days, score %d, %d leader points, %d of 4 home" % [runs[0]["days"], runs[0]["score"], runs[0]["points"], runs[0]["teamHome"]])
 	SaveGame.erase()
 	Records.delete_all()
-	Expedition.navigate = true

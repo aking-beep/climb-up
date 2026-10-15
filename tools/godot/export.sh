@@ -23,10 +23,9 @@
 # repository; see docs/release/android-signing.md):
 #   GODOT_ANDROID_KEYSTORE_RELEASE_PATH, GODOT_ANDROID_KEYSTORE_RELEASE_USER,
 #   GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD
-# android-aab also needs the Android build template installed in
-# godot/android/build (Project > Install Android Build Template, from the
-# official export templates) and network access to Google's Maven
-# repository for Gradle.
+# android-aab installs the Android build template into godot/android/ (from
+# the official export templates; not committed) and builds with Gradle,
+# which needs network access to dl.google.com and maven.google.com.
 set -e
 cd "$(dirname "$0")/../.."
 GODOT=${GODOT:-godot}
@@ -65,10 +64,8 @@ if [ "$what" = android-release ]; then
 fi
 
 if [ "$what" = android-aab ]; then
-  if [ ! -d godot/android/build ]; then
-    echo "android-aab: install the Android build template first (godot/android/build is missing)" >&2
-    exit 2
-  fi
-  "$GODOT" --headless --path godot --export-release "Android Play (AAB)" ../build/godot-android/climb-up.aab
+  # Installs the Gradle build template (godot/android/, not committed) on
+  # first use, then builds with Gradle.
+  "$GODOT" --headless --path godot --install-android-build-template --export-release "Android Play (AAB)" ../build/godot-android/climb-up.aab
   echo "android: build/godot-android/climb-up.aab (Play upload bundle)"
 fi

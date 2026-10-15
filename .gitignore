@@ -51,3 +51,4 @@ build/
 *.keystore
 *.aab
 keystore.properties
+godot/android/
