@@ -1539,6 +1539,8 @@ func finish(sent: bool) -> void:
 		lines.append("Bolts clipped: %d of %d · high point %s of %s." % [checkpoint, clips.size(), _m_rows(high_rows), _m_rows(route_rows())])
 	if near_miss != "":
 		lines.push_front(near_miss)
+	# The number comes first: the time against your best, or how far short.
+	lines.push_front(result_lead(sent, best_before, int(outcome.get("highRowsBefore", 0))))
 	# Time, against the best.
 	var time := "Time %s" % _clock(int(climber.clock))
 	if sent and int(outcome.get("fasterBy", 0)) > 0:
@@ -1629,6 +1631,28 @@ func finish(sent: bool) -> void:
 		var kicker := "The crag · lesson" if route.get("tutorial", false) else ("Daily route · grade %s" % route["grade"] if is_daily() else "The crag · grade %s" % route["grade"])
 		_results_panel = [kicker, "%s · %s" % [head, route["name"]], "\n".join(lines), choices]
 		panel.show_panel(kicker, "%s · %s" % [head, route["name"]], "\n".join(lines), choices)
+
+
+## The results card's first line: the number that makes you go again.
+## After a send, the time against your best; after a fall short, how far
+## short of the anchor, and of your high point when you have one.
+func result_lead(sent: bool, best_before: int, high_before: int) -> String:
+	var secs := int(climber.clock)
+	if sent:
+		if best_before < 0:
+			return "%s · your first time to beat" % _clock(secs)
+		if secs < best_before:
+			return "%s · %d s faster than your best" % [_clock(secs), best_before - secs]
+		if secs == best_before:
+			return "%s · level with your best" % _clock(secs)
+		return "%s · %d s off your best (%s)" % [_clock(secs), secs - best_before, _clock(best_before)]
+	var short := maxi(0, route_rows() - high_rows)
+	var line := "%s short of the anchor" % _m_rows(short)
+	if high_before > high_rows:
+		line += " · %s below your high point" % _m_rows(high_before - high_rows)
+	elif high_before > 0 and high_rows > high_before:
+		line += " · %s higher than ever" % _m_rows(high_rows - high_before)
+	return line
 
 
 ## Skips the beat before the results (tests, and a tap on the screen).
