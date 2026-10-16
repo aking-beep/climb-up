@@ -28,8 +28,29 @@ def entry(kind, route=None):
     raise KeyError(kind)
 
 
+_climbs = 0
+
+
 def crag_send(route="warm-up"):
-    return next(copy.deepcopy(e) for e in FIXTURE if e["kind"] == "crag" and e["payload"]["route"] == route and e["payload"]["go"]["sent"])
+    """The game's own send, as a separate climb each call: the server takes
+    a log once, and two real climbs never log the same hundredths."""
+    global _climbs
+    _climbs += 1
+    e = next(copy.deepcopy(e) for e in FIXTURE if e["kind"] == "crag" and e["payload"]["route"] == route and e["payload"]["go"]["sent"])
+    first = e["payload"]["events"][1]   # the first height sample, at 1.0 s
+    first[0] = round(first[0] + 0.001 * (_climbs % 900), 3)
+    return e
+
+
+def slower(e, extra):
+    """The same climb with `extra` seconds standing at the foot first: the
+    log keeps sampling the height once a second, as the game does."""
+    ev = e["payload"]["events"]
+    for x in ev[1:]:
+        x[0] = round(x[0] + extra, 2)
+    ev[1:1] = [[float(t), "h", 0] for t in range(1, extra + 1)]
+    e["payload"]["go"]["seconds"] += extra
+    return e
 
 
 def crag_fail():
@@ -132,8 +153,7 @@ class Ties(Base):
         self.submit(a["token"], crag_send())
         self.now += 10
         self.submit(b["token"], crag_send())
-        slow = crag_send()
-        slow["payload"]["go"]["seconds"] += 5
+        slow = slower(crag_send(), 5)
         self.now += 10
         self.submit(c["token"], slow)
         code, out = self.call("GET", "/v1/leaderboards/crag/warm-up")

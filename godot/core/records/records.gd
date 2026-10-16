@@ -490,7 +490,8 @@ func pending() -> Array:
 
 ## Sends what is waiting, if a service is configured. Returns how many the
 ## server accepted. Accepted entries are marked verified with the server's
-## time; rejected ones say why and are never shown as verified.
+## time; held ones (outliers a moderator checks) and rejected ones say why
+## and are never shown as verified.
 func sync() -> int:
 	if not online.configured() or syncing:
 		return 0
@@ -500,8 +501,12 @@ func sync() -> int:
 	for e in pending():
 		var reply: Dictionary = await online.submit(e)
 		if reply.get("ok", false):
-			e["status"] = "accepted"
+			# Held: taken, but an outlier waits for a moderator before it is
+			# verified or shown on a board (docs/records-backend.md).
+			e["status"] = "held" if reply.get("held", false) else "accepted"
 			e["serverTime"] = int(reply.get("serverTime", 0))
+			if reply.get("held", false):
+				e["reason"] = String(reply.get("reason", ""))
 			accepted += 1
 		elif reply.get("retry", false):
 			break

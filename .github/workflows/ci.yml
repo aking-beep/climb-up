@@ -27,12 +27,20 @@ jobs:
           python-version: "3.13"
       - name: Unit tests
         run: python3 -m unittest discover -s server/records_service/tests -t . -v
+      - name: Playtest measures tool
+        run: python3 -m unittest discover -s tools/playtest -v
       - name: Container builds and answers its health check
         run: |
           docker build -t climbup-records -f server/Dockerfile .
           docker run -d --name rec -p 8080:8080 climbup-records
           for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8080/healthz && exit 0; sleep 1; done
           docker logs rec; exit 1
+      - name: The container's backup restores (drill)
+        run: |
+          curl -fsS -X POST -H 'Content-Type: application/json' -d '{"age": 30, "displayName": "Drill Check"}' http://127.0.0.1:8080/v1/players
+          path=$(docker exec rec python3 -m server.records_service.backup --db /data/records.sqlite --out /tmp/drill --keep 1)
+          docker exec rec python3 -m server.records_service.backup --drill "$path" | tee drill.json
+          grep -q '"players": 1' drill.json
 
   game:
     name: Game tests (Godot headless)

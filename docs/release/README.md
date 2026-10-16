@@ -8,6 +8,8 @@
 | [data-safety.md](data-safety.md) | Answers for Play's Data safety form |
 | [age-and-moderation.md](age-and-moderation.md) | Age gate, consent, deletion, recovery, name moderation: what is enforced and what is open |
 | [play-listing.md](play-listing.md) | Store text, assets, release notes, closed-test setup |
+| [ios-plan.md](ios-plan.md) | The native iOS build: what exists, what it needs, when (after Android) |
+| [`../monetization-and-donations.md`](../monetization-and-donations.md) | What will never be sold, the options, and the retention gate that unlocks the choice |
 | [`../../server/deploy/README.md`](../../server/deploy/README.md) | Deploying the records service: HTTPS, storage, backups, moderation |
 | [`../../server/deploy/site/privacy.html`](../../server/deploy/site/privacy.html) | The privacy policy (served at `/privacy`) |
 
@@ -29,6 +31,11 @@ below need your accounts. Each takes minutes.
       and `/privacy`.
    5. Add the repository **variable** **`RECORDS_ENDPOINT`** with that
       address (same page, Variables tab).
+   6. Add the repository secret **`BACKUP_PASSPHRASE`**: a long random
+      passphrase, also kept in the password manager. The **Back up records
+      service** workflow then runs every night. It downloads a backup, runs
+      the restore drill on it, and keeps it encrypted for 14 days. Run it
+      once by hand (Actions → Run workflow) and check it is green.
 2. **Upload key** (once, on your own computer).
    1. Run `sh tools/release/make_upload_key.sh "CN=CLIMB UP, O=ARC Labs"`.
    2. It sets, or tells you how to set, the secrets
@@ -58,8 +65,14 @@ below need your accounts. Each takes minutes.
      `device-test-matrix.md`.
    - `tools/android/emulator_smoke.sh` runs the same checks as CI on a
      USB-connected phone.
-6. **Moderation.** Check name reports every few days:
-   `fly ssh console -a climbup-records-arc -C "python3 -m server.records_service.admin reports"`.
+6. **Moderation.** Every few days, check name reports and the records
+   held as outliers:
+   `fly ssh console -a climbup-records-arc -C "sh -c 'cd /app && python3 -m server.records_service.admin reports'"`
+   and the same with `review`, then `approve <ref>` or `refuse <ref>`
+   (`docs/records-backend.md` §3).
+7. **Measure the beta.** Collect the testers' pasted usage logs and run
+   `python3 tools/playtest/retention.py logs/ --testers testers.csv`
+   (`docs/playtest-plan.md`, "Measurements").
 
 ## Deployment requirements (reference)
 

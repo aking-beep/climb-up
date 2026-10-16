@@ -202,5 +202,107 @@ class Storage(unittest.TestCase):
             backup.backup(os.path.join(d, "missing.sqlite"), out)
 
 
+
+class Restore(Base):
+    """A backup taken from a live service puts every record back."""
+
+    def live(self, d):
+        db = os.path.join(d, "records.sqlite")
+        self.s = svc.Service(db, clock=lambda: self.now)
+        self.app = svc.make_app(self.s)
+        a = self.player(name="Keeper")
+        b = self.player(name="Second")
+        self.assertTrue(self.submit(a["token"], crag_send())[1]["ok"])
+        self.call("POST", "/v1/friends", {"friendCode": b["friendCode"]}, a["token"])
+        self.call("POST", "/v1/reports", {"player": "Second", "reason": "test"}, a["token"])
+        return db, a
+
+    def test_a_restore_puts_back_every_record_and_keeps_what_it_replaced(self):
+        with tempfile.TemporaryDirectory() as d:
+            db, a = self.live(d)
+            path = backup.backup(db, os.path.join(d, "backups"), now=NOON)
+            want = backup.verify(path)["counts"]
+            self.assertEqual((want["players"], want["crag_attempts"], want["firsts"], want["follows"], want["reports"]), (2, 1, 1, 1, 1))
+            # Disaster: the account is gone from the live database.
+            self.call("DELETE", "/v1/me", token=a["token"])
+            self.s.db.close()
+            out = backup.restore(path, db, now=NOON + 60)
+            self.assertEqual(out["counts"], want)
+            self.assertTrue(os.path.exists(out["replaced"]), "the replaced database is kept")
+            s = svc.Service(db, clock=lambda: self.now)
+            self.assertIsNotNone(s.player_for(a["token"]), "the account signs in again with its recovery code")
+            self.assertEqual([e["player"] for e in s.crag_board("warm-up")], ["Keeper"])
+            self.assertEqual(s.firsts()[0]["display"], "Keeper")
+            s.db.close()
+
+    def test_the_drill_restores_a_copy_and_the_service_answers(self):
+        with tempfile.TemporaryDirectory() as d:
+            db, _ = self.live(d)
+            path = backup.backup(db, os.path.join(d, "backups"), now=NOON)
+            before = os.path.getmtime(db)
+            out = backup.drill(path)
+            self.assertTrue(out["ok"] and out["health"]["ok"])
+            self.assertEqual(out["counts"]["crag_attempts"], 1)
+            self.assertEqual(os.path.getmtime(db), before, "the live database is not touched")
+            self.assertEqual(backup.main(["--drill", path]), 0)
+            self.assertEqual(backup.main(["--verify", path]), 0)
+
+    def test_a_broken_backup_is_never_restored(self):
+        with tempfile.TemporaryDirectory() as d:
+            db, _ = self.live(d)
+            junk = os.path.join(d, "junk.sqlite")
+            with open(junk, "wb") as f:
+                f.write(b"not a database" * 100)
+            empty = os.path.join(d, "empty.sqlite")
+            sqlite3.connect(empty).close()
+            for bad in (junk, empty):
+                with self.assertRaises(ValueError):
+                    backup.restore(bad, db)
+                self.assertEqual(backup.main(["--db", db, "--restore", bad]), 1)
+            self.assertEqual(backup.verify(db)["counts"]["players"], 2, "the live database is unchanged")
+            with self.assertRaises(FileNotFoundError):
+                backup.verify(os.path.join(d, "missing.sqlite"))
+
+
+class RestoreOnBoot(Base):
+    """Hosts with no stopped state (Fly) restore by leaving a backup at
+    /data/restore.sqlite and restarting: server/restore_on_boot.sh."""
+
+    live = Restore.live
+
+    def boot(self, d, db):
+        import subprocess
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        env = dict(os.environ, RECORDS_DB=db, RECORDS_RESTORE_FILE=os.path.join(d, "restore.sqlite"))
+        return subprocess.run(["sh", os.path.join(root, "server", "restore_on_boot.sh")], cwd=root, env=env,
+                              capture_output=True, text=True, timeout=60)
+
+    def test_a_backup_left_for_the_boot_is_restored_once(self):
+        with tempfile.TemporaryDirectory() as d:
+            db, a = self.live(d)
+            path = backup.backup(db, os.path.join(d, "backups"), now=NOON)
+            self.call("DELETE", "/v1/me", token=a["token"])
+            self.s.db.close()
+            os.replace(path, os.path.join(d, "restore.sqlite"))
+            out = self.boot(d, db)
+            self.assertEqual(out.returncode, 0, out.stderr)
+            self.assertIn('"restored"', out.stdout)
+            self.assertTrue(os.path.exists(os.path.join(d, "restore.sqlite.done")), "not restored again on the next boot")
+            self.assertEqual(backup.verify(db)["counts"]["players"], 2)
+            self.assertEqual(self.boot(d, db).returncode, 0, "nothing waiting: the boot goes on")
+
+    def test_a_bad_backup_left_for_the_boot_keeps_the_database(self):
+        with tempfile.TemporaryDirectory() as d:
+            db, _ = self.live(d)
+            self.s.db.close()
+            with open(os.path.join(d, "restore.sqlite"), "wb") as f:
+                f.write(b"garbage" * 50)
+            out = self.boot(d, db)
+            self.assertEqual(out.returncode, 0, "the service still starts")
+            self.assertIn('"restore_failed"', out.stdout)
+            self.assertTrue(os.path.exists(os.path.join(d, "restore.sqlite.failed")))
+            self.assertEqual(backup.verify(db)["counts"]["players"], 2)
+
+
 if __name__ == "__main__":
     unittest.main()

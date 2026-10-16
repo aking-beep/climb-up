@@ -2,11 +2,14 @@
 happened (an event log), never a score to trust: the server recomputes the
 style, the time ranks and the expedition score itself.
 
-These are basic anti-cheat measures, not proof: a modified client that
-fakes a consistent event log for a physically possible climb can still get
-through. Docs: docs/records-backend.md (Integrity).
+These are anti-cheat measures, not proof: a modified client that fakes a
+consistent, steady event log for a physically possible climb can still get
+through, so the service also refuses a log it has seen before and holds
+outlier times for a moderator (service.py). Docs: docs/records-backend.md
+(Integrity).
 """
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -17,6 +20,11 @@ ROUTES = json.loads((Path(__file__).parent / "data" / "routes.json").read_text()
 MAX_ROWS_PER_S = 3.5
 DYNO_ROWS = 8
 CLOCK_SLACK_S = 1.0
+# The game logs the height once a second of climbing (CragLevel
+# _physics_process), so a real log has no long silences and about one
+# sample a second. A log written by hand rarely does.
+MAX_GAP_S = 2.5
+MISSING_SAMPLES = 2
 STYLES = ("onsight", "flash", "redpoint", "falls", "")
 
 
@@ -104,6 +112,17 @@ def check_crag(payload: dict) -> dict:
     if fall_events != falls:
         raise Rejected("falls do not match the log")
 
+    # A steady clock: the end comes at the attempt's time, nothing goes quiet
+    # for long, and the height was sampled about once a second.
+    end_t = float(events[-1][0])
+    if not seconds - CLOCK_SLACK_S <= end_t <= seconds + 1 + CLOCK_SLACK_S:
+        raise Rejected("the log's clock does not match the attempt")
+    times = [float(e[0]) for e in events]
+    if any(b - a > MAX_GAP_S for a, b in zip(times, times[1:])):
+        raise Rejected("the log has a gap")
+    if len(high_samples) < seconds - MISSING_SAMPLES:
+        raise Rejected("the log is missing height samples")
+
     # Bolts in order, each from about its own height.
     for n, c in enumerate(clips):
         if not (isinstance(c, list) and len(c) == 2 and c[0] == n):
@@ -126,7 +145,13 @@ def check_crag(payload: dict) -> dict:
         if seconds < r["rows"] / MAX_ROWS_PER_S:
             raise Rejected("faster than the route allows")
     return {"route": route, "date": date, "sent": sent, "seconds": seconds, "falls": falls, "rows": rows,
-            "beta": bool(payload.get("beta", False))}
+            "beta": bool(payload.get("beta", False)), "fingerprint": fingerprint(events)}
+
+
+def fingerprint(events) -> str:
+    """The same log twice is one climb submitted twice (or copied from
+    someone else): two real climbs never log the same times to 0.01 s."""
+    return hashlib.sha256(json.dumps(events, separators=(",", ":")).encode()).hexdigest()
 
 
 def style(sent: bool, falls: int, earlier_attempts: int, beta: bool) -> str:

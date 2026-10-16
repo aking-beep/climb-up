@@ -1,0 +1,97 @@
+# Off-host backups of the records service on Fly.io, tested every night.
+#
+# Each run takes a consistent copy of the live database on the Fly machine
+# (server/records_service/backup.py, SQLite's online backup), downloads it,
+# runs the restore drill on it here (restores it into a scratch directory,
+# starts the service on it, checks it answers with the same records), then
+# keeps it encrypted as a workflow artifact for 14 days (the privacy
+# policy promises backups go within 14 days of a deletion). A run that cannot
+# take, download or restore the backup fails, so a broken backup shows up as
+# a red run the next morning, not on the day it is needed.
+#
+# Needs the repository secrets FLY_API_TOKEN (as the deploy workflow) and
+# BACKUP_PASSPHRASE (a long random passphrase; keep a copy in the password
+# manager: without it the artifacts cannot be opened). Until the service is
+# deployed (no FLY_API_TOKEN) the run is skipped with a notice.
+#
+# Restoring one: download the artifact, then
+#   openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in records.sqlite.enc -out records.sqlite
+#   python3 -m server.records_service.backup --drill records.sqlite      # check it
+# and follow "Restore" in server/deploy/README.md.
+name: Back up records service
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-records
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      APP: ${{ vars.FLY_APP || 'climbup-records-arc' }}
+    steps:
+      - name: Check the secrets
+        id: gate
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::notice::No FLY_API_TOKEN: the records service is not deployed yet, nothing to back up."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::Add the BACKUP_PASSPHRASE repository secret: backups hold personal data and are never kept unencrypted."
+            exit 1
+          fi
+          echo "run=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: steps.gate.outputs.run == 'true'
+      - name: Take a backup on the machine
+        if: steps.gate.outputs.run == 'true'
+        id: take
+        run: |
+          out=$(flyctl ssh console -a "$APP" -C "sh -c 'cd /app && rm -rf /tmp/offhost && python3 -m server.records_service.backup --db /data/records.sqlite --out /tmp/offhost --keep 1'")
+          echo "$out"
+          path=$(printf '%s\n' "$out" | tr -d '\r' | grep -o '/tmp/offhost/records-[0-9-]*\.sqlite' | tail -1)
+          [ -n "$path" ] || { echo "::error::The backup did not report a file"; exit 1; }
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+      - name: Download it
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          mkdir -p offhost
+          flyctl ssh sftp get -a "$APP" "${{ steps.take.outputs.path }}" offhost/records.sqlite
+          flyctl ssh console -a "$APP" -C "rm -rf /tmp/offhost"
+          ls -l offhost
+      - name: Restore drill
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          python3 -m server.records_service.backup --verify offhost/records.sqlite
+          python3 -m server.records_service.backup --drill offhost/records.sqlite
+      - name: Encrypt
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_PASSPHRASE \
+            -in offhost/records.sqlite -out offhost/records.sqlite.enc
+          # Prove the passphrase opens it before the plain copy goes.
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_PASSPHRASE \
+            -in offhost/records.sqlite.enc | cmp - offhost/records.sqlite
+          rm offhost/records.sqlite
+      - uses: actions/upload-artifact@v4
+        if: steps.gate.outputs.run == 'true'
+        with:
+          name: records-backup-${{ github.run_id }}
+          path: offhost/records.sqlite.enc
+          retention-days: 14
+          if-no-files-found: error

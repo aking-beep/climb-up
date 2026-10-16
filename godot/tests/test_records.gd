@@ -138,8 +138,17 @@ func test_the_queue_survives_offline_retries_and_duplicates() -> void:
 	var last: Dictionary = Records.data["queue"][-1]
 	eq(last["status"], "rejected", "refused by the server")
 	eq(last["reason"], "faster than the route allows", "with the reason")
+	# An outlier the server holds for a moderator: taken (not sent again),
+	# not verified.
+	_go("warm-up", true, 20, 0, 30, "redpoint")
+	Records.online.transport = func(_e: Dictionary) -> Dictionary: return {"ok": true, "verified": false, "held": true, "serverTime": 1791936100, "reason": "waits for a moderator's check"}
+	eq(await Records.sync(), 1, "the server took it")
+	last = Records.data["queue"][-1]
+	eq(last["status"], "held", "held, not accepted")
+	eq(last["reason"], "waits for a moderator's check", "with the reason")
+	eq(Records.pending().size(), 0, "and it is not sent again")
 	Records.load_records()
-	eq(Records.data["queue"].size(), 3, "the queue's state is saved")
+	eq(Records.data["queue"].size(), 4, "the queue's state is saved")
 	_done_all()
 
 

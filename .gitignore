@@ -52,3 +52,8 @@ build/
 *.aab
 keystore.properties
 godot/android/
+
+# Records database backups (personal data): never in git
+records-*.sqlite
+*.sqlite.enc
+offhost/

@@ -128,12 +128,17 @@ func test_sign_up_asks_age_and_consent_first() -> void:
 	await _done_all()
 
 
-func _climb(id: String) -> void:
+## A send of `id`. `pause` frames standing at the foot first: the bot climbs
+## the same way every time, and the server takes a climb's log only once
+## (two people never log the same hundredths), so each account's climb
+## starts a little later.
+func _climb(id: String, pause := 0) -> void:
 	if id == "daily":
 		Crag.current = "daily"
 	else:
 		Crag.climb(id)
 	await _load(id, "neutral")
+	await physics_frames(pause)
 	check(await lead(), "a real send of %s" % id)
 	level._skip_celebration = true
 	await physics_frames(5)
@@ -159,6 +164,9 @@ func test_separate_accounts_on_the_records_server() -> void:
 		return
 	_fresh()
 	var tag := str(randi() % 100000)
+	# Each account (and each run, for a server kept between runs) climbs
+	# from its own start: see _climb.
+	var start := randi() % 40
 	var ann_name := "Ann " + tag
 	var bea_name := "Bea " + tag
 	var cyd_name := "Cyd " + tag
@@ -169,8 +177,8 @@ func test_separate_accounts_on_the_records_server() -> void:
 	Records.online = ann
 	eq(await ann.register(server, 30, ann_name), "", "Ann makes an account")
 	var first_before := await _first(ann, "crag:warm-up")
-	await _climb("warm-up")
-	await _climb("daily")
+	await _climb("warm-up", start)
+	await _climb("daily", start)
 	var s := TestSessions.at("summit-night")
 	s["state"]["summitReached"] = true
 	s["state"]["highestAltitude"] = 5895
@@ -187,22 +195,22 @@ func test_separate_accounts_on_the_records_server() -> void:
 	var bea := _client("")
 	Records.online = bea
 	eq(await bea.register(server, 30, bea_name), "", "Bea makes an account")
-	await _climb("warm-up")
-	await _climb("daily")
+	await _climb("warm-up", start + 41)
+	await _climb("daily", start + 41)
 	await _settle()
 	await Records.sync()
 	await _settle()
-	eq(_accepted(), 2, "the server accepted Bea's two")
+	eq(_accepted(), 2, "the server accepted Bea's two: %s" % [Records.data["queue"].map(func(e: Dictionary) -> String: return e["status"] + " " + String(e.get("reason", "")))])
 	check(await _first(bea, "crag:warm-up") != bea_name, "Bea came later: the first is not hers")
 	Records.delete_all()
 	var cyd := _client("")
 	Records.online = cyd
 	eq(await cyd.register(server, 16, cyd_name), "", "Cyd (16) makes an account")
-	await _climb("warm-up")
+	await _climb("warm-up", start + 83)
 	await _settle()
 	await Records.sync()
 	await _settle()
-	eq(_accepted(), 1, "the server accepted Cyd's")
+	eq(_accepted(), 1, "the server accepted Cyd's: %s" % [Records.data["queue"].map(func(e: Dictionary) -> String: return e["status"] + " " + String(e.get("reason", "")))])
 	# Boards.
 	var global := _names(await ann.board("crag", "warm-up", "global", "board=time"))
 	check(ann_name in global and bea_name in global, "the global board has Ann and Bea: %s" % [global])
