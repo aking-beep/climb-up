@@ -1,78 +1,95 @@
 # Development roadmap
 
-Status as of this branch (`ccr-b5506e55-rahee5`). "Done" means implemented and
-covered by automated tests. Nothing has been run on a physical device yet.
+The current state of CLIMB UP and what comes next, in order. "Done" means
+built and covered by automated tests: the Godot suite headless, the
+records-service tests, and the Android emulator smoke test in CI.
+**Nothing has been played on a physical phone by the team yet.** That is
+the first gate below.
 
-## Repository audit (starting point)
+The Godot game in `godot/` is the product. The Expo app at the repository
+root is the frozen original prototype (see `AGENTS.md`). The earlier
+Expo-era roadmap is in git history (this file before October 2026).
 
-- **Stack:** Expo SDK 57.0.27, React Native 0.86.3, React 19.2.3, Expo Router
-  57, Reanimated 4.5.1, TypeScript 6.0.3 strict, Jest via `jest-expo`.
-  Portrait only. EAS project id present; no `eas.json`.
-- **Baseline:** 5 suites, 30 tests, typecheck and lint all green before any
-  change.
-- **Working:** the deterministic expedition engine (`createExpedition`,
-  `currentEvent`, `applyDecision`, `applyEffect`, `scoreExpedition`); a
-  ten-day Lemosho campaign with 7 night cards and turnaround and descent logic;
-  party members with tappable camp actions; seeded expedition codes; the
-  judgment-first score with ledger notes; the HD-2D diorama travel scene
-  (painted plates, pixel party, tilt-shift blur, time-of-day grading,
-  Reanimated snow).
-- **Present but unreachable:** the Everest expedition (data complete, no
-  screen starts it), and 11 components from earlier visual iterations
-  (`TerrainStage`, `Climber`, `Camp`, `CloudLayer`, `DayNightLayer`,
-  `EnvironmentTransition`, `ExpeditionParty`, `ParallaxMountain`,
-  `RouteMarker`, `RouteProgress`, `TopoMark`, `WeatherLayer`). Left in place;
-  candidates for removal.
-- **Animation quality:** party sprites are single front-facing frames, moved
-  with transforms (bob, lag). No frame animation existed.
-- **Persistence:** none. Closing the app lost the expedition.
-- **Risks found:** the decision handler applied effects immediately, with no
-  seam for a deferred outcome (fixed with `resolveDecision`); `Effect.scores`
-  held one note per bucket (extended to lists); background art has no recorded
-  license.
+## Where it stands (October 2026)
 
-## Phases
+| Area | State |
+| --- | --- |
+| **Crag** | Done. Seven routes, from First Climb (the lesson) to the hardest, led from the ground: clip bolts, squeeze small holds, dynos, falls caught by the last clip. Styles (onsight, flash, redpoint), logbook, stars, achievements, a daily route, instant retry, high-point marks, near-miss. |
+| **Expedition** | Done. Kilimanjaro on three routes (Lemosho, Machame, Umbwe): camp decisions with hours, costs and risk bands, sickness, medicine, sending people down, seven endings. Four played climbs: the Lava Tower, the Barranco Wall, the summit night and the descent. |
+| **Feel** | Done, P1–P3 of the playtest plan: squeeze buzz and chalk, clip click, hit-stop and camera kick on falls, perfect catch, top-out sting, low-stamina pulse and breath, per-verb clicks, a save-failure notice. |
+| **Records** | Done. Local records always. An optional online service (anonymous accounts, recovery codes, friends, global, daily and expedition boards, first verified ascents, reports, moderation). Off in the playtest build: no records address is set. |
+| **Integrity** | Done for beta (`docs/records-backend.md` §3). The server recomputes styles and scores and checks the event log: speed, bolt order, falls, a steady clock and height sampling. It refuses a log it has already taken, and holds outlier records for a moderator (`admin.py review`). |
+| **Operations** | Done. Docker image, Fly.io deploy workflow, the service's own daily backups. A nightly off-host backup with a restore drill (`backup-records.yml`). Restore and drill commands, tested in CI. |
+| **Android** | Done. Debug APK and AAB built and checked in GitHub Actions. Smoke-tested on Android 10 and 14 emulators: install, landscape, home and resume, 1,500 random touches, cold start, storage. Signed with a throwaway key until the upload key is added. |
+| **Web** | Done. A web build for iPhone testers (Safari, sideways). |
+| **iOS (native)** | Not started. There is an export preset and a plan (`docs/release/ios-plan.md`). |
+| **Money** | Not started, on purpose. Decided after retention is known (`docs/monetization-and-donations.md`). |
 
-| Phase | Status | Notes |
-| --- | --- | --- |
-| 1. Audit and architecture | **Done** | Audit above; [hybrid-architecture.md](hybrid-architecture.md), [gameplay-spec.md](gameplay-spec.md), [hd2d-art-direction.md](hd2d-art-direction.md), [asset-manifest.md](asset-manifest.md), [audio.md](audio.md), [testing.md](testing.md) |
-| 2. Hybrid coordinator | **Done** | Pending challenges, deterministic attempt ids, registry by card and choice label, bounded reconciliation, exactly-once resolution, versioned SQLite save with migrations table, interrupted-attempt restore |
-| 3. Graybox climbing | **Done** | 60 Hz deterministic sim, tile collision, scrambling, stamina, wind, checkpoints, teammate, complete, retreat, and fail; Barranco level with a scripted full ascent in tests; touch pad |
-| 4. HD-2D graphics | **Partial** | Expedition screen is now an HD-2D diorama per zone (ray-cast terrain plates, billboard props, party map sprites, fog, bloom, tilt-shift, route map). Climbs: Skia scene with the full 10-layer stack, parallax, depth blur, mist, particles, gust streaks, grading, sprite-sheet animation controller with 11 states. Art is generated by `tools/art/` scripts (tileset, four character sheets, Kibo, groundsel valley, lava cliff, foreground); a first pass, not hand-finished |
-| 5. Hybrid integration | **Done** | Three gated climbs (Lava Tower, Barranco Wall, summit night); camp → climb → camp works and saves; Marco and Jun each need help on a climb; the rest of the party waits at each camp |
-| 6. Mobile quality | **Not started** | Haptics, pause on background, Android back, low-power and reduced-motion settings, and an fps meter exist; no device profiling yet |
-| 7. More playable content | **Partial** | The summit night is playable. Forest, plateau traversal and descent are still card-only |
+## Gate 1: closed beta (P0, needs the team's accounts and hands)
 
-## Next priorities, in order
+These can't be done from code. Each one is ready to run.
 
-1. **Run it on hardware.** Expo Go on one recent iPhone and one mid-range
-   Android. Record fps on the exposed step with and without low power, and
-   check that Skia and SQLite load in Expo Go (else make a development build,
-   see [testing.md](testing.md)). Fix whatever that finds before anything else.
-2. **Feel pass on the wall.** Tune `TUNING` from real thumbs: climb speeds,
-   gust timing, stamina costs. Consider an analogue thumbstick option next to
-   the d-pad.
-3. **Real art for Barranco.** Commission or draw the climber and Marco sheets
-   and the volcanic tileset (see the asset manifest). Swap them in without code
-   changes beyond the sheet table.
-4. **Save mid-climb.** Serialise `ClimbSim` into the pending challenge on pause
-   and background, so an interrupted climb resumes where it stopped.
-5. **Second challenge plumbing.** Look the level up by `challengeId`, not
-   hard-coded Barranco. Then pick the next playable beat (the summit-night
-   start from Barafu is the strongest candidate).
-6. **Performance headroom.** If device numbers are short: record static level
-   geometry into an `SkPicture`, move per-frame values to Reanimated shared
-   values instead of React re-renders, and cap particle counts by device class.
-7. **Housekeeping.** Remove the unreachable components or move them to an
-   archive folder; decide Everest's future; record asset licenses.
+1. **The permanent Play upload key.**
+   1. Run `sh tools/release/make_upload_key.sh "CN=CLIMB UP, O=ARC Labs"`
+      on your own computer, not a cloud session. It sets the three
+      `ANDROID_UPLOAD_*` secrets.
+   2. Back up the `.jks` and its password offline.
+   3. Run the Android workflow. `SIGNED_WITH.txt` must say "upload key".
+   4. Steps: `docs/release/android-signing.md`.
+2. **Physical-phone tests.**
+   - Install the APK on at least one mid-range Android phone. Go through
+     `docs/playtest-checklist.md` and `docs/release/device-test-matrix.md`:
+     touch, frame rate, interruptions (home, lock, call), save and resume,
+     the back button, the notch, battery and heat.
+   - `tools/android/emulator_smoke.sh` runs the CI checks on a phone over
+     USB.
+   - Record the results in the matrix. Anything that breaks is fixed
+     before invites go out.
+3. **The 30–50 person beta** (`docs/playtest-plan.md`).
+   1. Send `docs/playtest-invite.md` with the two install links.
+   2. Collect the pasted usage logs at the end.
+   3. Run `python3 tools/playtest/retention.py logs/ --testers testers.csv`.
+      It prints D1 and D7 retention, tutorial completion, replay, daily
+      participation, and per-route completion and attempts, with counts.
+   4. **Retention is unmeasured until this is done.**
 
-## Godot
+## Gate 2: public launch with competitive boards (P1)
 
-A Godot 4 prototype of the Barranco Wall now lives in `godot/`, alongside
-this app and without touching it: a landscape side-scrolling climb about six
-times the size of the Expo level, with slopes, mantling, a traverse over a
-void, two wind-exposed ledges, Marco, a scripted full ascent in its tests,
-and the outcome mapped onto the same Barranco policy. See
-[godot-migration/architecture.md](godot-migration/architecture.md) and
-[godot-migration/comparison.md](godot-migration/comparison.md). The decision
-waits on an Android build played on a real phone.
+1. **Turn on the records service.**
+   1. Add `FLY_API_TOKEN` and run the deploy workflow.
+   2. Set `RECORDS_ENDPOINT`.
+   3. Add `BACKUP_PASSPHRASE` so the nightly off-host backup runs.
+   4. Check the first nightly run is green (the drill passed), then run one
+      restore by hand from a downloaded artifact. Write the date in
+      `server/deploy/README.md` ("Restore").
+2. **Moderation rota.** Someone runs `admin.py reports` and
+   `admin.py review` every few days.
+3. **Stronger anti-cheat before boards are promoted publicly.** What is
+   built stops edited saves, edited numbers, impossible or replayed climbs,
+   and outlier times. Still to do, in order:
+   1. **Play Integrity.** Attest the app on submission (a Google Cloud
+      project, plus a verdict check in `service.py`). Refuse or hold
+      records from unrecognised builds.
+   2. **Server-side replay for the Crag.** Run the Godot simulation headless
+      against the submitted log, as the expedition already sends its seed
+      and decisions.
+   3. **A server-side expedition replay** from the seed and decision list.
+   4. **Tune the review thresholds** (`REVIEW_FASTER`, `REVIEW_POINTS`)
+      from real beta times.
+4. **Store listing and policy:** `docs/release/README.md` steps 4–6. That
+   covers the Play Console, Data safety, content rating and the closed
+   track.
+
+## Later (P2)
+
+- **A native iOS build** after Android is validated
+  (`docs/release/ios-plan.md`): Apple developer account, a Mac or CI with
+  Xcode, signing, TestFlight, and haptics and safe areas checked on
+  iPhones.
+- **Monetization and community donations**, decided against the
+  retention numbers (`docs/monetization-and-donations.md`).
+- **Content:** more crags and routes, a second mountain. The Expo
+  prototype's Everest data is a starting point.
+- **Art and sound:** replace the generated placeholders (`docs/art-brief.md`).
+- **Housekeeping:** retire the Expo prototype once the engine parity test
+  is no longer needed. The Godot engine has its own fixtures by then.

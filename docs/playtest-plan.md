@@ -71,7 +71,12 @@ Expedition?
 ## Measurements
 
 All from the pasted usage logs (`docs/analytics.md`), except where marked
-survey or observation. A tester's "day" is their local calendar day of
+survey or observation. `tools/playtest/retention.py` computes every
+log-based row below. Save one file per tester in a folder, plus an
+optional `testers.csv` (file, UTC offset, group), then run
+`python3 tools/playtest/retention.py logs/ --testers testers.csv --json report.json`.
+It prints counts beside percentages and doesn't report a group of fewer
+than 8. A tester's "day" is their local calendar day of
 `t`; day 1 is the day of their first `game_launched`.
 
 | Measure | Definition | Target for this build |

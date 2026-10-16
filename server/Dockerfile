@@ -9,7 +9,8 @@ COPY server/__init__.py server/__init__.py
 COPY server/records_service server/records_service
 COPY server/deploy/site/privacy.html /app/privacy.html
 COPY server/entrypoint.sh /entrypoint.sh
-RUN rm -rf server/records_service/tests server/records_service/__pycache__ && chmod 755 /entrypoint.sh
+COPY server/restore_on_boot.sh /app/restore_on_boot.sh
+RUN rm -rf server/records_service/tests server/records_service/__pycache__ && chmod 755 /entrypoint.sh /app/restore_on_boot.sh
 ENV RECORDS_DB=/data/records.sqlite RECORDS_PORT=8080 RECORDS_BIND=0.0.0.0 PYTHONUNBUFFERED=1 \
     RECORDS_PRIVACY_FILE=/app/privacy.html
 EXPOSE 8080

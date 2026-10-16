@@ -91,7 +91,7 @@ All requests except creating an account and reading the boards send
 generator uses. The server's route data comes from the game itself
 (`godot/tests/export_routes.tscn`), so geometry can never drift.
 
-## 3. Integrity (basic anti-cheat)
+## 3. Integrity (anti-cheat)
 
 The server refuses an attempt when any of these holds:
 
@@ -109,6 +109,18 @@ The server refuses an attempt when any of these holds:
   a send doesn't clip every bolt.
 - **Falls.** The fall count differs from the falls in the log, or
   exceeds what the route allows.
+- **An unsteady clock.** The game logs the height once a second of
+  climbing, so a real log:
+  - ends at the attempt's time;
+  - never goes quiet for more than 2.5 s;
+  - has a height sample for about every second (two may be missing).
+  A log written by hand, or a short time pasted onto a long climb's log,
+  fails this.
+- **A replayed log.** A send's event log is accepted once, from anyone
+  (its SHA-256 is stored). The same log under a new submission id, or
+  from another account, is refused as "already submitted". Two real
+  climbs never log the same hundredths of a second. A retry of the same
+  submission id still gets its first answer.
 - **Expedition.**
   - The score differs from the server's recomputation (`validate.score`,
     a port of `ExpeditionEngine.score`), or the leader points differ from
@@ -123,6 +135,24 @@ The server refuses an attempt when any of these holds:
   or the player sends more than 30 submissions a minute (answered with
   429, retry later).
 
+**Held for review (outliers).** Some records are taken but held:
+- a send more than 25% faster than every other player's best on its board
+  (`REVIEW_FASTER`);
+- a completed expedition more than 15 leader points above the board's
+  best (`REVIEW_POINTS`).
+
+Each applies once the board has at least 3 other players. A held record:
+- is answered `{ok: true, verified: false, held: true, reason}`, so the
+  game stops sending it and shows it as "held", never as verified;
+- is on no board and claims no first ascent until a moderator decides.
+
+The moderator commands:
+- `admin.py review` lists held records, with the board's best and the
+  player's other sends;
+- `admin.py approve <ref>` puts one on the boards. It takes the first
+  ascent only if that slot is still empty;
+- `admin.py refuse <ref>` keeps it off for good.
+
 Other protections:
 - **Duplicates.** The same submission id gets the same answer again and
   is counted once.
@@ -135,13 +165,15 @@ Other protections:
 - impossible times;
 - forged styles and scores.
 
-A modified client that fabricates a consistent, physically possible event
-log can still pass, and the beta flag is the client's word. To go
-further:
+A modified client that fabricates a new, steady, physically possible
+event log can still pass, and the beta flag is the client's word. If its
+time is far ahead of the board, a moderator sees it first. Before boards
+are promoted for a competitive public launch (roadmap, Gate 2):
+- sign builds with platform attestation (Play Integrity, App Attest on
+  iOS), and refuse or hold records from builds that fail it;
 - replay the attempt server-side, by running the Godot simulation
   headless against the log;
-- sign builds with platform attestation (Play Integrity / App Attest);
-- have moderators review outliers.
+- tune the review thresholds from the beta's real times.
 
 Expeditions also carry the seed and the decision list, so a full
 server-side replay can be added without changing the client.

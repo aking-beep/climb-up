@@ -7,7 +7,7 @@ Three ways to run it. All use the same image (`server/Dockerfile`), which:
 
 | Option | Cost (approx.) | HTTPS | Backups | You need |
 | --- | --- | --- | --- | --- |
-| **Fly.io** (`fly.toml`) | about $2–5/month (shared-cpu-1x, 256 MB, 1 GB volume) | Fly | Fly's daily volume snapshots, plus the service's own daily backups in `/data/backups` | A Fly account and `flyctl` |
+| **Fly.io** (`fly.toml`) | about $2–5/month (shared-cpu-1x, 256 MB, 1 GB volume) | Fly | Fly's daily volume snapshots, the service's own daily backups in `/data/backups`, and a nightly encrypted off-host copy with a restore drill (`.github/workflows/backup-records.yml`) | A Fly account and `flyctl` |
 | **Render** (`/render.yaml`) | about $7–8/month (Starter plus a 1 GB disk) | Render | Render's daily disk snapshots, plus the service's own backups | A Render account |
 | **Your own VM** (`docker-compose.yml`) | about $5/month | Caddy, Let's Encrypt | A daily backup job | A VM, a domain, an off-host backup copy |
 
@@ -53,7 +53,8 @@ This directory holds a complete setup:
 2. **A domain**, for example `records.example.com`, with an A/AAAA record
    pointing at the host. Caddy needs it to get a certificate.
 3. **An off-host copy of the backups.** For example a nightly `rclone` or
-   `rsync` of the `records-backups` volume to object storage.
+   `rsync` of the `records-backups` volume to object storage, then
+   `backup --drill` on the copy (see Operations below).
 
 #### Start it
 
@@ -61,7 +62,7 @@ This directory holds a complete setup:
 git clone https://github.com/aking-beep/climb-up && cd climb-up/server/deploy
 export RECORDS_DOMAIN=records.example.com
 docker compose up -d --build
-curl https://$RECORDS_DOMAIN/healthz    # {"ok": true, "version": "1.1.0", ...}
+curl https://$RECORDS_DOMAIN/healthz    # {"ok": true, "version": "1.2.0", ...}
 ```
 
 The database lives in the `records-data` volume
@@ -108,11 +109,50 @@ docker compose up -d --build
   hours. It uses SQLite's online backup and checks integrity, and keeps
   the newest 14. A failed backup logs `backup_failed` and is retried in
   5 minutes.
-- **Restore.**
-  1. `docker compose stop records`
-  2. Copy a backup over `/data/records.sqlite` in the `records-data`
-     volume, and remove any `records.sqlite-wal` and `-shm` files there.
-  3. `docker compose start records`
+- **Off-host copies.**
+  - **On Fly:** the **Back up records service** workflow runs every night.
+    1. It takes a fresh backup on the machine and downloads it.
+    2. It runs the restore drill on it (below).
+    3. It keeps it as an encrypted artifact for 14 days, matching the privacy policy.
+    It needs the `BACKUP_PASSPHRASE` secret. A red run means the night's
+    backup could not be taken, downloaded or restored.
+  - **On your own VM:** copy the `records-backups` volume to object
+    storage nightly (for example `rclone`). Run the drill on the copy.
+- **Check a backup without touching anything:**
+  `python3 -m server.records_service.backup --drill <backup>`. It:
+  1. checks the file's integrity and tables;
+  2. restores it into a scratch directory;
+  3. starts the service on it;
+  4. checks `/healthz` and that every table has the backup's row count.
+  CI runs it in the shipped container on every push.
+- **Restore.** The live database is replaced. The old one is kept beside
+  it as `records.sqlite.before-restore-<time>`. A backup that fails its
+  check is never restored. From an encrypted artifact, decrypt it first:
+  `openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in records.sqlite.enc -out records.sqlite`.
+  - **On Fly or Render** (no stopped state): restore on the next boot.
+    1. Upload the backup to `/data/restore.sqlite`. On Fly:
+       `fly ssh sftp shell -a climbup-records-arc`, then
+       `put records.sqlite /data/restore.sqlite`.
+    2. `fly machine restart -a climbup-records-arc`. Before the service
+       starts, `restore_on_boot.sh` restores it and renames the file to
+       `restore.sqlite.done`. A bad backup is renamed `.failed`, and the
+       service starts on the old database.
+    3. Check the log for `{"event":"restored"}` (`fly logs`), then check
+       `/healthz` and one board.
+  - **Docker Compose:** the same restore-on-boot.
+    1. Copy a backup out of the backups volume:
+       `docker compose cp backup:/backups/<file> records.sqlite`.
+       Or use your off-host copy.
+    2. `docker compose cp records.sqlite records:/data/restore.sqlite`.
+    3. `docker compose restart records`, then check the log for
+       `{"event":"restored"}`.
+- **Restore rehearsals.**
+  - The drill runs every night on Fly, and in CI on every push.
+  - Before launch, and then every quarter, do one full restore by hand
+    from a downloaded artifact into a scratch Fly app or a local
+    container, and note the date here.
+  - Last manual rehearsal: *not yet done (no production data before
+    launch).*
 
 ## Moderation
 

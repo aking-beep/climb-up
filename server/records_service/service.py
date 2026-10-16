@@ -54,7 +54,7 @@ from . import validate
 
 MIN_PUBLIC_AGE = 13
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$")
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 ## Words a public name may not contain: the reserved ones, a starter list of
 ## slurs and obvious abuse, and any listed in RECORDS_BLOCKED_WORDS.
 BLOCKED = ("admin", "moderator", "official", "climbup", "support", "staff",
@@ -67,6 +67,13 @@ RATE_LIMIT = 30          # submissions
 RATE_WINDOW = 60         # seconds
 LATE_DAILY_DAYS = 2      # an offline daily go may arrive this many days late
 FUTURE_SLACK = 600       # a device clock this far ahead is refused
+# Outliers wait for a moderator (admin.py review): a send this much faster
+# than the board's best, or an expedition this many points above it, once
+# the board has REVIEW_MIN_PLAYERS other players. A held record is kept but
+# shows on no board and claims no first until it is approved.
+REVIEW_FASTER = 0.75
+REVIEW_POINTS = 15
+REVIEW_MIN_PLAYERS = 3
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS players (
@@ -140,6 +147,15 @@ class Service:
         cols = [r[1] for r in self.db.execute("PRAGMA table_info(expedition_runs)")]
         if "points" not in cols:
             self.db.execute("ALTER TABLE expedition_runs ADD COLUMN points INTEGER")
+        # Integrity: the log's fingerprint (a log is accepted once) and the
+        # review hold (0 counts, 1 waits for a moderator, 2 was refused).
+        ccols = [r[1] for r in self.db.execute("PRAGMA table_info(crag_attempts)")]
+        if "log_hash" not in ccols:
+            self.db.execute("ALTER TABLE crag_attempts ADD COLUMN log_hash TEXT")
+        for table, have in (("crag_attempts", ccols), ("expedition_runs", cols)):
+            if "held" not in have:
+                self.db.execute(f"ALTER TABLE {table} ADD COLUMN held INTEGER NOT NULL DEFAULT 0")
+        self.db.execute("CREATE INDEX IF NOT EXISTS crag_log_hash ON crag_attempts (log_hash)")
         self.clock = clock or (lambda: int(time.time()))
         # The privacy policy, served at /privacy (bytes; None for none).
         self.privacy_page = None
@@ -312,14 +328,20 @@ class Service:
             if not earliest <= a["date"] <= today:
                 raise validate.Rejected("that daily route is closed")
             board = "daily:" + a["date"]
+        # A send's log counts once, from anyone: a second copy is a replay.
+        if a["sent"] and self.db.execute("SELECT 1 FROM crag_attempts WHERE log_hash=? AND sent=1", (a["fingerprint"],)).fetchone():
+            raise validate.Rejected("this climb was already submitted")
         earlier = self.db.execute("SELECT COUNT(*) FROM crag_attempts WHERE player_id=? AND board=?", (p["id"], board)).fetchone()[0]
         st = validate.style(a["sent"], a["falls"], earlier, a["beta"])
-        self.db.execute("INSERT INTO crag_attempts VALUES (?,?,?,?,?,?,?,?,?)",
-                        (p["id"], sid, board, int(a["sent"]), a["seconds"], a["falls"], a["rows"], st, now))
+        held = a["sent"] and self._crag_outlier(board, p["id"], a["seconds"])
+        self.db.execute("INSERT INTO crag_attempts (player_id, sub_id, board, sent, seconds, falls, rows, style, received, log_hash, held) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                        (p["id"], sid, board, int(a["sent"]), a["seconds"], a["falls"], a["rows"], st, now, a["fingerprint"], int(held)))
         first = False
-        if a["sent"]:
+        if a["sent"] and not held:
             first = self._claim_first("crag:" + board, p, now)
         self.db.commit()
+        if held:
+            return self._held({"style": st})
         reply = {"ok": True, "verified": True, "style": st, "firstVerifiedAscent": first}
         if a["sent"]:
             reply["rank"] = self._rank_of(board, "time", p["id"])
@@ -329,11 +351,37 @@ class Service:
 
     def _expedition(self, p, sid, payload, now):
         r = validate.check_expedition(payload)
-        self.db.execute("INSERT INTO expedition_runs VALUES (?,?,?,?,?,?,?,?)",
-                        (p["id"], sid, r["difficulty"], int(r["assisted"]), r["score"], int(r["complete"]), now, r["points"]))
-        first = self._claim_first("expedition:complete", p, now) if r["complete"] else False
+        held = self._expedition_outlier(r, p["id"])
+        self.db.execute("INSERT INTO expedition_runs (player_id, sub_id, difficulty, assisted, score, complete, received, points, held) VALUES (?,?,?,?,?,?,?,?,?)",
+                        (p["id"], sid, r["difficulty"], int(r["assisted"]), r["score"], int(r["complete"]), now, r["points"], int(held)))
+        first = self._claim_first("expedition:complete", p, now) if r["complete"] and not held else False
         self.db.commit()
+        if held:
+            return self._held({"score": r["score"], "points": r["points"], "complete": r["complete"]})
         return {"ok": True, "verified": True, "score": r["score"], "points": r["points"], "complete": r["complete"], "firstVerifiedCompletion": first}
+
+    def _crag_outlier(self, board, pid, seconds):
+        """A send far faster than every other player's best on the board."""
+        rows = self.db.execute("SELECT player_id, MIN(seconds) AS best FROM crag_attempts WHERE board=? AND sent=1 AND held=0 AND player_id!=? GROUP BY player_id", (board, pid)).fetchall()
+        if len(rows) < REVIEW_MIN_PLAYERS:
+            return False
+        return seconds < REVIEW_FASTER * min(r["best"] for r in rows)
+
+    def _expedition_outlier(self, r, pid):
+        """A completed run far above every other player's best points."""
+        if not r["complete"]:
+            return False
+        rows = self.db.execute("SELECT player_id, MAX(COALESCE(points, score)) AS best FROM expedition_runs WHERE difficulty=? AND assisted=? AND complete=1 AND held=0 AND player_id!=? GROUP BY player_id",
+                               (r["difficulty"], int(r["assisted"]), pid)).fetchall()
+        if len(rows) < REVIEW_MIN_PLAYERS:
+            return False
+        return r["points"] > max(x["best"] for x in rows) + REVIEW_POINTS
+
+    @staticmethod
+    def _held(reply):
+        # Accepted (the client stops sending it), not yet verified.
+        return reply | {"ok": True, "verified": False, "held": True,
+                        "reason": "a record this far ahead of the board waits for a moderator's check"}
 
     def _claim_first(self, scope, p, now):
         # First by the server's clock: only an empty slot is taken.
@@ -363,7 +411,7 @@ class Service:
         if ids is None:
             return []
         clean = " AND falls=0" if kind == "clean" else ""
-        rows = self.db.execute(f"SELECT player_id, seconds, received FROM crag_attempts WHERE board=? AND sent=1{clean}", (board,)).fetchall()
+        rows = self.db.execute(f"SELECT player_id, seconds, received FROM crag_attempts WHERE board=? AND sent=1 AND held=0{clean}", (board,)).fetchall()
         best = {}
         for r in rows:
             if r["player_id"] not in ids:
@@ -380,7 +428,7 @@ class Service:
             return []
         # Ranked by leader points (validate.leader_points): completed runs
         # first, then points; ties go to the earlier.
-        rows = self.db.execute("SELECT player_id, score, COALESCE(points, score) AS points, complete, received FROM expedition_runs WHERE difficulty=? AND assisted=?", (difficulty, int(assisted))).fetchall()
+        rows = self.db.execute("SELECT player_id, score, COALESCE(points, score) AS points, complete, received FROM expedition_runs WHERE difficulty=? AND assisted=? AND held=0", (difficulty, int(assisted))).fetchall()
         best = {}
         for r in rows:
             if r["player_id"] not in ids:
