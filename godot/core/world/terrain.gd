@@ -1,6 +1,6 @@
 class_name Terrain
 extends RefCounted
-## A level's ground truth: the ASCII map (see tools/levels/barranco_map.py
+## A level's ground truth: the ASCII map (see tools/levels/route_levels.py
 ## for the legend) as a grid of kinds, plus the markers placed on it.
 ## Physics comes from the TileMapLayer built from this; gameplay questions
 ## ("can I climb here? is this loose? exposed?") are answered here.

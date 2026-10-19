@@ -2,13 +2,14 @@ extends ClimbLevel
 ## The Lava Tower: climb high, sleep low. The warm-up: daylight, room for a
 ## mistake, nobody to carry. Loose red scree, a ledge in the plateau wind,
 ## a chimney to the top, then the walk down toward Barranco. Geometry is
-## lava_tower.txt (tools/levels/kili_maps.py). Game fiction.
+## lava_tower_<route>.txt, one layout per route (tools/levels/route_levels.py).
+## Game fiction.
 
 
 func _init() -> void:
 	spec = {
 		"id": "lava-tower",
-		"map": "res://modes/expedition/levels/kilimanjaro/lava_tower/lava_tower.txt",
+		"maps": "res://modes/expedition/levels/kilimanjaro/lava_tower/lava_tower",
 		"music": "lava",
 		"hud": "Lava Tower",
 		"difficulty": {"recovery": 1.0, "drain": 0.85, "wind": -15.0, "maxSlips": 4, "helpCost": 15.0, "rockPeriod": 6.0},
@@ -18,11 +19,11 @@ func _init() -> void:
 		"meters": 4600,
 		"dangers": ["a scree bridge that gives way if you stop", "stones down the chimney"],
 		"gear": [
-			["a short rope", "Coiled by the path out of camp. Lena can hold your next slip on it.", "rope", [39, 55]],
-			["goggles and a buff", "Dropped at the lip, where the wind takes things. Gusts push you less, and sitting on windy ground gives some breath back.", "shell", [52, 29]],
-			["a helmet", "On the wind ledge, under the chimney. A falling stone costs breath instead of knocking you off.", "helmet", [62, 28]],
-			["a pair of gloves", "Wedged in the chimney's niche, out of the stonefall. Rock costs less with them on.", "gloves", [59, 22]],
-			["trekking poles", "Leaning on the top of the last face. Walking costs less with them.", "poles", [133, 15]],
+			["a short rope", "Coiled by the path out of camp. Lena can hold your next slip on it.", "rope"],
+			["goggles and a buff", "Dropped before the wind ledge, where the wind takes things. Gusts push you less, and sitting on windy ground gives some breath back.", "shell"],
+			["a helmet", "Below the last face, under the stonefall. A falling stone costs breath instead of knocking you off.", "helmet"],
+			["a pair of gloves", "On the first bench of the tower. Rock costs less with them on.", "gloves"],
+			["trekking poles", "Leaning on a rock on top of the tower. Walking costs less with them.", "poles"],
 		],
 		"theme": {
 			"far": "res://assets/scenery/barranco-kibo.png",

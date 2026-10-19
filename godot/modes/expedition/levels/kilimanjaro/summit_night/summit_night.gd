@@ -3,7 +3,8 @@ extends ClimbLevel
 ## switchbacks of scree and rock to the crater rim, then Stella Point at
 ## first light. The cold slows recovery, every move costs more, the rim
 ## wind comes often, two slips end it, and Jun is heavier to help.
-## Geometry is summit_night.txt (tools/levels/kili_maps.py). Game fiction.
+## Geometry is summit_night_<route>.txt, one layout per route
+## (tools/levels/route_levels.py). Game fiction.
 
 
 func _init() -> void:
@@ -11,7 +12,7 @@ func _init() -> void:
 		"id": "summit-night",
 		# The top: the Uhuru sign, flags and a sunrise (SummitTop, SummitDawn).
 		"summit": true,
-		"map": "res://modes/expedition/levels/kilimanjaro/summit_night/summit_night.txt",
+		"maps": "res://modes/expedition/levels/kilimanjaro/summit_night/summit_night",
 		"music": "summit",
 		"hud": "Summit night",
 		"difficulty": {"recovery": 0.8, "drain": 1.1, "wind": 30.0, "maxSlips": 2, "helpCost": 22.0, "rockPeriod": 4.8},
@@ -21,11 +22,11 @@ func _init() -> void:
 		"meters": 5700,
 		"dangers": ["ice on the switchbacks", "a crevasse", "stones on the rock steps", "cracked slabs on the rim"],
 		"gear": [
-			["a short rope", "By the tents at Barafu. Lena can hold your next slip on it.", "rope", [29, 85]],
-			["crampons", "Left by a party coming down. On ice they bite: no sliding, and it costs less.", "crampons", [107, 67]],
-			["a headlamp", "In a niche off the switchbacks. You see your footing: the cold and the dark no longer slow your walk.", "headlamp", [10, 58]],
-			["a helmet", "On the bench below the last rock step. A falling stone costs breath instead of knocking you off.", "helmet", [90, 40]],
-			["goggles and a buff", "Below the crater rim, out of the wind. Gusts push you less, and sitting on windy ground gives some breath back.", "shell", [35, 24]],
+			["a short rope", "By the tents at Barafu. Lena can hold your next slip on it.", "rope"],
+			["crampons", "Left by a party coming down, before the first ice. On ice they bite: no sliding, and it costs less.", "crampons"],
+			["a headlamp", "On the second switchback. You see your footing: the cold and the dark no longer slow your walk.", "headlamp"],
+			["a helmet", "On the bench below the rim step. A falling stone costs breath instead of knocking you off.", "helmet"],
+			["goggles and a buff", "On the crater rim, before the wind. Gusts push you less, and sitting on windy ground gives some breath back.", "shell"],
 		],
 		"theme": {
 			"night": true,

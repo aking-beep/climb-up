@@ -1,14 +1,14 @@
 extends ClimbLevel
 ## The Barranco Wall: Barranco Camp, the approach, the wall, Marco, the
 ## plateau, and the way on to Karanga. The middle climb: thinner air than
-## Shira, a real wall, Marco to help. Geometry is barranco.txt (stamped by
-## tools/levels/barranco_map.py).
+## Shira, a real wall, Marco to help. Geometry is barranco_<route>.txt, one
+## layout per route (tools/levels/route_levels.py).
 
 
 func _init() -> void:
 	spec = {
 		"id": "barranco-wall",
-		"map": "res://modes/expedition/levels/kilimanjaro/barranco/barranco.txt",
+		"maps": "res://modes/expedition/levels/kilimanjaro/barranco/barranco",
 		"music": "barranco",
 		"hud": "Barranco Wall",
 		"difficulty": {"recovery": 0.95, "drain": 0.9, "wind": -5.0, "maxSlips": 3, "helpCost": 15.0, "rockPeriod": 5.0},
@@ -18,11 +18,11 @@ func _init() -> void:
 		"meters": 4200,
 		"dangers": ["stones down the loose gully", "cracked slabs on the exposed ledge"],
 		"gear": [
-			["a short rope", "On ledge 1, below the first face. Lena can hold your next slip on it.", "rope", [70, 73]],
-			["a pair of gloves", "Tucked under the first faces. Rock costs less with them on.", "gloves", [81, 54]],
-			["a helmet", "At the foot of the loose gully. A falling stone costs breath instead of knocking you off.", "helmet", [79, 41]],
-			["goggles and a buff", "Left below the shoulder, where the wind starts. Gusts push you less, and sitting on windy ground gives some breath back.", "shell", [86, 33]],
-			["trekking poles", "Hidden above the last face. The long walk down to camp costs less with them.", "poles", [169, 1]],
+			["a short rope", "At the foot of the wall. Lena can hold your next slip on it.", "rope"],
+			["a pair of gloves", "Below the first face. Rock costs less with them on.", "gloves"],
+			["a helmet", "Below the loose gully. A falling stone costs breath instead of knocking you off.", "helmet"],
+			["goggles and a buff", "Where the wind starts, before Marco's ledge. Gusts push you less, and sitting on windy ground gives some breath back.", "shell"],
+			["trekking poles", "On the plateau above the wall. The long walk to Karanga costs less with them.", "poles"],
 		],
 		"theme": {
 			"far": "res://assets/scenery/barranco-kibo.png",

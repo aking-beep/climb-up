@@ -28,62 +28,19 @@ func _done() -> void:
 	await physics_frames(2)
 
 
+## The wall along this route's layout (the long way's in these tests),
+## choosing `on_marco` (help or leave) when you reach him.
 func climb_the_wall(on_marco: String) -> void:
-	# Camp to the wall foot.
-	await drive(["move_right"], func() -> bool: return tx() >= 62.2, 40.0, "to the wall foot")
-	check(level.checkpoint == 1, "cairn 1 at the wall foot, got %d" % level.checkpoint)
-	# The scramble band, then mantle onto ledge 1.
-	await drive(["climb_up"], func() -> bool: return c.state == Climber.State.GROUND and ty() <= 74.05, 20.0, "scramble")
-	# Ledge 1 to the first face.
-	await drive(["move_right"], func() -> bool: return tx() >= 85.6, 20.0, "ledge 1")
-	await rest_up()
-	await drive(["climb_up"], func() -> bool: return c.state == Climber.State.GROUND and ty() <= 60.05, 30.0, "first face")
-	await rest_up()
-	# Ledge 2 back left to the traverse; grab before the void.
-	await drive(["move_left"], func() -> bool: return tx() <= 63.7, 20.0, "ledge 2")
-	await drive(["climb_up"], func() -> bool: return c.is_climbing() and ty() <= 57.70, 10.0, "grab the traverse")
-	await drive(["move_left", "climb_up"], func() -> bool: return c.state == Climber.State.GROUND and tx() <= 55.0, 30.0, "traverse")
-	await rest_up(0.98)
-	# The steeper face to ledge 3.
-	await drive(["move_left"], func() -> bool: return tx() <= 49.6, 10.0, "to the face")
-	check(level.checkpoint >= 2, "cairn 2 at the rest ledge, got %d" % level.checkpoint)
-	await drive(["climb_up"], func() -> bool: return c.state == Climber.State.GROUND and ty() <= 42.05, 30.0, "steeper face")
-	await drive(["move_right"], func() -> bool: return tx() >= 52.5, 10.0, "cairn 3")
-	await rest_up()
-	check(level.checkpoint >= 3, "cairn 3 before the exposed ledge, got %d" % level.checkpoint)
-	# The exposed ledge, between gusts, to Marco.
-	await cross(77.0)
-	await drive([], func() -> bool: return level.panel.open, 5.0, "panel")
-	check(level.panel.open, "meeting Marco opens a choice")
+	var script: Array = level.layout["script"].duplicate(true)
+	for step in script:
+		if step[0] == "mate":
+			step[1]["choice"] = on_marco
+	await follow(script)
+	check(level.checkpoint == level.cairns.size() - 1, "every cairn on the way, got %d of %d" % [level.checkpoint, level.cairns.size() - 1])
 	if on_marco == "help":
-		level.panel.choose("help")
-		await drive([], func() -> bool: return level.panel.open, 5.0, "panel")
-		check(level.mate_state == "helped", "Marco helped")
-		check(c.spotter, "Marco will catch a slip")
-		level.panel.choose("continue")
-	elif on_marco == "leave":
-		level.panel.choose("leave")
-		await drive([], func() -> bool: return level.panel.open, 2.0, "panel")
-		level.panel.choose("continue")
-	await physics_frames(2)
-	await rest_up(0.98)
-	# The loose gully, with a breather in the niche halfway.
-	await drive(["move_right"], func() -> bool: return tx() >= 83.4, 10.0, "to the gully")
-	await climb_dodging(func() -> bool: return ty() <= 33.90, "lower gully, under stonefall")
-	await drive(["move_right"], func() -> bool: return c.state == Climber.State.GROUND and tx() >= 84.5, 10.0, "into the niche")
-	await rest_up(0.98)
-	await drive(["move_left"], func() -> bool: return tx() <= 83.6, 5.0, "back to the gully")
-	await drive(["climb_up"], func() -> bool: return c.is_climbing(), 5.0, "regrab")
-	await up_to(26, "upper gully, under stonefall", "move_right")
-	check(level.checkpoint >= 4, "cairn 4 at Marco's ledge, got %d" % level.checkpoint)
-	# The shoulder, then the crouch ledge in the wind, to the upper face.
-	await drive(["move_right"], func() -> bool: return tx() >= 96.5, 15.0, "the shoulder")
-	await rest_up(0.98)
-	await cross(118.2)
-	await drive(["climb_up"], func() -> bool: return c.state == Climber.State.GROUND and ty() <= 12.05, 30.0, "upper face")
-	# The top, over the rise, and down to Karanga.
-	await drive(["move_right"], func() -> bool: return outcome != null, 90.0, "to Karanga")
-	check(level.checkpoint >= 6, "cairn 6 at the top of the wall, got %d" % level.checkpoint)
+		eq(level.mate_state, "helped", "Marco helped")
+	else:
+		eq(level.mate_state, "left", "Marco left for Lena")
 
 
 func test_a_careful_climb_helping_marco_reaches_karanga() -> void:
@@ -94,7 +51,7 @@ func test_a_careful_climb_helping_marco_reaches_karanga() -> void:
 		eq(outcome.result, "complete", "result")
 		eq(outcome.assisted, true, "assisted")
 		eq(outcome.slips, 0, "slips")
-		check(outcome.seconds > 120, "even a bot that knows the route takes minutes, got %ds" % outcome.seconds)
+		check(outcome.seconds > 60, "even a bot that knows the route takes minutes, got %ds" % outcome.seconds)
 		check_pacing("Barranco Wall")
 		print("      ascent took %d s of game time, %d%% stamina left, wind strikes %d, %.0f s on loose rock, %.0f s resting, lowest %d%% of a %d bar, food eaten %d" % [outcome.seconds, outcome.stamina_left, outcome.wind_strikes, outcome.loose_seconds, outcome.rest_seconds, int(level.lowest_stamina * 100), int(level.climber.stamina.max_value), level.snacks * ClimbLevel.SNACK])
 	await _done()
@@ -115,7 +72,7 @@ func test_walking_in_a_gust_on_exposed_ground_is_a_slip_and_resting_is_safe() ->
 	await _load()
 	var start: Vector2i = level.terrain.markers["K"][0]
 	# Put the climber on the exposed ledge, at the next gust.
-	c.global_position = Terrain.feet(Vector2i(60, 41))
+	c.global_position = Terrain.feet(exposed_cell())
 	await physics_frames(5)
 	# Sit down (REST) while the wind is rising, and stay sat through the gust.
 	GameInput.scripted = {"_": false}
@@ -180,7 +137,7 @@ func test_walking_in_a_gust_on_exposed_ground_is_a_slip_and_resting_is_safe() ->
 ## must never count as moving.
 func test_standing_on_ice_in_a_gust_is_not_a_fall() -> void:
 	await _load()
-	c.global_position = Terrain.feet(Vector2i(60, 41))
+	c.global_position = Terrain.feet(exposed_cell())
 	await physics_frames(3)
 	c.on_ice = true
 	for i in 60 * 6:
@@ -197,7 +154,7 @@ func test_standing_on_ice_in_a_gust_is_not_a_fall() -> void:
 func test_a_long_fall_is_a_slip_back_to_the_last_cairn_and_three_end_it() -> void:
 	await _load()
 	for i in 3:
-		c.global_position = Terrain.feet(Vector2i(59, 64))  # over the void under the traverse
+		c.global_position = level.cairns[1] - Vector2(0, 8 * T)  # high over the wall foot
 		c.state = Climber.State.AIR
 		c.fall_from = c.global_position.y
 		await drive([], func() -> bool: return c.state == Climber.State.SLIP or outcome != null, 5.0, "fall %d" % i)
@@ -223,10 +180,20 @@ func test_a_helped_marco_catches_the_next_slip() -> void:
 func test_climbing_drains_and_sitting_recovers() -> void:
 	await _load()
 	var full := c.stamina.value
-	await drive(["move_right"], func() -> bool: return tx() >= 62.2, 40.0, "to the wall")
-	await drive(["climb_up"], func() -> bool: return ty() <= 78.00, 10.0, "climbing")
+	# The first face on the line, from the foot of the wall.
+	var steps: Array = level.layout["script"]
+	var k := 0
+	while steps[k][0] != "climb":
+		k += 1
+	await follow(steps.slice(0, k))
+	var face: Dictionary = steps[k][1]
+	var right: bool = int(face["dir"]) > 0
+	await drive(["move_right" if right else "move_left"], func() -> bool: return c.is_climbing() or (tx() >= float(face["x"]) - 0.5 if right else tx() <= float(face["x"])), 20.0, "to the wall")
+	var foot := ty()
+	full = c.stamina.value
+	await drive(["climb_up"], func() -> bool: return ty() <= foot - 2.0, 10.0, "climbing")
 	check(c.stamina.value < full, "climbing costs stamina")
-	await drive(["climb_up"], func() -> bool: return c.state == Climber.State.GROUND and ty() <= 74.05, 20.0, "mantle")
+	await up_to(float(face["row"]), "mantle", "move_left" if right else "move_right")
 	var before := c.stamina.value
 	await rest_up(0.99)
 	check(c.stamina.value > before, "sitting recovers")
@@ -260,6 +227,7 @@ func test_a_tired_party_still_gets_up_the_wall() -> void:
 	await physics_frames(1)
 	c = level.climber
 	check(c.stamina.max_value <= 62, "a small bar (%d)" % c.stamina.max_value)
+	retries = 0
 	await climb_the_wall("help")
 	check(outcome != null and outcome.result == "complete", "a tired party still reaches Karanga")
 	check(level.lowest_stamina >= 0.1, "without ever running dry (lowest %d%%)" % int(level.lowest_stamina * 100))

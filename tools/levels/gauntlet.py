@@ -1,8 +1,7 @@
 """
 Lines every walkable stretch of a level with challenges, so that walking is
 never just walking: about one every `every` cells (a second or two at a
-walk). Shared by the level stampers; runs before the everlastings are
-sprinkled.
+walk). Used by tools/levels/route_levels.py on every route's layout.
 
 Each slot takes the next challenge in turn that fits there:
   hop    a boulder on the path ('#'), needs headroom for a hop; on ice, a
@@ -203,40 +202,3 @@ def wildlife(g, every=6, kinds=("plant", "ants")):
             run = 0
             x += 3
     return placed
-
-
-# Where the wildlife ends up, by hand, after the passes above: those place
-# where the rules fit first, which bunched the animals on the long top
-# benches. These spread them one per stretch of the walk, start to finish.
-# (x, y, marker); `drop` are the cells the passes chose that are moved.
-SPREAD = {
-    "lava_tower": {"drop": [(82, 13), (95, 13), (102, 13)],
-                   "add": [(21, 55, "a"), (87, 13, "n"), (107, 13, "n")]},
-    "summit_night": {"drop": [(25, 46), (59, 37)],
-                     "add": [(55, 73, "v"), (45, 55, "v")]},
-    # The Barranco Wall is the middle climb: fewer than the summit's
-    # gauntlet, one per stretch (the top bench's ants make way for the
-    # raven by the plateau).
-    # (196, 15) is the rolling stone by the exit: with the boulder and the
-    # cracked slab beside it, three hazards in eight tiles was the hardest
-    # moment of the medium climb. The stone goes; the boulder and slab stay.
-    "barranco": {"drop": [(87, 25), (128, 11), (196, 15)],
-                 "add": [(18, 91, "n"), (74, 73, "a"), (47, 25, "a"), (172, 5, "v")]},
-}
-
-
-def spread(g, name):
-    """Moves the wildlife as SPREAD says. Each new cell must be open, and a
-    plant or ants must stand on rock."""
-    s = SPREAD.get(name)
-    if not s:
-        return 0
-    for x, y in s["drop"]:
-        assert g[y][x] in "navb", (name, x, y, g[y][x])
-        g[y][x] = "."
-    for x, y, k in s["add"]:
-        assert g[y][x] == ".", (name, x, y, g[y][x])
-        if k in "na":
-            assert g[y + 1][x] == "#", (name, x, y)
-        g[y][x] = k
-    return len(s["add"])

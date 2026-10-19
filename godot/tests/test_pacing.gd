@@ -48,7 +48,9 @@ func test_a_regroup_does_not_bring_down_an_hour_of_stones() -> void:
 
 
 func test_no_stone_starts_on_the_climber() -> void:
-	var level: Node = await _level("lava-tower")
+	# The faster way's tower has rolling stones on its top (the long way's
+	# has none).
+	var level: Node = await _level("lava-tower", func() -> void: Trek.ensure(Expedition.session)["route"] = "machame")
 	level.panel.choose("start")
 	await physics_frames(2)
 	var h: Hazards = level.hazards

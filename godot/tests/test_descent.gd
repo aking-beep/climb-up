@@ -114,29 +114,11 @@ func test_the_way_down_played() -> void:
 	await physics_frames(1)
 	c = level.climber
 	check(level.mate != null and level.mate.person == "jun", "Jun is on the rim")
-	# Along the rim to Jun: help him.
-	await drive(["move_right"], func() -> bool: return level.panel.open, 20.0, "to Jun")
-	check(level.panel.open and level.panel.has_choice("help"), "meeting Jun asks what to do")
-	if not level.panel.has_choice("help") or c.stamina.value < c.helper_cost + 5:
-		level.panel.choose("back")
-		await rest_up(0.95)
-		await drive(["move_right"], func() -> bool: return level.panel.open, 10.0, "back to Jun")
-	level.panel.choose("help")
-	await drive([], func() -> bool: return level.panel.open, 5.0, "panel")
+	# This route's line down (the long way's): Jun on the rim (helped), the
+	# wind, the scree, the rock step climbed down, the ice, Barafu.
+	await follow(level.layout["script"])
 	eq(level.mate_state, "helped", "Jun on the rope")
-	level.panel.choose("continue")
-	await physics_frames(2)
-	# The rim in the wind, the scree, the icy bench to the rock step.
-	await cross(41.0)
-	await drive(["move_right"], func() -> bool: return tx() >= 86.3 or level.panel.open, 60.0, "down the scree to the rock step")
-	check(tx() >= 86.0, "at the top of the rock step (%.1f, %.1f)" % [tx(), ty()])
-	# Climb down the step.
-	await drive(["climb_down", "move_right"], func() -> bool: return c.is_climbing(), 3.0, "onto the step")
-	check(c.is_climbing(), "on the rock, climbing down")
-	await drive(["climb_down"], func() -> bool: return c.state == Climber.State.GROUND, 20.0, "down the step")
-	check(ty() >= 45.5, "at the foot of the step (%.1f)" % ty())
-	# The last scree to Barafu.
-	await drive(["move_right"], func() -> bool: return outcome != null, 90.0, "to Barafu")
+	eq(level.checkpoint, level.cairns.size() - 1, "every cairn on the way down, in order")
 	check(outcome != null, "the descent ended")
 	if outcome:
 		eq(outcome.result, "complete", "down")

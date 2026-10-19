@@ -8,7 +8,8 @@ extends ClimbLevel
 ## and his breath runs out if you push) or leave him with Lena. How it goes
 ## lands on the expedition (Expedition.finish_descent): health, the team,
 ## and the score for bringing everyone down together.
-## Geometry is descent.txt (tools/levels/kili_maps.py). Game fiction, not
+## Geometry is descent_<route>.txt, one layout per route
+## (tools/levels/route_levels.py). Game fiction, not
 ## mountaineering advice.
 
 const ID := "descent"
@@ -17,7 +18,7 @@ const ID := "descent"
 func _init() -> void:
 	spec = {
 		"id": ID,
-		"map": "res://modes/expedition/levels/kilimanjaro/descent/descent.txt",
+		"maps": "res://modes/expedition/levels/kilimanjaro/descent/descent",
 		"music": "descent",
 		"hud": "The descent",
 		"difficulty": {"recovery": 0.75, "drain": 1.1, "wind": 34.0, "maxSlips": 3, "helpCost": 18.0, "rockPeriod": 6.0},
@@ -27,9 +28,9 @@ func _init() -> void:
 		"meters": 5300,
 		"dangers": ["the wind on the rim", "loose scree", "ice above the rock step"],
 		"gear": [
-			["goggles and a buff", "Left on the rim by someone who no longer needed them. Gusts push you less, and sitting on windy ground gives some breath back.", "shell", [19, 13]],
-			["trekking poles", "Stuck in the scree by the second cairn. The long slopes down cost less with them.", "poles", [63, 25]],
-			["crampons", "On the scree above the ice. On ice they bite: no sliding, and it costs less.", "crampons", [73, 35]],
+			["goggles and a buff", "Left on the rim by someone who no longer needed them. Gusts push you less, and sitting on windy ground gives some breath back.", "shell"],
+			["trekking poles", "Stuck in the scree at the top of the first slope. The long slopes down cost less with them.", "poles"],
+			["crampons", "On the bench above the ice. On ice they bite: no sliding, and it costs less.", "crampons"],
 		],
 		"theme": {
 			"night": false,

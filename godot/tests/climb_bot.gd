@@ -10,7 +10,7 @@ const T := 16.0
 ## cairn, a sign count), and between two real challenges (they do not).
 const QUIET_MAX := 5.0
 const CHALLENGE_MAX := 8.0
-const NOT_CHALLENGES := ["artifact", "cairn", "sign", "talk", "water"]
+const NOT_CHALLENGES := ["artifact", "cairn", "sign", "talk", "water", "mate"]
 
 var level: Node
 var c: Climber
@@ -201,9 +201,14 @@ func _safe_x(horizon: float) -> float:
 func climb_dodging(done: Callable, label: String, seconds: float = 60.0, lean: String = "") -> bool:
 	var hz: Hazards = level.hazards
 	var slips := c.slips
+	var caught := c.caught
 	var target := NAN
 	for i in int(seconds * 60.0):
 		if done.call():
+			break
+		# Knocked off (a slip, or one the rope held): back at a cairn, the
+		# face is not under the hands any more.
+		if (c.slips > slips or c.caught > caught) and c.state != Climber.State.SLIP:
 			break
 		var held := {"_": false}
 		var x := c.global_position.x
@@ -235,6 +240,8 @@ func climb_dodging(done: Callable, label: String, seconds: float = 60.0, lean: S
 	GameInput.scripted = {"_": false}
 	if c.slips > slips:
 		failures.append("slipped on %s (%d) at %s" % [label, c.slips - slips, where()])
+	elif c.caught > caught and not done.call():
+		failures.append("knocked off %s (the rope held) at %s" % [label, where()])
 	var ok: bool = done.call()
 	if not ok:
 		failures.append("gave up %s at %s" % [label, where()])
@@ -267,6 +274,9 @@ func check_pacing(label: String) -> void:
 	var quiet := longest_quiet()
 	var hard := longest_quiet(true)
 	print("      %s: %d engaged moments; longest quiet %.1f s (to %s), longest without a challenge %.1f s (to %s)" % [label, level.pace_log.size(), quiet[0], quiet[1], hard[0], hard[1]])
+	if OS.get_environment("PACE_DEBUG") == "2":
+		for e in level.pace_log:
+			print("        ev %.1f %s travel=%.1f at %s" % [e[0], e[1], e[2], e[3]])
 	if OS.get_environment("PACE_DEBUG") != "":
 		var last := [0.0, Vector2.ZERO]
 		for e in level.pace_log:
@@ -301,3 +311,215 @@ func wait_for_stone_window(x: float) -> void:
 			return
 		GameInput.scripted = {"_": false}
 		await tree.physics_frame
+
+
+## A teammate's panel locks the climber; if helping costs more than is left,
+## step back, rest, and walk back to them (`dir`: the way to them).
+func rest_up_locked(dir: String = "move_left") -> void:
+	if c.stamina.value >= c.helper_cost + 5:
+		return
+	level.panel.choose("back")
+	await rest_up(0.9)
+	# Away more than three tiles and back: meeting them again asks again.
+	var away := "move_left" if dir == "move_right" else "move_right"
+	var from := tx()
+	await drive([away], func() -> bool: return absf(tx() - from) > 3.6, 6.0, "a few steps back")
+	await drive([dir], func() -> bool: return level.panel.open, 10.0, "back to " + String(level.mate_name()))
+
+
+## Climbs a level along its layout's line (tools/levels/route_levels.py
+## writes it beside the map): walk, rest, climb a face (out of the stones'
+## line, into a niche halfway), cross a band of rock, meet the teammate,
+## climb down a step, and on to the exit. False when something gave up.
+func follow(script: Array) -> bool:
+	var before := failures.size()
+	var i := 0
+	var tries := 0
+	var section := 0
+	while i < script.size():
+		var step: Array = script[i]
+		if outcome != null and step[0] != "finish":
+			break
+		if step[0] == "walk" and i != section:
+			section = i
+			tries = 0
+		var had := failures.size()
+		await _act(step)
+		i += 1
+		# Knocked back to a cairn (a stone, a gust, a slip the rope held):
+		# go back to the start of this stretch and try it again, as a
+		# player would. Twice at most.
+		if failures.size() > had and step[0] in ["climb", "traverse", "down", "walk"] and tries < 2 and not level.get("_ended"):
+			tries += 1
+			retries += 1
+			failures.resize(had)
+			i = section
+	return failures.size() == before
+
+
+## Times follow() went back to the start of a stretch.
+var retries := 0
+
+
+func _act(step: Array) -> void:
+	match String(step[0]):
+		"walk":
+			await cross(float(step[1]))
+		"rest":
+			await rest_up(float(step[1]))
+		"climb":
+			var s: Dictionary = step[1]
+			var right: bool = int(s["dir"]) > 0
+			var dir := "move_right" if right else "move_left"
+			var x := float(s["x"])
+			if s.get("chute", false):
+				await wait_for_stone_window(x * T)
+			await drive([dir], func() -> bool: return c.is_climbing() or (tx() >= x - 0.5 if right else tx() <= x), 20.0, "to the face at %.1f" % x)
+			var lean := "" if int(s.get("lean", 0)) == 0 else ("move_right" if int(s["lean"]) > 0 else "move_left")
+			var n: Variant = s.get("niche")
+			if n is Dictionary:
+				var nrow := float(n["row"])
+				await climb_dodging(func() -> bool: return ty() <= nrow - 0.1, "up to the niche")
+				await drive(["move_right"], func() -> bool: return c.state == Climber.State.GROUND and tx() >= float(n["x"]), 10.0, "into the niche")
+				await rest_up(0.98)
+				await drive(["move_left"], func() -> bool: return tx() <= float(n["back"]), 5.0, "back to the face")
+				await drive(["climb_up"], func() -> bool: return c.is_climbing(), 5.0, "regrab")
+			await up_to(float(s["row"]), "the face at %.1f to row %d" % [x, int(s["row"])], lean)
+		"traverse":
+			var s: Dictionary = step[1]
+			var dir := "move_right" if int(s["dir"]) > 0 else "move_left"
+			var to := float(s["to"])
+			await drive(["climb_up"], func() -> bool: return c.is_climbing() and ty() <= float(s["row"]) + 1.7, 10.0, "grab the band")
+			await drive([dir, "climb_up"], func() -> bool: return c.state == Climber.State.GROUND and (tx() >= to if int(s["dir"]) > 0 else tx() <= to), 40.0, "along the band")
+		"mate":
+			var s: Dictionary = step[1]
+			var dir := "move_right" if int(s["dir"]) > 0 else "move_left"
+			await drive([dir], func() -> bool: return level.panel.open, 60.0, "to " + String(level.mate_name()))
+			if not level.panel.open:
+				return
+			await rest_up_locked(dir)
+			level.panel.choose(String(s.get("choice", "help")))
+			await drive([], func() -> bool: return level.panel.open, 5.0, "panel")
+			level.panel.choose("continue")
+			await physics_frames(2)
+		"down":
+			var s: Dictionary = step[1]
+			var dir := "move_right" if int(s["dir"]) > 0 else "move_left"
+			await drive(["climb_down", dir], func() -> bool: return c.is_climbing(), 3.0, "onto the step")
+			await drive(["climb_down"], func() -> bool: return c.state == Climber.State.GROUND, 25.0, "down the step")
+		"finish":
+			var dir := "move_right" if int(step[1]) > 0 else "move_left"
+			await drive([dir], func() -> bool: return outcome != null, 120.0, "to the exit")
+
+
+# --- Finding things on the loaded layout ------------------------------------
+# The climbs are laid out per route (tools/levels/route_levels.py), so tests
+# find what they need on the map rather than naming cells.
+
+## Somewhere to stand: open, not rock to climb, ground under it.
+func standable(cell: Vector2i) -> bool:
+	var t: Terrain = level.terrain
+	return not t.is_solid(cell) and not t.is_climbable(cell) and not t.is_solid(cell + Vector2i.UP) and t.is_solid(cell + Vector2i.DOWN)
+
+
+## The first cell (bottom to top, left to right) where `test` holds.
+func find_cell(test: Callable) -> Vector2i:
+	var t: Terrain = level.terrain
+	for y in range(t.height - 2, 0, -1):
+		for x in range(1, t.width - 1):
+			if test.call(Vector2i(x, y)):
+				return Vector2i(x, y)
+	return Vector2i(-1, -1)
+
+
+## A stretch of `n` cells to walk on, nothing in the way, over floor of
+## `floor_kind` (Terrain.Kind) : its first standing cell.
+func clear_walk(floor_kind: int, n: int) -> Vector2i:
+	var t: Terrain = level.terrain
+	return find_cell(func(cell: Vector2i) -> bool:
+		for k in n:
+			var at := cell + Vector2i(k, 0)
+			if not standable(at) or t.kind(at + Vector2i.DOWN) != floor_kind or t.kind(at) != Terrain.Kind.AIR:
+				return false
+			for ch in ["n", "a", "b", "d", "w", "*"]:
+				if t.markers.get(ch, []).has(at):
+					return false
+		return true)
+
+
+## A two-wide gap in the ground with ground on both sides: the cell to stand
+## on before it.
+func gap_before() -> Vector2i:
+	var t: Terrain = level.terrain
+	return find_cell(func(cell: Vector2i) -> bool:
+		return standable(cell) and standable(cell + Vector2i(-1, 0)) and standable(cell + Vector2i(-2, 0)) \
+			and not t.is_solid(cell + Vector2i(1, 1)) and not t.is_solid(cell + Vector2i(2, 1)) and t.kind(cell + Vector2i(1, 1)) != Terrain.Kind.CRUMBLE \
+			and _closed_below(cell + Vector2i(1, 1)) and standable(cell + Vector2i(3, 0)) and standable(cell + Vector2i(4, 0)))
+
+
+## Rock somewhere under `cell` within eight rows: a pit, not a hole.
+func _closed_below(cell: Vector2i) -> bool:
+	for k in 8:
+		if level.terrain.is_solid(cell + Vector2i(0, k)):
+			return true
+	return false
+
+
+## A hole: open from the ground to the bottom of the map. Its first column.
+func hole() -> Vector2i:
+	var t: Terrain = level.terrain
+	return find_cell(func(cell: Vector2i) -> bool:
+		if not standable(cell + Vector2i(-1, 0)) or t.is_solid(cell + Vector2i.DOWN):
+			return false
+		for y in range(cell.y, t.height):
+			if t.is_solid(Vector2i(cell.x, y)):
+				return false
+		return true)
+
+
+## The cracked slabs of a bridge: the first slab cell (the slab is the floor).
+func slab() -> Vector2i:
+	return find_cell(func(cell: Vector2i) -> bool:
+		return level.terrain.kind(cell) == Terrain.Kind.CRUMBLE and level.terrain.kind(cell + Vector2i(1, 0)) == Terrain.Kind.CRUMBLE \
+			and standable(cell + Vector2i(-2, -1)))
+
+
+## The foot of a face under stonefall: where you stand under the chute.
+func chute_foot() -> Vector2i:
+	var t: Terrain = level.terrain
+	for r in t.markers.get("r", []):
+		for y in range(r.y + 1, t.height - 1):
+			var cell := Vector2i(r.x, y)
+			if t.is_solid(cell + Vector2i.DOWN) and t.is_climbable(cell):
+				return cell
+			if t.is_solid(cell):
+				break
+	return Vector2i(-1, -1)
+
+
+## The last face of the climb (from the layout's line): its foot, x as a
+## tile column, and the floor row it tops out on.
+func last_face() -> Dictionary:
+	var faces: Array = level.layout.get("script", []).filter(func(s: Array) -> bool: return s[0] == "climb")
+	var f: Dictionary = faces[-1][1]
+	var col := int(floor(float(f["x"])))
+	var t: Terrain = level.terrain
+	var y := int(f["row"])
+	while y < t.height - 1 and not t.is_solid(Vector2i(col, y + 1)):
+		y += 1
+	return {"col": col, "foot": Vector2i(col, y), "top": int(f["row"]), "left": col - 1}
+
+
+## Somewhere on an exposed ledge to stand, wind on both sides.
+func exposed_cell() -> Vector2i:
+	return find_cell(func(cell: Vector2i) -> bool: return level.terrain.kind(cell) == Terrain.Kind.EXPOSED and standable(cell) \
+		and level.terrain.kind(cell + Vector2i(1, 0)) == Terrain.Kind.EXPOSED and level.terrain.kind(cell + Vector2i(-1, 0)) == Terrain.Kind.EXPOSED)
+
+
+## Where this route's layout put each kind of gear: {kind: cell}.
+func gear_cells() -> Dictionary:
+	var out := {}
+	for g in level.gear_words():
+		if g.size() > 3:
+			out[String(g[2])] = Vector2i(int(g[3][0]), int(g[3][1]))
+	return out

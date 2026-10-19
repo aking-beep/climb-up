@@ -12,7 +12,9 @@ signal finished(outcome: ChallengeOutcome)
 const REGROUP_SECONDS := 30 * 60
 
 ## Set by each level's script. Keys:
-##   id, map, hud, difficulty {recovery, drain, wind, maxSlips, helpCost},
+##   id, maps (the base path of the route layouts: <maps>_<route>.txt and
+##   .json, from tools/levels/route_levels.py), hud,
+##   difficulty {recovery, drain, wind, maxSlips, helpCost},
 ##   theme {night, far, mid, cliff, deep, foreground, tint, snow},
 ##   mate {person, name, passDir} or {}, people {char: [person, title, lines]},
 ##   signs [[title, body]], copy {kicker, title, brief, backOff, mateTitle,
@@ -20,6 +22,46 @@ const REGROUP_SECONDS := 30 * 60
 ##   doneRetreat, doneFail, cairnVista}
 var spec: Dictionary = {}
 var max_slips := 3
+## The route this climb is laid out for (the long, faster or fastest way),
+## and its layout: the order of the cairns and signs, where the gear and the
+## artifacts lie, the teammate, and the line a climber takes.
+var route := ""
+var layout: Dictionary = {}
+## What each route's layout is like, for the brief.
+const ROUTE_LINES := {
+	"lemosho": "The long way's line: short benches, low faces, little wind.",
+	"machame": "The faster way's line: longer benches, taller faces, more stonefall and wind.",
+	"umbwe": "The fastest way's line: the longest benches and tallest faces, loose rock, stonefall, wind, ice and cracked slabs.",
+}
+
+
+## The route a session climbs (the long way when none is chosen yet, as in
+## the level tests).
+static func route_of(session: Dictionary) -> String:
+	var r := String(Trek.ensure(session).get("route", ""))
+	return r if Trek.ROUTES.has(r) else "lemosho"
+
+
+func map_path(for_route: String = "") -> String:
+	return "%s_%s.txt" % [spec["maps"], for_route if for_route != "" else route_of(Expedition.session)]
+
+
+func layout_for(for_route: String = "") -> Dictionary:
+	var path := map_path(for_route).trim_suffix(".txt") + ".json"
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	return parsed if typeof(parsed) == TYPE_DICTIONARY else {}
+
+
+## The spec's gear words with each one's cell on this route's map.
+func gear_words() -> Array:
+	var out: Array = []
+	var cells: Array = layout.get("gear", [])
+	for i in spec.get("gear", []).size():
+		var w: Array = (spec["gear"][i] as Array).slice(0, 3)
+		if i < cells.size():
+			w.append(cells[i])
+		out.append(w)
+	return out
 
 var terrain: Terrain
 var climber: Climber
@@ -149,6 +191,11 @@ func _ready() -> void:
 	var d: Dictionary = spec["difficulty"]
 	# The route sets how forgiving the climbs are (Trek.max_slips).
 	max_slips = Trek.max_slips(Expedition.session, int(d["maxSlips"]))
+	route = route_of(Expedition.session)
+	layout = layout_for(route)
+	spec["map"] = map_path(route)
+	if layout.get("mate") is Dictionary and spec.get("mate", {}).size() > 0:
+		spec["mate"]["passDir"] = int(layout["mate"]["passDir"])
 	terrain = Terrain.load_file(spec["map"])
 	var s: Dictionary = Expedition.state()
 	var seed := int(s["seed"])
@@ -192,8 +239,12 @@ func _ready() -> void:
 	# Cairns are reached bottom to top; the start is cairn 0.
 	var start: Vector2i = terrain.markers["P"][0]
 	cairns.append(Terrain.feet(start))
-	var ks: Array = terrain.markers.get("K", []).duplicate()
-	ks.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y > b.y or (a.y == b.y and a.x < b.x))
+	# In the order the line reaches them (the layout says; on the way down
+	# that is top to bottom).
+	var ks: Array = layout.get("cairns", []).map(func(k: Array) -> Vector2i: return Vector2i(int(k[0]), int(k[1])))
+	if ks.is_empty():
+		ks = terrain.markers.get("K", []).duplicate()
+		ks.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y > b.y or (a.y == b.y and a.x < b.x))
 	for k in ks:
 		cairns.append(Terrain.feet(k))
 
@@ -230,9 +281,9 @@ func _ready() -> void:
 	hazards.name = "Hazards"
 	add_child(hazards)
 	var mine: bool = Expedition.climb.get("challengeId") == spec["id"]
-	hazards.setup(self, terrain, ground, climber, float(d.get("rockPeriod", 5.0)) / trek_factor["steep"], spec.get("gear", []),
+	hazards.setup(self, terrain, ground, climber, float(d.get("rockPeriod", 5.0)) / trek_factor["steep"], gear_words(),
 		Expedition.climb.get("taken", []) if mine else [], Expedition.climb.get("gear", []) if mine else [])
-	hazards.place_artifacts(Artifacts.for_climb(spec["id"], String(Expedition.trek().get("route", ""))),
+	hazards.place_artifacts(Artifacts.placed(spec["id"], route, layout.get("artifacts", [])),
 		Artifacts.kept_on(Expedition.session, spec["id"]), Expedition.climb.get("taken", []) if mine else [])
 	hazards.engaged.connect(engage)
 	hazards.found_gear.connect(_on_gear)
@@ -310,9 +361,11 @@ func _place_props() -> void:
 	props.name = "Props"
 	props.z_index = -1
 	add_child(props)
-	# Signs are read in the order you climb past them: bottom to top.
-	var sign_cells: Array = terrain.markers.get("S", []).duplicate()
-	sign_cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y > b.y or (a.y == b.y and a.x < b.x))
+	# Signs are read in the order you climb past them (the layout says).
+	var sign_cells: Array = layout.get("signs", []).map(func(k: Array) -> Vector2i: return Vector2i(int(k[0]), int(k[1])))
+	if sign_cells.is_empty():
+		sign_cells = terrain.markers.get("S", []).duplicate()
+		sign_cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y > b.y or (a.y == b.y and a.x < b.x))
 	for cell in sign_cells:
 		signs.append({"pos": Terrain.feet(cell), "index": signs.size()})
 	for ch in ["T", "F", "S", "g", "o", "K", "R", "X"]:
@@ -469,7 +522,7 @@ func brief() -> void:
 	weather += " The longer you take, the more it changes."
 	rows.append({"tone": "bad" if coldest < 0.0 or maxf(t0, t1) >= Climate.WARM else "info", "icon": "cloud", "title": "Weather", "text": weather})
 	# The climb itself, in one smaller paragraph.
-	var facts: Array = ["Fall %d times and you turn back." % max_slips, "Wind: %s." % wind.describe()]
+	var facts: Array = [String(ROUTE_LINES.get(route, "")), "Fall %d times and you turn back." % max_slips, "Wind: %s." % wind.describe()]
 	if float(d["drain"]) > 1.0:
 		facts.append("Up here every move costs %d%% more." % int(round((float(d["drain"]) - 1.0) * 100.0)))
 	if trek_factor["steep"] > 1.0:
@@ -695,8 +748,10 @@ func _arrive() -> void:
 			if mate_state == "helped" and not said.is_empty():
 				hud.flash("Cairn %d of %d · %s" % [checkpoint, cairns.size() - 1, said[checkpoint % said.size()]], 3.0)
 			_remember()
+	# The exit post stands three tiles tall: hopping something just before
+	# it still ends the climb there, not past it.
 	for cell in terrain.markers.get("X", []):
-		if climber.body_rect().intersects(Rect2(Vector2(cell) * Terrain.TILE, Vector2.ONE * Terrain.TILE)):
+		if climber.body_rect().intersects(Rect2(Vector2(cell.x, cell.y - 2) * Terrain.TILE, Vector2(1, 3) * Terrain.TILE)):
 			finish("complete")
 			return
 	for v in terrain.markers.get("V", []):
@@ -742,6 +797,7 @@ func _meet_mate() -> void:
 		mate_cooldown = false
 	if climber.state == Climber.State.GROUND and absf(d.x) < 1.5 * Terrain.TILE and absf(d.y) < 0.6 * Terrain.TILE and not mate_cooldown:
 		climber.lock(true)
+		engage("mate")
 		mate_panel()
 	# Walking on past them without stopping leaves them for Lena.
 	var pass_dir: int = spec["mate"].get("passDir", 1)
@@ -933,6 +989,8 @@ func _on_helped() -> void:
 
 
 func _on_slipped(saved: bool, reason: String) -> void:
+	# A fall is a moment in the climb's pacing too, caught or not.
+	engage("slip")
 	if saved:
 		camera.kick(0.0)
 	else:

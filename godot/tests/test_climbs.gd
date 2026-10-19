@@ -1,16 +1,19 @@
 extends ClimbBot
-## The Lava Tower and the summit night, played by a scripted climber through
-## the real levels, hazards and all. Also the hazards one by one, walking in
-## thin air, the three climbs' order of difficulty, and each outcome landing
-## on the expedition through the Coordinator.
+## The hazards one by one on the real levels (found on whichever layout is
+## loaded: the long way's unless a test names a route), walking in thin air,
+## the three climbs' order of difficulty, what every layout needs, the
+## artifacts, and the summit as the boss. The whole climbs, on every route,
+## are test_routes.gd.
 
 
-func _load(challenge: String) -> void:
+func _load(challenge: String, route: String = "") -> void:
 	SaveGame.erase()
 	Expedition.found = {}
 	Settings.touch_controls = false
 	Expedition.session = TestSessions.at(challenge)
 	check(Expedition.pending() != null, "the careful party reached %s" % challenge)
+	if route != "":
+		Trek.ensure(Expedition.session)["route"] = route
 	# A fresh go: nothing left over from an earlier test's climb.
 	Expedition.climb = {}
 	Expedition.resume_climb()
@@ -32,116 +35,6 @@ func _done() -> void:
 	SaveGame.erase()
 
 
-func test_the_lava_tower_climbed() -> void:
-	await _load("lava-tower")
-	check(level.mate == null, "nobody to carry on the tower")
-	await drive(["move_right"], func() -> bool: return tx() >= 53.0, 40.0, "to the tower foot")
-	check(level.checkpoint >= 1, "cairn 1 at the tower foot")
-	await up_to(42, "the scramble band")
-	await rest_up()
-	# The scree bridge: keep walking and it holds.
-	await cross(74.0)
-	check(level.checkpoint >= 2, "cairn 2 on bench 1")
-	eq(c.slips, 0, "walked the bridge without stopping")
-	await rest_up()
-	await up_to(30, "the scree face")
-	await drive(["move_left"], func() -> bool: return tx() <= 68.6, 10.0, "to the rest stone")
-	check(level.checkpoint >= 3, "cairn 3 on bench 2")
-	await rest_up(0.99)
-	await cross(56.5)
-	await up_to(14, "the chimney, dodging stones")
-	# Get your breath back at the top cairn before the walk out, as a player
-	# would (nothing on the way gives breath back any more).
-	await drive(["move_right"], func() -> bool: return level.checkpoint >= 4, 30.0, "to the top cairn")
-	await rest_up()
-	await drive(["move_right"], func() -> bool: return outcome != null, 60.0, "over the top and down")
-	check(level.checkpoint >= 4, "cairn 4 on the top, got %d" % level.checkpoint)
-	check(outcome != null, "the climb ended")
-	if outcome:
-		eq(outcome.result, "complete", "result")
-		eq(outcome.challenge_id, "lava-tower", "which climb")
-		eq(outcome.assisted, null, "no teammate on the tower")
-		check(outcome.stars >= 2, "a clean ascent earns at least two stars, got %d" % outcome.stars)
-		eq(outcome.artifacts_total, 2, "two artifacts hidden on the tower")
-		# The careful bot walks the line, and the artifacts lie on it.
-		eq(outcome.artifacts, 2, "a climb with no slips keeps both artifacts it walked over")
-		var kept := Artifacts.kept_on(Expedition.session, "lava-tower")
-		kept.sort()
-		eq(kept, [0, 1], "kept on the expedition")
-		check_pacing("Lava Tower")
-		print("      Lava Tower took %d s of game time, %d%% stamina left, %d slips, %.0f s resting, lowest %d%% of a %d bar, food eaten %d" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.rest_seconds, int(level.lowest_stamina * 100), int(c.stamina.max_value), level.snacks * ClimbLevel.SNACK])
-	await _results()
-	eq(Expedition.state()["checkpoint"], "camp2", "the outcome landed: the party sleeps at Barranco")
-	check(Expedition.pending() == null, "the climb is closed")
-	await _done()
-
-
-## The results card: shows the stars, then back to camp.
-func _results() -> void:
-	await drive([], func() -> bool: return level.panel.open, 5.0, "panel")
-	check(level.panel.open and level.panel._title.text != "", "the results card shows")
-	level.panel.choose("camp")
-	await physics_frames(2)
-
-
-func _switchback(row: float, right: bool, label: String) -> void:
-	var dir := "move_right" if right else "move_left"
-	await drive([dir], func() -> bool: return tx() >= 99.0 if right else tx() <= 19.5, 60.0, "walk toward " + label)
-	await rest_up(0.98)
-	await wait_for_stone_window((103.5 if right else 15.5) * T)
-	await drive([dir], func() -> bool: return c.is_climbing() or (tx() >= 103.0 if right else tx() <= 15.5), 20.0, "walk to " + label)
-	await up_to(row, label)
-
-
-func test_the_summit_night_climbed_helping_jun() -> void:
-	await _load("summit-night")
-	check(level.mate != null and level.mate.person == "jun", "Jun is on the mountain")
-	check(level.spec["theme"]["night"], "by headlamp")
-	await _switchback(77, true, "step 1")
-	await _switchback(68, false, "step 2")
-	await _switchback(59, true, "step 3")
-	# Ice to the crevasse, the band of rock across it, then Jun.
-	await drive(["move_left"], func() -> bool: return level.panel.open, 60.0, "across the crevasse to Jun")
-	check(level.panel.open, "meeting Jun opens a choice")
-	eq(c.slips, 0, "the crevasse crossed")
-	await rest_up_locked()
-	level.panel.choose("help")
-	await drive([], func() -> bool: return level.panel.open, 5.0, "panel")
-	eq(level.mate_state, "helped", "Jun helped")
-	level.panel.choose("continue")
-	await physics_frames(2)
-	await _switchback(50, false, "step 4")
-	await _switchback(41, true, "step 5, under stonefall")
-	await _switchback(32, false, "the rim step, under stonefall")
-	# Out of the stones' line: sit at the cairn, as the brief says.
-	await drive(["move_right"], func() -> bool: return tx() >= 19.5, 10.0, "to the rim cairn")
-	await rest_up(0.99)
-	await cross(108.5)
-	# The long rim in thin air takes it out of you: sit before the last step.
-	await rest_up(0.98)
-	await up_to(24, "Stella step")
-	await drive(["move_right"], func() -> bool: return outcome != null, 30.0, "to Stella Point")
-	check(outcome != null, "the climb ended")
-	if outcome:
-		eq(outcome.result, "complete", "result")
-		eq(outcome.assisted, true, "assisted")
-		check_pacing("summit night")
-		print("      summit night took %d s of game time, %d%% stamina left, %d slips, %d caught, %d wind strikes, %.0f s resting, lowest %d%% of a %d bar, food eaten %d" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.caught, outcome.wind_strikes, outcome.rest_seconds, int(level.lowest_stamina * 100), int(c.stamina.max_value), level.snacks * ClimbLevel.SNACK])
-	await _results()
-	check(Expedition.state()["summitReached"], "the summit is recorded on the expedition")
-	await _done()
-
-
-## Jun's panel locks the climber; sit there until the arms are back so the
-## help (which costs stamina) is affordable.
-func rest_up_locked() -> void:
-	if c.stamina.value >= c.helper_cost + 5:
-		return
-	level.panel.choose("back")
-	await rest_up(0.9)
-	await drive(["move_left"], func() -> bool: return level.panel.open, 10.0, "back to Jun")
-
-
 # --- The hazards, one at a time -------------------------------------------------
 
 func _put(cell: Vector2i) -> void:
@@ -154,24 +47,28 @@ func _put(cell: Vector2i) -> void:
 
 
 func test_a_cracked_slab_holds_a_walker_and_drops_someone_who_stops() -> void:
-	await _load("lava-tower")
-	await _put(Vector2i(62, 41))
-	await drive(["move_right"], func() -> bool: return tx() >= 69.0, 10.0, "over the bridge")
+	await _load("lava-tower", "machame")
+	var s := slab()
+	check(s.x >= 0, "the tower has a bridge of cracked slabs")
+	await _put(s + Vector2i(-2, -1))
+	await drive(["move_right"], func() -> bool: return tx() >= s.x + 3.5, 10.0, "over the bridge")
 	eq(c.slips, 0, "walking across holds")
-	await _put(Vector2i(65, 41))
+	await _put(s + Vector2i(1, -1))
 	await drive([], func() -> bool: return c.state == Climber.State.SLIP, 4.0, "standing on the bridge")
 	eq(c.slips, 1, "standing still on the slabs is a fall")
 	await drive([], func() -> bool: return c.state == Climber.State.GROUND, 4.0, "back at the cairn")
 	await physics_frames(int(7.0 * 60))
-	check(c.terrain.is_solid(Vector2i(65, 42)), "the slabs settle back")
+	check(c.terrain.is_solid(s + Vector2i(1, 0)), "the slabs settle back")
 	await _done()
 
 
 func test_stones_are_announced_and_miss_the_next_column() -> void:
 	await _load("lava-tower")
 	var hz: Hazards = level.hazards
-	await _put(Vector2i(56, 29))
-	# Stand at the chimney foot until a stone is announced over this column.
+	var foot := chute_foot()
+	check(foot.x >= 0, "the tower has stonefall down a face")
+	await _put(foot)
+	# Stand at the face's foot until a stone is announced over this column.
 	var warned := false
 	for i in 60 * 30:
 		if hz.threat_at(c.global_position.x, Hazards.WARN):
@@ -185,15 +82,16 @@ func test_stones_are_announced_and_miss_the_next_column() -> void:
 
 
 func test_ice_slides() -> void:
-	await _load("summit-night")
-	await _put(Vector2i(90, 58))
-	check(c.terrain.kind(Vector2i(90, 59)) == Terrain.Kind.ICE, "on ice")
+	await _load("summit-night", "machame")
+	var on_ice := clear_walk(Terrain.Kind.ICE, 7)
+	await _put(on_ice)
+	check(c.terrain.kind(on_ice + Vector2i.DOWN) == Terrain.Kind.ICE, "on ice")
 	# Full walking speed, as the cold allows (Climate.pace).
 	await drive(["move_right"], func() -> bool: return absf(c.velocity.x) >= Climber.WALK * c.chill * 0.95, 5.0, "up to speed on ice")
 	var from := c.global_position.x
 	await drive([], func() -> bool: return absf(c.velocity.x) < 1.0, 5.0, "sliding to a stop")
 	var ice_stop := c.global_position.x - from
-	await _put(Vector2i(20, 76))
+	await _put(clear_walk(Terrain.Kind.ROCK, 10))
 	await drive(["move_right"], func() -> bool: return absf(c.velocity.x) >= Climber.WALK * c.chill * 0.95, 5.0, "up to speed on rock")
 	from = c.global_position.x
 	await drive([], func() -> bool: return absf(c.velocity.x) < 1.0, 5.0, "stopping on rock")
@@ -206,17 +104,22 @@ func test_water_and_lost_gear() -> void:
 	await _load("lava-tower")
 	var hz: Hazards = level.hazards
 	c.stamina.value = 10.0
-	await _put(Vector2i(70, 41))
+	var water: Vector2i = level.terrain.markers["w"][0]
+	await _put(water)
 	check(c.stamina.value > 40.0, "a water cache gives most of the bar back")
-	eq(Expedition.climb.get("taken", []), ["70,41"], "taken for this attempt")
+	eq(Expedition.climb.get("taken", []), ["%d,%d" % [water.x, water.y]], "taken for this attempt")
 	eq(hz.gear_count, 0, "nothing found yet")
-	await _put(Vector2i(59, 22))
-	eq(hz.gear_count, 1, "found the gear in the chimney niche")
+	# The gloves, where this route's layout put them.
+	var kinds: Array = level.spec["gear"].map(func(g: Array) -> String: return String(g[2]))
+	var at: Array = level.layout["gear"][kinds.find("gloves")]
+	await _put(Vector2i(int(at[0]), int(at[1])))
+	eq(hz.gear_count, 1, "found the gear")
 	# Its index: the markers' order, bottom to top.
-	var cells: Array = level.terrain.markers["*"].duplicate()
-	cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y > b.y or (a.y == b.y and a.x < b.x))
-	var n := cells.find(Vector2i(59, 22))
-	eq(String(hz.gear_words[n][2]), "gloves", "the gloves, in the chimney niche")
+	var n := -1
+	for i in hz.gear_words.size():
+		if hz.gear_words[i].size() > 3 and Vector2i(int(hz.gear_words[i][3][0]), int(hz.gear_words[i][3][1])) == Vector2i(int(at[0]), int(at[1])):
+			n = i
+	eq(String(hz.gear_words[n][2]), "gloves", "the gloves, where the layout says")
 	eq(Expedition.gear_found("lava-tower"), [n], "kept on the expedition")
 	check(Expedition.load_saved(), "saved")
 	eq(Expedition.gear_found("lava-tower"), [n], "and in the save")
@@ -227,7 +130,7 @@ func test_walking_costs_more_breath_on_the_summit_than_at_the_tower() -> void:
 	var lost := {}
 	for id in ["lava-tower", "summit-night"]:
 		await _load(id)
-		await _put(Vector2i(5, 55) if id == "lava-tower" else Vector2i(16, 85))
+		await _put(clear_walk(Terrain.Kind.ROCK, 10))
 		# Flat ground, a few seconds of walking, nothing to hop. Only what
 		# walking costs counts.
 		var spent := [0.0, c.stamina.value]
@@ -245,10 +148,12 @@ func test_walking_costs_more_breath_on_the_summit_than_at_the_tower() -> void:
 
 
 func test_a_hop_clears_a_gap_and_costs_breath() -> void:
-	await _load("lava-tower")
-	await _put(Vector2i(34, 55))
+	await _load("lava-tower", "machame")
+	var g := gap_before()
+	check(g.x >= 0, "a gap to hop")
+	await _put(g + Vector2i(-2, 0))
 	var before := c.stamina.value
-	await drive(["move_right"], func() -> bool: return tx() >= 39.5, 8.0, "over the stream cut")
+	await drive(["move_right"], func() -> bool: return tx() >= g.x + 4.5, 8.0, "over the gap")
 	eq(c.slips, 0, "hopped the gap")
 	check(c.jumps >= 1, "with a hop")
 	check(c.stamina.value < before, "which cost breath")
@@ -256,8 +161,12 @@ func test_a_hop_clears_a_gap_and_costs_breath() -> void:
 
 
 func test_a_rolling_stone_knocks_down_someone_who_stands_in_its_way() -> void:
-	await _load("summit-night")
-	await _put(Vector2i(80, 67))
+	await _load("lava-tower", "machame")
+	var b: Vector2i = level.terrain.markers["b"][0]
+	var stand := b + Vector2i(-6, 0)
+	while not standable(stand) and stand.x > b.x - 12:
+		stand.x -= 1
+	await _put(stand)
 	# Standing still, no hop (the bot's drive would hop it).
 	for i in 60 * 15:
 		GameInput.scripted = {"_": false}
@@ -299,8 +208,11 @@ func test_a_teammate_who_runs_out_of_breath_waits_for_you() -> void:
 
 func test_a_climber_at_the_edge_of_a_face_is_not_caught_under_the_lip() -> void:
 	await _load("summit-night")
-	# Hanging at the very left edge of the last rock step, under the shelf.
-	c.global_position = Vector2(102.1 * T, 46.0 * T)
+	# Hanging at the very left edge of the first rock step (at the right end of
+	# its bench), under the shelf of the bench above.
+	var first: Dictionary = level.layout["script"].filter(func(a: Array) -> bool: return a[0] == "climb")[0][1]
+	var fc := int(floor(float(first["x"]))) - 1
+	c.global_position = Vector2((fc + 0.1) * T, (int(first["row"]) + 3.0) * T)
 	c.reset_physics_interpolation()
 	c.state = Climber.State.CLIMB
 	c.velocity = Vector2.ZERO
@@ -330,20 +242,66 @@ func test_the_climbs_get_harder_up_the_mountain() -> void:
 	check(specs[2]["maxSlips"] < specs[0]["maxSlips"], "the summit forgives fewer slips than the tower")
 
 
+func _scene(climb: String) -> String:
+	return Expedition.DESCENT if climb == "descent" else Expedition.LEVELS[climb]
+
+
+## Every climb on every route: a start, an exit, cairns and signs in the
+## order the line reaches them, the teammate (and which way you pass them),
+## gear and water on ground, stonefall, two artifacts, and a line to follow.
 func test_each_level_has_what_its_climb_needs() -> void:
-	for id in Expedition.LEVELS:
-		var lvl: ClimbLevel = load(Expedition.LEVELS[id]).instantiate()
-		var t := Terrain.load_file(lvl.spec["map"])
-		check(t.markers.has("P") and t.markers["P"].size() == 1, "%s has one start" % id)
-		check(t.markers.has("X"), "%s has an exit" % id)
-		check(t.markers.get("K", []).size() >= 4, "%s has cairns" % id)
-		eq(t.markers.has("M"), not lvl.spec["mate"].is_empty(), "%s has its teammate marker iff it has a teammate" % id)
-		eq(t.markers.get("S", []).size(), lvl.spec["signs"].size(), "%s has words for every sign" % id)
-		eq(t.markers.get("*", []).size(), lvl.spec["gear"].size(), "%s has words for every piece of lost gear" % id)
-		check(t.markers.get("r", []).size() >= 1, "%s has stonefall" % id)
-		for ch in ["*", "w"]:
-			for cell in t.markers.get(ch, []):
-				check(not t.is_solid(cell) and t.is_solid(cell + Vector2i.DOWN), "%s: %s at %s stands on ground" % [id, ch, cell])
+	for climb in Artifacts.CLIMBS:
+		var lvl: ClimbLevel = load(_scene(climb)).instantiate()
+		for route in Trek.ROUTES:
+			var id := "%s (%s)" % [climb, route]
+			var t := Terrain.load_file(lvl.map_path(route))
+			var lay := lvl.layout_for(route)
+			eq(String(lay.get("route", "")), route, "%s has its layout" % id)
+			check(t.markers.has("P") and t.markers["P"].size() == 1, "%s has one start" % id)
+			check(t.markers.has("X"), "%s has an exit" % id)
+			check(t.markers.get("K", []).size() >= 4, "%s has cairns" % id)
+			eq(lay["cairns"].size(), t.markers.get("K", []).size(), "%s: the layout orders every cairn" % id)
+			eq(t.markers.has("M"), not lvl.spec["mate"].is_empty(), "%s has its teammate marker iff it has a teammate" % id)
+			if t.markers.has("M"):
+				var m: Dictionary = lay["mate"]
+				eq(Vector2i(int(m["cell"][0]), int(m["cell"][1])), t.markers["M"][0], "%s: the layout knows where the teammate is" % id)
+			eq(t.markers.get("S", []).size(), lvl.spec["signs"].size(), "%s has words for every sign" % id)
+			eq(lay["signs"].size(), lvl.spec["signs"].size(), "%s: the layout orders every sign" % id)
+			eq(t.markers.get("*", []).size(), lvl.spec["gear"].size(), "%s has words for every piece of lost gear" % id)
+			eq(lay["gear"].size(), lvl.spec["gear"].size(), "%s: the layout places every piece of gear" % id)
+			check(t.markers.get("r", []).size() >= 1, "%s has stonefall" % id)
+			for ch in ["*", "w"]:
+				for cell in t.markers.get(ch, []):
+					check(not t.is_solid(cell) and t.is_solid(cell + Vector2i.DOWN), "%s: %s at %s stands on ground" % [id, ch, cell])
+			check(lay["script"].size() >= 3 and lay["script"][-1][0] == "finish", "%s has a line to the exit" % id)
+		lvl.free()
+
+
+## The routes really are easy, medium and hard: each climb is longer, with
+## more and taller faces, on the faster ways.
+func test_the_faster_ways_are_harder_climbs() -> void:
+	for climb in Artifacts.CLIMBS:
+		var lvl: ClimbLevel = load(_scene(climb)).instantiate()
+		var size := []
+		for route in ["lemosho", "machame", "umbwe"]:
+			var t := Terrain.load_file(lvl.map_path(route))
+			var faces := 0
+			for y in t.height:
+				for x in t.width:
+					if t.is_climbable(Vector2i(x, y)):
+						faces += 1
+			var hazards := 0
+			for ch in ["r", "n", "a", "v", "b", "d"]:
+				hazards += t.markers.get(ch, []).size()
+			for y in t.height:
+				for x in t.width:
+					if t.kind(Vector2i(x, y)) in [Terrain.Kind.ICE, Terrain.Kind.CRUMBLE, Terrain.Kind.EXPOSED]:
+						hazards += 1
+			size.append([t.width * t.height, faces, hazards])
+		for k in 2:
+			check(size[k + 1][0] > size[k][0], "%s: the %s way is bigger than the %s way" % [climb, ["faster", "fastest"][k], ["long", "faster"][k]])
+			check(size[k + 1][1] > size[k][1], "%s: more rock to climb on the %s way (%d vs %d)" % [climb, ["faster", "fastest"][k], size[k + 1][1], size[k][1]])
+			check(size[k + 1][2] > size[k][2], "%s: more hazards on the %s way (%d vs %d)" % [climb, ["faster", "fastest"][k], size[k + 1][2], size[k][2]])
 		lvl.free()
 
 
@@ -419,57 +377,62 @@ func test_an_artifact_kept_earlier_is_not_on_the_climb_again() -> void:
 func test_each_route_hides_its_own_two_artifacts_on_every_climb() -> void:
 	var names := {}
 	for climb in Artifacts.CLIMBS:
-		var scene: String = Expedition.DESCENT if climb == "descent" else Expedition.LEVELS[climb]
-		var lvl: Node = load(scene).instantiate()
-		var t := Terrain.load_file(lvl.spec["map"])
-		lvl.free()
-		var cells := {}
+		var lvl: ClimbLevel = load(_scene(climb)).instantiate()
 		for route in Trek.ROUTES:
-			var list := Artifacts.for_climb(climb, route)
+			var t := Terrain.load_file(lvl.map_path(route))
+			var cells: Array = lvl.layout_for(route)["artifacts"]
+			var list := Artifacts.placed(climb, route, cells)
 			eq(list.size(), Artifacts.PER_CLIMB, "%s on %s: two artifacts" % [climb, route])
 			for a in list:
 				var cell := Vector2i(int(a[2][0]), int(a[2][1]))
-				check(not t.is_solid(cell) and (t.is_solid(cell + Vector2i.DOWN) or t.kind(cell + Vector2i.DOWN) == Terrain.Kind.CRUMBLE), "%s: %s stands on ground at %s" % [climb, a[0], cell])
-				check(not cells.has(cell), "%s: each route's artifacts are in their own places (%s)" % [climb, cell])
-				cells[cell] = true
+				check(not t.is_solid(cell) and t.is_solid(cell + Vector2i.DOWN), "%s (%s): %s stands on ground at %s" % [climb, route, a[0], cell])
 				check(not names.has(a[0]), "every artifact is different: %s" % a[0])
 				names[a[0]] = true
 				check(String(a[1]).length() > 40, "%s has its story" % a[0])
+			eq(Vector2i(int(cells[0][0]), int(cells[0][1])) != Vector2i(int(cells[1][0]), int(cells[1][1])), true, "%s (%s): two places" % [climb, route])
+		lvl.free()
 	eq(names.size(), Artifacts.CLIMBS.size() * Trek.ROUTES.size() * Artifacts.PER_CLIMB, "24 artifacts in all")
 
 
 func test_the_wildlife_is_spread_along_the_walk() -> void:
 	for id in ["lava-tower", "barranco-wall", "summit-night"]:
 		var lvl: ClimbLevel = load(Expedition.LEVELS[id]).instantiate()
-		var t := Terrain.load_file(lvl.spec["map"])
-		var all: Array = []
-		for ch in ["n", "a", "v"]:
-			all.append_array(t.markers.get(ch, []))
-		check(all.size() >= 4, "%s has wildlife (%d)" % [id, all.size()])
-		# Not bunched: nothing within 8 tiles of another on the same stretch.
-		for i in all.size():
-			for j in range(i + 1, all.size()):
-				var a: Vector2i = all[i]
-				var b: Vector2i = all[j]
-				check(absi(a.y - b.y) > 4 or absi(a.x - b.x) >= 8, "%s: %s and %s are apart" % [id, a, b])
-		# Spread from the bottom of the walk to the top, not all in one band.
-		var start: int = t.markers["P"][0].y
-		var exit: int = t.markers["X"][0].y
-		var lo := 0
-		var hi := 99999
-		for c in all:
-			lo = maxi(lo, c.y)
-			hi = mini(hi, c.y)
-		check(float(lo - hi) >= 0.4 * float(start - exit), "%s: from row %d to %d, of a climb from %d to %d" % [id, lo, hi, start, exit])
+		for route in Trek.ROUTES:
+			_spread(id, route, Terrain.load_file(lvl.map_path(route)))
 		lvl.free()
+
+
+func _spread(climb: String, route: String, t: Terrain) -> void:
+	var id := "%s (%s)" % [climb, route]
+	var all: Array = []
+	for ch in ["n", "a", "v"]:
+		all.append_array(t.markers.get(ch, []))
+	check(all.size() >= 4, "%s has wildlife (%d)" % [id, all.size()])
+	# Not bunched: nothing within 8 tiles of another on the same stretch.
+	for i in all.size():
+		for j in range(i + 1, all.size()):
+			var a: Vector2i = all[i]
+			var b: Vector2i = all[j]
+			check(absi(a.y - b.y) > 4 or absi(a.x - b.x) >= 8, "%s: %s and %s are apart" % [id, a, b])
+	# Spread from the bottom of the walk to the top, not all in one band.
+	var start: int = t.markers["P"][0].y
+	var exit: int = t.markers["X"][0].y
+	var lo := 0
+	var hi := 99999
+	for c in all:
+		lo = maxi(lo, c.y)
+		hi = mini(hi, c.y)
+	check(float(lo - hi) >= 0.4 * float(start - exit), "%s: from row %d to %d, of a climb from %d to %d" % [id, lo, hi, start, exit])
 
 
 func test_falling_into_a_hole_starts_the_climb_again() -> void:
 	await _load("lava-tower")
 	var lvl: ClimbLevel = level
 	lvl.checkpoint = 2
-	# The stream cut: open to the bottom of the map.
-	c.global_position = Terrain.feet(Vector2i(37, 57))
+	# The stream cut out of camp: open to the bottom of the map.
+	var h := hole()
+	check(h.x >= 0, "the tower has a hole")
+	c.global_position = Terrain.feet(h + Vector2i(0, 2))
 	c.reset_physics_interpolation()
 	c.state = Climber.State.AIR
 	c.fall_from = c.global_position.y
@@ -494,7 +457,7 @@ func test_empty_arms_warn_before_they_let_go() -> void:
 	await _load("summit-night")
 	var lvl: ClimbLevel = level
 	# The last rock step, from its foot, with almost nothing left.
-	await _put(Vector2i(103, 50))
+	await _put(last_face()["foot"])
 	c.stamina.value = 8.0
 	GameInput.scripted = {"_": false, "climb_up": true}
 	await physics_frames(3)
@@ -519,7 +482,7 @@ func test_empty_arms_warn_before_they_let_go() -> void:
 	await _done()
 	# Hanging there instead: the arms give out, and the slip says why.
 	await _load("summit-night")
-	await _put(Vector2i(103, 50))
+	await _put(last_face()["foot"])
 	GameInput.scripted = {"_": false, "climb_up": true}
 	await physics_frames(40)
 	c.stamina.value = 0.0
@@ -557,7 +520,7 @@ func test_the_weather_changes_along_the_climb() -> void:
 	check(c.chill < 1.0 and c.stamina.recovery < lvl.spec["difficulty"]["recovery"], "slower, and rest works less (pace %.2f)" % c.chill)
 	check("freezing" in level.hud._temp.text, "the HUD says so: " + level.hud._temp.text)
 	# The same walk, slower in the cold.
-	await _put(Vector2i(60, 85))
+	await _put(clear_walk(Terrain.Kind.ROCK, 8))
 	var x0 := c.global_position.x
 	await drive(["move_right"], func() -> bool: return false, 1.0, "")
 	failures.clear()
@@ -650,42 +613,29 @@ func test_a_go_with_no_cairn_yet_still_resumes() -> void:
 
 
 ## The summit night is the boss: for a party at its most worn (the
-## smallest bar a climb allows) it takes nearly everything, but it can
-## always be done by resting to full before each face.
+## smallest bar a climb allows) it takes nearly everything on the fastest
+## way, but on every route it can be done by resting to full before each
+## face.
 func test_the_summit_is_the_boss_but_never_impossible() -> void:
-	await _load("summit-night")
-	level.queue_free()
-	await physics_frames(2)
-	# Rebuild with a worn party.
-	Expedition.state()["energy"] = 0
-	Expedition.state()["health"] = 40
-	level = load(Expedition.LEVELS["summit-night"]).instantiate()
-	root.add_child(level)
-	level.finished.connect(func(o: ChallengeOutcome) -> void: outcome = o)
-	await physics_frames(2)
-	level.panel.choose("start")
-	await physics_frames(1)
-	c = level.climber
-	eq(c.stamina.max_value, ClimbLevel.MIN_BAR, "a worn party gets the smallest bar")
-	await _switchback(77, true, "step 1")
-	await _switchback(68, false, "step 2")
-	await _switchback(59, true, "step 3")
-	await drive(["move_left"], func() -> bool: return level.panel.open, 60.0, "across the crevasse to Jun")
-	await rest_up_locked()
-	level.panel.choose("help")
-	await drive([], func() -> bool: return level.panel.open, 5.0, "panel")
-	level.panel.choose("continue")
-	await physics_frames(2)
-	await _switchback(50, false, "step 4")
-	await _switchback(41, true, "step 5, under stonefall")
-	await _switchback(32, false, "the rim step, under stonefall")
-	await drive(["move_right"], func() -> bool: return tx() >= 19.5, 10.0, "to the rim cairn")
-	await rest_up(0.99)
-	await cross(108.5)
-	await rest_up(0.98)
-	await up_to(24, "Stella step")
-	await drive(["move_right"], func() -> bool: return outcome != null, 30.0, "to Stella Point")
-	check(outcome != null and outcome.result == "complete", "the summit, even worn out")
-	check(level.lowest_stamina < 0.25, "and it is the hardest: down to %d%% of the bar" % int(level.lowest_stamina * 100))
-	print("      worn-out summit: %d s, %d slips, lowest %d%% of a %d bar, food eaten %d" % [int(c.clock), c.slips, int(level.lowest_stamina * 100), int(c.stamina.max_value), level.snacks * ClimbLevel.SNACK])
-	await _done()
+	for route in Trek.ROUTES:
+		await _load("summit-night", route)
+		level.queue_free()
+		await physics_frames(2)
+		# Rebuild with a worn party.
+		Expedition.state()["energy"] = 0
+		Expedition.state()["health"] = 40
+		level = load(Expedition.LEVELS["summit-night"]).instantiate()
+		root.add_child(level)
+		level.finished.connect(func(o: ChallengeOutcome) -> void: outcome = o)
+		await physics_frames(2)
+		level.panel.choose("start")
+		await physics_frames(1)
+		c = level.climber
+		eq(c.stamina.max_value, ClimbLevel.MIN_BAR, "a worn party gets the smallest bar")
+		await follow(level.layout["script"])
+		check(outcome != null and outcome.result == "complete", "the summit on %s, even worn out" % route)
+		if route == "umbwe":
+			check(level.lowest_stamina < 0.25, "and the fastest way is the hardest: down to %d%% of the bar" % int(level.lowest_stamina * 100))
+		print("      worn-out summit (%s): %d s, %d slips, lowest %d%% of a %d bar, food eaten %d, %d retries" % [route, int(c.clock), c.slips, int(level.lowest_stamina * 100), int(c.stamina.max_value), level.snacks * ClimbLevel.SNACK, retries])
+		retries = 0
+		await _done()

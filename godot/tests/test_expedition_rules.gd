@@ -80,7 +80,8 @@ func test_walking_uphill_and_hopping_cost_stamina() -> void:
 	check(up_cost > 0.0, "walking uphill costs stamina (%.2f)" % up_cost)
 	check(c.stamina.value < before, "walking costs stamina")
 	check(level.stamina.rate("walk_up") > level.stamina.rate("walk"), "uphill costs more than the flat")
-	# A hop.
+	# A hop, from the ground (the walk may end mid-hop over something).
+	await drive([], func() -> bool: return c.is_on_floor() and c.state == Climber.State.GROUND, 3.0, "landed")
 	await physics_frames(10)
 	before = c.stamina.value
 	var jumps := c.jumps
@@ -139,10 +140,8 @@ func test_gear_helps_and_is_lost_with_the_climb() -> void:
 	var rock: float = level.stamina.rate("climb")
 	var walk: float = level.stamina.rate("walk")
 	# Pick up the gloves (before the faces) and the poles (for the walk out),
-	# by the cells the spec names.
-	var cell_of := {}
-	for g in spec_gear:
-		cell_of[String(g[2])] = Vector2i(int(g[3][0]), int(g[3][1]))
+	# where this route's layout put them.
+	var cell_of := gear_cells()
 	for kind in ["gloves", "poles"]:
 		c.global_position = Terrain.feet(cell_of[kind])
 		await physics_frames(4)
@@ -177,7 +176,7 @@ func test_gear_helps_and_is_lost_with_the_climb() -> void:
 
 func test_goggles_soften_a_gust() -> void:
 	await _load(BARRANCO)
-	c.global_position = Terrain.feet(Vector2i(60, 41))
+	c.global_position = Terrain.feet(exposed_cell())
 	await physics_frames(5)
 	var pushed := []
 	for shell in [false, true]:
@@ -291,7 +290,7 @@ func test_a_rest_stone_and_the_wind_never_use_a_rest() -> void:
 	await _sit()
 	check(c.stamina.value >= c.stamina.max_value - 0.5, "the rest stone refilled")
 	eq(level.rests_left, ClimbLevel.REST_LIMIT, "a rest stone is free")
-	c.global_position = Terrain.feet(Vector2i(60, 41))
+	c.global_position = Terrain.feet(exposed_cell())
 	await physics_frames(3)
 	c.stamina.value = c.stamina.max_value * 0.5
 	var before := c.stamina.value
@@ -325,28 +324,31 @@ func test_food_eaten_on_the_climb_comes_out_of_camp_supplies() -> void:
 ## tiles, and a cairn in the lee between the saddles, so a gust never sends
 ## you back the whole rim.
 func test_the_summit_rim_has_short_windy_saddles_and_a_cairn_between() -> void:
-	var t := Terrain.load_file("res://modes/expedition/levels/kilimanjaro/summit_night/summit_night.txt")
-	var longest := 0
-	var runs: Array = []
-	for y in t.height:
-		var run := 0
-		for x in t.width + 1:
-			if x < t.width and t.kind(Vector2i(x, y)) == Terrain.Kind.EXPOSED:
-				run += 1
-			else:
-				if run > 0:
-					runs.append([x - run, x - 1, y])
-				longest = maxi(longest, run)
-				run = 0
-	check(longest <= 12, "no windy stretch longer than 12 tiles (longest %d)" % longest)
-	# Two saddles (a boulder to hop splits the second in two).
-	check(runs.size() >= 2 and runs.size() <= 3, "windy saddles on the rim only (%d runs)" % runs.size())
-	if runs.size() >= 2:
-		var between := false
+	var lvl: ClimbLevel = load(SUMMIT).instantiate()
+	for route in Trek.ROUTES:
+		var t := Terrain.load_file(lvl.map_path(route))
+		var longest := 0
+		var runs: Array = []
+		for y in t.height:
+			var run := 0
+			for x in t.width + 1:
+				if x < t.width and t.kind(Vector2i(x, y)) == Terrain.Kind.EXPOSED:
+					run += 1
+				else:
+					if run > 0:
+						runs.append([x - run, x - 1, y])
+					longest = maxi(longest, run)
+					run = 0
+		check(longest <= 12, "%s: no windy stretch longer than 12 tiles (longest %d)" % [route, longest])
+		check(runs.size() >= 1, "%s: windy saddles on the rim" % route)
+		check(runs.all(func(r: Array) -> bool: return r[2] == runs[0][2]), "%s: on the rim only" % route)
+		# A cairn after the first saddle, out of the wind, before the next.
+		var lee := false
 		for k in t.markers.get("K", []):
-			if k.y == runs[0][2] and k.x > runs[0][1] and k.x < runs[runs.size() - 1][0]:
-				between = true
-		check(between, "a cairn between the saddles")
+			if k.y == runs[0][2] and k.x > runs[0][1] and (runs.size() == 1 or k.x < runs[1][0]):
+				lee = true
+		check(lee, "%s: a cairn in the lee after the first saddle" % route)
+	lvl.free()
 
 
 ## Risk on the camp cards is a spread, not everything low: sleeping and
@@ -494,9 +496,7 @@ func test_a_helmet_and_a_rope() -> void:
 	Expedition.new_expedition(7)
 	Expedition.climb = {"challengeId": "barranco-wall", "attemptId": "helmet-test"}
 	await _load(BARRANCO, false)
-	var cell_of := {}
-	for g in level.spec["gear"]:
-		cell_of[String(g[2])] = Vector2i(int(g[3][0]), int(g[3][1]))
+	var cell_of := gear_cells()
 	c.global_position = Terrain.feet(cell_of["rope"])
 	await physics_frames(4)
 	check(level.gear_kinds.has("rope"), "found the rope")

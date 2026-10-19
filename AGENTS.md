@@ -21,7 +21,7 @@ TypeScript engine (`tools/godot/export_content.ts`).
 | `godot/tests/` | Headless test suite (`runner.tscn`, `test_*.gd`, bots in `crag_bot.gd` and `climb_bot.gd`) |
 | `server/records_service/` | Records service: Python standard library only (sqlite3 and wsgiref). `validate.py` holds the anti-cheat checks, `admin.py` is moderation, `backup.py` handles backup, restore and drill |
 | `server/deploy/` | Fly.io, Render, Docker Compose and Caddy configs, plus the privacy page |
-| `tools/` | Asset generators (`art/`, `audio/`, `levels/`), `godot/export.sh`, `android/emulator_smoke.sh`, `release/make_upload_key.sh`, `playtest/retention.py` |
+| `tools/` | Asset generators (`art/`, `audio/`, `levels/`: `route_levels.py` lays out every climb for each route, 12 maps with JSON layouts; rerun it after changing a climb), `godot/export.sh`, `android/emulator_smoke.sh`, `release/make_upload_key.sh`, `playtest/retention.py` |
 | `docs/` | Design, testing, playtest plan, roadmap (`development-roadmap.md`), release kit (`docs/release/`) |
 | `.github/workflows/` | `ci.yml` (server, container, Godot suite), `android.yml` (AAB, emulators, Play upload), `deploy-records.yml`, `backup-records.yml` |
 

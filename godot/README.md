@@ -208,11 +208,30 @@ exactly (the parity test still holds); a trek layer on top
   end screen shows the breakdown; the records screen ranks by points.
 
   **The summit rim is fairer.** It used to be 52 tiles of wind in one
-  stretch, so a gust near the end sent you all the way back. Now two open
-  saddles of 12 tiles take the wind, with a lee between them holding a
-  cairn and a rest stone (`rim_lee` in `tools/levels/kili_maps.py`, run
-  after the gauntlet so nothing below moves). A gust costs half the rim at
-  most.
+  stretch, so a gust near the end sent you all the way back. Now open
+  saddles of 8 to 12 tiles take the wind (one on the long way, two on the
+  faster way, three on the fastest), with a lee after each holding a
+  cairn and a rest stone. A gust costs one saddle at most.
+
+  **Every climb is laid out for the route you picked**
+  (`tools/levels/route_levels.py`, one map and one JSON layout per climb
+  per route, 12 in all). The places, people and story are the same on
+  every route; the ground is not:
+
+  | | The long way (easy) | The faster way (medium) | The fastest way (hard) |
+  | --- | --- | --- | --- |
+  | Lava Tower | 3 faces, 34-tile benches, a short wind ledge | 4 faces, a 12-row chimney with a niche, slabs, a rolling stone on top | 5 faces, a 14-row chimney, two stonefall chutes, two wind ledges, slabs |
+  | Barranco Wall | 4 faces, no traverse | 5 faces, a band of rock across a void, the loose gully with a niche | 6 faces, a wider traverse, a 14-row gully, two wind ledges |
+  | Summit night | 4 switchbacks, one saddle on the rim | 6 switchbacks, a crevasse, two saddles | 6 taller switchbacks on 84-tile benches, three stonefall chutes, three saddles, the most ice |
+  | The way down | 2 scree slopes, one 5-row step down | 3 slopes, an 8-row step, slabs | 4 slopes, two steps down (8 and 10 rows), two chutes, slabs |
+
+  Obstacles come more often on the faster ways (every 6 to 8 tiles on the
+  long way, 6 on the faster, 5 on the fastest; the way down is quieter);
+  the wildlife is one per stretch. Each layout's JSON says the
+  order of its cairns and signs (the way down is reached top to bottom),
+  where its gear and its two artifacts lie, the teammate and which way you
+  pass them, and the line a climber takes. `tests/test_routes.gd` plays
+  every climb on every route along that line.
 
   **Risk on the camp cards is a spread** (`Trek.foresee`). The score now
   counts what the choice itself does, not only the party's state:
@@ -617,7 +636,6 @@ modes/expedition/
 tests/     headless test runner and suites; shot/demo tools
 ```
 
-Levels are ASCII maps stamped by `tools/levels/barranco_map.py` and
 ## Look
 
 Drawn for phones, in the spirit of the best-looking mobile games (the
@@ -665,7 +683,8 @@ The pixel sources below remain as the fallback and as the collision grid:
   a little more contrast and colour, and a vignette. "Low power" keeps the
   vignette only (no screen read).
 
-`tools/levels/kili_maps.py`. Card content comes from the Expo source via
+Levels are ASCII maps laid out for each route by
+`tools/levels/route_levels.py` (with a JSON layout beside each map). Card content comes from the Expo source via
 `tools/godot/export_content.ts`, which also records scripted playthroughs
 of the TypeScript engine for the parity test. Art: `tools/art/godot_barranco.py`
 (props, fallback tiles), `tools/art/godot_rock.py` (rock, edges, faces),
