@@ -338,8 +338,9 @@ func expedition_finished(session: Dictionary) -> Dictionary:
 		"teamHome": 4 - gone.size() if bool(sc["returnedSafely"]) else 0, "sentDown": gone.size(),
 		"health": int(s.get("health", 0)), "teamCondition": int(s.get("teamCondition", 0)), "supplies": int(s.get("supplies", 0)),
 		"days": ExpeditionEngine.day_of(s), "verified": false,
+		"artifacts": Artifacts.count(session),
 	}
-	var lp := leader_points(s, run["route"], run["teamHome"])
+	var lp := leader_points(s, run["route"], run["teamHome"], run["artifacts"])
 	run["points"] = lp["points"]
 	run["leader"] = lp
 	var runs: Array = data["expedition"]["runs"]
@@ -375,13 +376,15 @@ func expedition_finished(session: Dictionary) -> Dictionary:
 ## - stores: 1 for every 10 supplies left, up to 10.
 ## Speed and stores count only on a run where the whole team summited and
 ## came home: efficiency is worth something only when everyone made it.
+## - artifacts: Artifacts.POINTS for each artifact brought home (up to
+##   Artifacts.MAX), on any run that came home safely, summit or not.
 ## Ported to the records service (validate.leader_points).
-const LEADER_MAX := 130
+const LEADER_MAX := 130 + Artifacts.POINTS * Artifacts.MAX
 const LEADER_TEAM := 10
 const LEADER_MISSING := 8
 
 
-static func leader_points(s: Dictionary, route_id: String, team_home: int) -> Dictionary:
+static func leader_points(s: Dictionary, route_id: String, team_home: int, artifacts: int = 0) -> Dictionary:
 	var score := int(ExpeditionEngine.score(s)["overall"])
 	var summit := bool(s.get("summitReached", false))
 	var home := bool(s.get("returnedSafely", false))
@@ -398,7 +401,8 @@ static func leader_points(s: Dictionary, route_id: String, team_home: int) -> Di
 		var left := float(permit) * 24.0 - float(s.get("elapsedHours", 0))
 		speed = ExpeditionEngine.js_round(clampf(left / 24.0, 0.0, 5.0) * 2.0)
 		stores = ExpeditionEngine.js_round(clampf(float(s.get("supplies", 0)), 0.0, 100.0) / 10.0)
-	return {"points": clampi(score + team + speed + stores, 0, LEADER_MAX), "score": score, "team": team, "speed": speed, "stores": stores}
+	var relics := Artifacts.POINTS * clampi(artifacts, 0, Artifacts.MAX) if home else 0
+	return {"points": clampi(score + team + speed + stores + relics, 0, LEADER_MAX), "score": score, "team": team, "speed": speed, "stores": stores, "artifacts": relics}
 
 
 ## The route is the difficulty: the long way, the faster way, the fastest.

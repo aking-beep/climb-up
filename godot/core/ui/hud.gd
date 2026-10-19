@@ -70,7 +70,7 @@ func _ready() -> void:
 	_flash.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_flash.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_flash)
-	# Top right (left of pause): the everlastings carried.
+	# Top right (left of pause): the artifacts on this climb.
 	var top := VBoxContainer.new()
 	top.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	top.anchor_left = 1.0
@@ -171,10 +171,7 @@ func update_from(level: Node) -> void:
 		gear = (" · Rests %d" % level.rests_left if level.rests_left > 0 else " · Rests 0 (food %d)" % maxi(0, level.food_left())) + gear
 	if level.has_method("route_progress"):
 		_route.value = level.route_progress()
-		var flowers := ""
-		if hz and hz.flowers_total > 0:
-			flowers = "  ·  everlastings %d/%d" % [hz.flowers, hz.flowers_total]
-		_route_label.text = ("Everlastings %d" % hz.flowers) if hz and hz.flowers_total > 0 else ""
+		_route_label.text = ("Artifacts %d/%d" % [hz.artifacts_kept + hz.artifacts.size(), hz.artifacts_total()]) if hz and hz.artifacts_total() > 0 else ""
 	if level.has_method("stats_line"):
 		_stats.text = level.stats_line(pct)
 	else:

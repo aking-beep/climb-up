@@ -10,7 +10,8 @@ extends Node2D
 ## ground. They bite. Hop over them.
 ## Ravens (v): a white-necked raven circles over its stretch of path. Stand
 ## about under it and it calls, then dives at the spot where you were: keep
-## moving and it misses. A hit hurts and it flies off with an everlasting.
+## moving and it misses. A hit hurts, and it snatches an artifact you carry
+## and drops it back where you found it.
 ##
 ## A hit costs stamina (Climber.hurt), never a slip by itself; a hit you
 ## have no stamina left for is a collapse, and that is a slip.
@@ -180,8 +181,8 @@ func _fly(rv: Dictionary, dt: float, now: float) -> void:
 					rv["hit"] = true
 					raven_hits += 1
 					_puff(n.position, Color(0.2, 0.2, 0.22))
-					var took: bool = level.hazards.steal_flower() if level.get("hazards") else false
-					level.hud.flash("The raven strikes%s" % (" and flies off with an everlasting." if took else "."))
+					var took: String = level.hazards.steal_artifact() if level.get("hazards") else ""
+					level.hud.flash("The raven strikes%s" % ((" and snatches %s: it drops it back where you found it." % took) if took != "" else "."))
 			if k >= 1.0:
 				rv["phase"] = "back"
 				rv["t"] = 0.0

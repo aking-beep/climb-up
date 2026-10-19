@@ -27,9 +27,9 @@ const HOLDS := [Kind.FACE, Kind.LOOSE, Kind.SCRAMBLE, Kind.CRIMP, Kind.JUG, Kind
 ## Markers stand on air. r: rockfall comes down this column (the marker is
 ## where rocks start); w: a water cache; *: lost gear to find; b / d: a
 ## stone rolls from here along the ground, leftward (b) or rightward (d);
-## f: an everlasting (a flower to pick up); n, a, v: a thistle, siafu, a
-## raven; Q: a bolt with a quickdraw to clip (the crag).
-const MARKERS := "PXMljmpSTFgoVKrw*bdfnavQ"
+## n, a, v: a thistle, siafu, a raven; Q: a bolt with a quickdraw to clip
+## (the crag). Artifacts are placed by the level (Artifacts), not the map.
+const MARKERS := "PXMljmpSTFgoVKrw*bdnavQ"
 
 var width := 0
 var height := 0

@@ -386,16 +386,16 @@ func remember(progress: Dictionary) -> void:
 	save()
 
 
-## Best result per climb: {challengeId: {stars, flowers}}. Kept like gear.
+## Best result per climb: {challengeId: {stars, artifacts}}. Kept like gear.
 var best: Dictionary = {}
 
 
 ## Records a result; true when it beats the best so far.
-func record_best(id: String, stars: int, flowers: int) -> bool:
-	var was: Dictionary = best.get(id, {"stars": 0, "flowers": 0})
-	var better: bool = stars > int(was["stars"]) or (stars == int(was["stars"]) and flowers > int(was["flowers"]))
+func record_best(id: String, stars: int, artifacts: int) -> bool:
+	var was: Dictionary = best.get(id, {"stars": 0, "artifacts": 0})
+	var better: bool = stars > int(was.get("stars", 0)) or (stars == int(was.get("stars", 0)) and artifacts > int(was.get("artifacts", 0)))
 	if better:
-		best[id] = {"stars": stars, "flowers": flowers}
+		best[id] = {"stars": stars, "artifacts": artifacts}
 		save()
 	return better and stars > 0
 

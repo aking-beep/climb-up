@@ -9,7 +9,7 @@ extends ClimbLevel
 func _init() -> void:
 	spec = {
 		"id": "summit-night",
-		# The top: the Uhuru sign, flowers, and a sunrise (SummitTop, SummitDawn).
+		# The top: the Uhuru sign, flags and a sunrise (SummitTop, SummitDawn).
 		"summit": true,
 		"map": "res://modes/expedition/levels/kilimanjaro/summit_night/summit_night.txt",
 		"music": "summit",

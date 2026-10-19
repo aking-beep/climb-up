@@ -50,6 +50,10 @@ func test_the_lava_tower_climbed() -> void:
 	await rest_up(0.99)
 	await cross(56.5)
 	await up_to(14, "the chimney, dodging stones")
+	# Get your breath back at the top cairn before the walk out, as a player
+	# would (nothing on the way gives breath back any more).
+	await drive(["move_right"], func() -> bool: return level.checkpoint >= 4, 30.0, "to the top cairn")
+	await rest_up()
 	await drive(["move_right"], func() -> bool: return outcome != null, 60.0, "over the top and down")
 	check(level.checkpoint >= 4, "cairn 4 on the top, got %d" % level.checkpoint)
 	check(outcome != null, "the climb ended")
@@ -58,7 +62,12 @@ func test_the_lava_tower_climbed() -> void:
 		eq(outcome.challenge_id, "lava-tower", "which climb")
 		eq(outcome.assisted, null, "no teammate on the tower")
 		check(outcome.stars >= 2, "a clean ascent earns at least two stars, got %d" % outcome.stars)
-		check(outcome.flowers > 0 and outcome.flowers_total > outcome.flowers - 1, "everlastings were picked on the way (%d of %d)" % [outcome.flowers, outcome.flowers_total])
+		eq(outcome.artifacts_total, 2, "two artifacts hidden on the tower")
+		# The careful bot walks the line, and the artifacts lie on it.
+		eq(outcome.artifacts, 2, "a climb with no slips keeps both artifacts it walked over")
+		var kept := Artifacts.kept_on(Expedition.session, "lava-tower")
+		kept.sort()
+		eq(kept, [0, 1], "kept on the expedition")
 		check_pacing("Lava Tower")
 		print("      Lava Tower took %d s of game time, %d%% stamina left, %d slips, %.0f s resting, lowest %d%% of a %d bar, food eaten %d" % [outcome.seconds, outcome.stamina_left, outcome.slips, outcome.rest_seconds, int(level.lowest_stamina * 100), int(c.stamina.max_value), level.snacks * ClimbLevel.SNACK])
 	await _results()
@@ -220,8 +229,7 @@ func test_walking_costs_more_breath_on_the_summit_than_at_the_tower() -> void:
 		await _load(id)
 		await _put(Vector2i(5, 55) if id == "lava-tower" else Vector2i(16, 85))
 		# Flat ground, a few seconds of walking, nothing to hop. Only what
-		# walking costs counts (an everlasting picked on the way gives a
-		# little back).
+		# walking costs counts.
 		var spent := [0.0, c.stamina.value]
 		await drive(["move_right"], func() -> bool:
 			if c.last_activity == "walk" and c.stamina.value < spent[1]:
@@ -339,24 +347,95 @@ func test_each_level_has_what_its_climb_needs() -> void:
 		lvl.free()
 
 
-func test_a_fall_drops_every_everlasting_back_on_the_ground() -> void:
+func _artifact_cells() -> Array:
+	return level.hazards.artifact_words.map(func(w: Array) -> Vector2i: return Vector2i(int(w[2][0]), int(w[2][1])))
+
+
+func test_a_slip_drops_every_artifact_back_where_it_was() -> void:
 	await _load("lava-tower")
 	var hz: Hazards = level.hazards
-	var cells: Array = level.terrain.markers.get("f", [])
-	check(cells.size() >= 2, "everlastings to pick")
-	for cell in cells.slice(0, 2):
+	var cells := _artifact_cells()
+	eq(cells.size(), 2, "two artifacts on the tower")
+	for cell in cells:
 		await _put(cell)
-	eq(hz.flowers, 2, "two picked")
+	eq(hz.artifacts.size(), 2, "both picked up")
+	var taken: Array = Expedition.climb.get("taken", [])
+	check(taken.has("artifact:0") and taken.has("artifact:1"), "carried, in the save (a resumed climb keeps them)")
 	c.slip("test")
 	await physics_frames(2)
-	eq(hz.flowers, 0, "a fall drops them all")
+	eq(hz.artifacts.size(), 0, "a slip drops them all")
 	for p in hz.pickups:
-		if p["kind"] == "flower":
-			check(not p["taken"] and p["node"].visible, "every everlasting is back on the ground")
-	var taken: Array = Expedition.climb.get("taken", [])
-	for cell in cells:
-		check(not taken.has("%d,%d" % [cell.x, cell.y]), "and the save forgets them")
+		if p["kind"] == "artifact":
+			check(not p["taken"] and p["node"].visible, "every artifact is back where it was")
+	taken = Expedition.climb.get("taken", [])
+	check(not taken.has("artifact:0") and not taken.has("artifact:1"), "and the save forgets them")
 	await _done()
+
+
+func test_a_raven_snatches_an_artifact() -> void:
+	await _load("lava-tower")
+	var hz: Hazards = level.hazards
+	await _put(_artifact_cells()[0])
+	var name := String(hz.artifact_words[0][0])
+	eq(hz.steal_artifact(), name, "the raven takes the one you carry")
+	eq(hz.artifacts.size(), 0, "none left")
+	eq(hz.steal_artifact(), "", "and nothing to take twice")
+	check(hz.pickups.any(func(p: Dictionary) -> bool: return p["kind"] == "artifact" and p["index"] == 0 and not p["taken"]), "it is back where you found it")
+	await _done()
+
+
+func test_artifacts_are_kept_when_the_climb_ends_and_lost_when_it_fails() -> void:
+	await _load("lava-tower")
+	await _put(_artifact_cells()[1])
+	level.finish("retreat")
+	eq(Artifacts.kept_on(Expedition.session, "lava-tower"), [1], "a retreat walked down keeps what you carry")
+	eq(outcome.artifacts, 1, "the outcome says so")
+	await _done()
+	await _load("lava-tower")
+	Trek.ensure(Expedition.session)["artifacts"] = {}
+	await _put(_artifact_cells()[0])
+	level.finish("fail")
+	eq(Artifacts.kept_on(Expedition.session, "lava-tower"), [], "a failed climb leaves them behind")
+	eq(outcome.artifacts, 0, "none kept")
+	await _done()
+
+
+func test_an_artifact_kept_earlier_is_not_on_the_climb_again() -> void:
+	await _load("lava-tower")
+	Artifacts.keep(Expedition.session, "lava-tower", [0])
+	level.queue_free()
+	await physics_frames(2)
+	level = load(Expedition.LEVELS["lava-tower"]).instantiate()
+	root.add_child(level)
+	await physics_frames(2)
+	var hz: Hazards = level.hazards
+	eq(hz.artifacts_kept, 1, "one already kept")
+	for p in hz.pickups:
+		if p["kind"] == "artifact" and p["index"] == 0:
+			check(p["taken"] and not p["node"].visible, "and it is not on the ground")
+	await _done()
+
+
+func test_each_route_hides_its_own_two_artifacts_on_every_climb() -> void:
+	var names := {}
+	for climb in Artifacts.CLIMBS:
+		var scene: String = Expedition.DESCENT if climb == "descent" else Expedition.LEVELS[climb]
+		var lvl: Node = load(scene).instantiate()
+		var t := Terrain.load_file(lvl.spec["map"])
+		lvl.free()
+		var cells := {}
+		for route in Trek.ROUTES:
+			var list := Artifacts.for_climb(climb, route)
+			eq(list.size(), Artifacts.PER_CLIMB, "%s on %s: two artifacts" % [climb, route])
+			for a in list:
+				var cell := Vector2i(int(a[2][0]), int(a[2][1]))
+				check(not t.is_solid(cell) and (t.is_solid(cell + Vector2i.DOWN) or t.kind(cell + Vector2i.DOWN) == Terrain.Kind.CRUMBLE), "%s: %s stands on ground at %s" % [climb, a[0], cell])
+				check(not cells.has(cell), "%s: each route's artifacts are in their own places (%s)" % [climb, cell])
+				cells[cell] = true
+				check(not names.has(a[0]), "every artifact is different: %s" % a[0])
+				names[a[0]] = true
+				check(String(a[1]).length() > 40, "%s has its story" % a[0])
+	eq(names.size(), Artifacts.CLIMBS.size() * Trek.ROUTES.size() * Artifacts.PER_CLIMB, "24 artifacts in all")
 
 
 func test_the_wildlife_is_spread_along_the_walk() -> void:

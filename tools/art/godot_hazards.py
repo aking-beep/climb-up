@@ -10,6 +10,7 @@ Pixel art for the climbs' hazards and finds, in the style of the Godot tiles
   godot/assets/terrain/props/gear.png        gear to find, 7 x (14 x 14):
                                              poles, gloves, goggles and buff,
                                              crampons, headlamp, helmet, rope
+  godot/assets/terrain/props/artifact.png    an artifact to find, 2 x (12 x 12)
 
     python3 tools/art/godot_hazards.py
 """
@@ -244,24 +245,29 @@ def gear():
     return sheet
 
 
-def everlasting():
-    """Helichrysum, the papery everlasting of Kilimanjaro's moorland: a white
-    star with a yellow eye on a short grey stem. Two frames: still, and
-    catching the light."""
-    sheet = Image.new("RGBA", (20, 10))
+def artifact():
+    """An artifact to find on a climb: a small Chagga clay pot, banded in red
+    and cream. Two frames: still,
+    and catching the light."""
+    sheet = Image.new("RGBA", (24, 12))
     for f in range(2):
-        im = Image.new("RGBA", (10, 10))
+        im = Image.new("RGBA", (12, 12))
         p = im.load()
-        for y in range(6, 10):
-            p[5, y] = rgb("#7d8a72")
-        p[4, 8] = rgb("#7d8a72")
-        petal = rgb("#f6f2e6") if f == 0 else rgb("#ffffff")
-        for dx, dy in ((0, -2), (0, 2), (-2, 0), (2, 0), (-1, -1), (1, -1), (-1, 1), (1, 1)):
-            p[5 + dx, 4 + dy] = petal
-        p[5, 4] = rgb("#e8b730")
+        clay, dark = rgb("#b5643a"), rgb("#7e3f22")
+        for y in range(3, 11):
+            half = {3: 1, 4: 2, 5: 3, 6: 3, 7: 3, 8: 3, 9: 2, 10: 2}[y]
+            for x in range(6 - half, 6 + half):
+                p[x, y] = dark if x == 6 + half - 1 else clay
+        for x in range(4, 8):
+            p[x, 2] = dark       # the lip
+        for x in range(3, 9):
+            p[x, 6] = rgb("#efe2c4")   # a cream band
+            p[x, 7] = rgb("#c23a2a") if x % 2 else rgb("#efe2c4")
         if f == 1:
-            p[7, 1] = rgb("#ffffff", 200)
-        sheet.paste(outline(im), (f * 10, 0))
+            p[9, 1] = rgb("#ffffff")
+            p[10, 2] = rgb("#ffffff", 180)
+            p[8, 2] = rgb("#ffffff", 180)
+        sheet.paste(outline(im), (f * 12, 0))
     return sheet
 
 
@@ -275,7 +281,7 @@ def main():
     rock().save(props / "rock.png")
     water().save(props / "water.png")
     gear().save(props / "gear.png")
-    everlasting().save(props / "everlasting.png")
+    artifact().save(props / "artifact.png")
     print("wrote", TERRAIN / "hazards.png", "and rock, water, gear props")
 
 

@@ -6,11 +6,11 @@ extends TestCase
 ## slabs. It knows the route; it does not cheat the hazards.
 
 const T := 16.0
-## The most moving time, in seconds, between two things to do (a flower, a
+## The most moving time, in seconds, between two things to do (an artifact, a
 ## cairn, a sign count), and between two real challenges (they do not).
 const QUIET_MAX := 5.0
 const CHALLENGE_MAX := 8.0
-const NOT_CHALLENGES := ["flower", "cairn", "sign", "talk", "water"]
+const NOT_CHALLENGES := ["artifact", "cairn", "sign", "talk", "water"]
 
 var level: Node
 var c: Climber

@@ -625,8 +625,8 @@ func _last(s: Dictionary) -> void:
 				bits.append("regrouped")
 			if int(o.get("stars", 0)) > 0:
 				bits.append("%d of 3 stars" % int(o["stars"]))
-			if int(o.get("flowersTotal", 0)) > 0:
-				bits.append("%d of %d everlastings" % [int(o["flowers"]), int(o["flowersTotal"])])
+			if int(o.get("artifactsTotal", 0)) > 0:
+				bits.append("%d of %d artifacts" % [int(o.get("artifacts", 0)), int(o["artifactsTotal"])])
 			if int(o.get("gearFound", 0)) > 0:
 				bits.append("found %d lost gear" % int(o["gearFound"]))
 			v.add_child(_wrap(_label(" · ".join(bits), 8, MUTED, UiFont.body())))
@@ -791,7 +791,8 @@ func _results(s: Dictionary) -> void:
 	# What ranks this expedition on the boards.
 	var t := Trek.ensure(Expedition.session)
 	var home := 4 - (t.get("gone", []) as Array).size() if bool(s.get("returnedSafely", false)) else 0
-	var lp := Records.leader_points(s, String(t.get("route", "")), home)
+	var found := Artifacts.kept(Expedition.session)
+	var lp := Records.leader_points(s, String(t.get("route", "")), home, found.size())
 	var parts: Array = ["score %d" % int(lp["score"])]
 	if int(lp["team"]) != 0:
 		parts.append("team %+d" % int(lp["team"]))
@@ -799,8 +800,17 @@ func _results(s: Dictionary) -> void:
 		parts.append("speed %+d" % int(lp["speed"]))
 	if int(lp["stores"]) > 0:
 		parts.append("stores %+d" % int(lp["stores"]))
+	if int(lp["artifacts"]) > 0:
+		parts.append("artifacts %+d" % int(lp["artifacts"]))
 	var note := "" if int(lp["team"]) > 0 or not bool(s.get("summitReached", false)) else " Speed and stores count only when the whole team summits and comes home."
 	_text_label("Leader points %d: %s.%s" % [int(lp["points"]), ", ".join(parts), note], 9, SPRUCE if int(lp["team"]) >= 0 else EMBER)
+	# The artifacts carried home: each one's story.
+	if not found.is_empty():
+		var home_safe := bool(s.get("returnedSafely", false))
+		paper.add_child(_label("ARTIFACTS · %d OF %d%s" % [found.size(), Artifacts.MAX, "" if home_safe else " · LOST WITH THE EXPEDITION"], 7, MUTED, UiFont.body()))
+		for a in found:
+			var name := String(a["name"])
+			_text_label("%s: %s" % [name.left(1).to_upper() + name.substr(1), a["story"]], 8, SPRUCE if home_safe else MUTED)
 	for pair in [["Judgment", "judgment"], ["Risk management", "riskManagement"], ["Teamwork", "teamwork"], ["Preparation", "preparation"]]:
 		var row := HBoxContainer.new()
 		var l := _label(Plain.score(pair[0]), 9, INK, UiFont.body())

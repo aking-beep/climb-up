@@ -45,8 +45,10 @@ The smallest service that can verify records honestly:
   - the time ranks;
   - the expedition score, and the leader points that rank the boards:
     the score, +10 when all four summit and come home, -8 per teammate
-    missing on a summit run, and with the whole team home +2 per unused
-    permit day (up to 10) and +1 per 10 supplies left (up to 10).
+    missing on a summit run, with the whole team home +2 per unused
+    permit day (up to 10) and +1 per 10 supplies left (up to 10), and +6
+    per artifact brought home on any run that came home safely (up to 8
+    artifacts, +48).
 - **Server time decides "first".** The first verified ascent of a route,
   and the first verified expedition completion, belong to whichever
   accepted attempt *arrived* first by the server's clock (an
@@ -128,6 +130,9 @@ The server refuses an attempt when any of these holds:
   - The team home is out of range, or anyone is "home" from a run that
     did not come down. (Who came home is otherwise the client's word: it
     needs a server-side replay to check.)
+  - More than 8 artifacts are claimed. (Which ones were found is the
+    client's word too, until a replay checks it; the outlier hold catches
+    a run far above the board.)
   - A stat is out of range.
   - The ledger has oversized or repeated entries.
   - The run claims a summit below the crater rim.

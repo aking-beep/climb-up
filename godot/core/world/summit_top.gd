@@ -1,43 +1,26 @@
 class_name SummitTop
 extends Node2D
 ## The top of Kilimanjaro, as it should feel: the wooden Uhuru Peak sign,
-## a string of bright flags left by climbers, and everlastings in bloom in
-## the first light. Placed at the summit (the X marker) instead of the
-## plain exit post. Drawn and built in code, no new textures.
+## and a string of bright flags left by climbers, in the first light. Placed
+## at the summit (the X marker) instead of the plain exit post. Drawn in
+## code, no textures.
 
 const BOARD := Color("#2f5d3a")
 const WOOD := Color("#5a3b22")
 const LETTERS := Color("#f4d35e")
 const FLAGS := [Color("#3a78c8"), Color("#f2efe6"), Color("#d64a3a"), Color("#3f8a4a"), Color("#f4c542"), Color("#e8782c"), Color("#7a4f9e")]
 
-## Ground to stand the flowers on, either side of the sign (pixels from the
-## sign, left and right).
+## Ground either side of the sign (pixels from the sign, left and right).
 var spread := Vector2(-96, 40)
 var _t := 0.0
-var _flowers: Array[Sprite2D] = []
 
 
 func _ready() -> void:
 	z_index = -1
-	# Everlastings in bloom on the summit ground, deterministic, both sides.
-	var tex := Art.tex("res://assets/terrain/props/everlasting.png")
-	var xs := [-90, -78, -66, -55, -44, -34, -16, 18, 28, 36]
-	for i in xs.size():
-		var s := Sprite2D.new()
-		var at := AtlasTexture.new()
-		at.atlas = tex
-		at.region = Rect2((i % 2) * 10, 0, 10, 10)
-		s.texture = at
-		s.position = Vector2(float(xs[i]), -5.0)
-		s.modulate = [Color(1, 1, 1), Color(1.0, 0.86, 0.9), Color(1.0, 0.95, 0.75)][i % 3]
-		add_child(s)
-		_flowers.append(s)
 
 
 func _process(delta: float) -> void:
 	_t += delta
-	for i in _flowers.size():
-		_flowers[i].rotation = sin(_t * 1.6 + i) * 0.12
 	queue_redraw()
 
 
