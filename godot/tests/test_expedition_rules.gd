@@ -443,6 +443,51 @@ func test_leader_points_reward_a_quick_thrifty_whole_team() -> void:
 	eq(int(ns["team"]) + int(ns["speed"]) + int(ns["stores"]), 0, "no summit: just the score")
 
 
+## Artifacts brought home are worth a lot at the end, summit or not; lost
+## with an expedition that does not come home, they count for nothing.
+func test_artifacts_brought_home_boost_the_end_score() -> void:
+	var base: Dictionary = TestSessions.at("summit-night")["state"].duplicate(true)
+	base["summitReached"] = true
+	base["returnedSafely"] = true
+	base["highestAltitude"] = 5895
+	var none := Records.leader_points(base, "machame", 4, 0)
+	var three := Records.leader_points(base, "machame", 4, 3)
+	eq(int(three["artifacts"]), 3 * Artifacts.POINTS, "each one brought home: +%d" % Artifacts.POINTS)
+	eq(int(three["points"]) - int(none["points"]), 3 * Artifacts.POINTS, "on top of everything else")
+	var every := Records.leader_points(base, "machame", 4, 99)
+	eq(int(every["artifacts"]), Artifacts.MAX * Artifacts.POINTS, "never more than the mountain holds")
+	check(int(every["points"]) > 130, "the most points need the artifacts: %d" % int(every["points"]))
+	var retreat := base.duplicate(true)
+	retreat["summitReached"] = false
+	eq(int(Records.leader_points(retreat, "machame", 4, 2)["artifacts"]), 2 * Artifacts.POINTS, "a safe retreat still brings them home")
+	var lost := base.duplicate(true)
+	lost["returnedSafely"] = false
+	eq(int(Records.leader_points(lost, "machame", 0, 4)["artifacts"]), 0, "not home: they count for nothing")
+
+
+## An expedition's artifacts are its own: the route picks which ones, the
+## record carries the count, and a new expedition starts with none.
+func test_an_expeditions_artifacts_reach_its_record() -> void:
+	Expedition.new_expedition(7)
+	Trek.ensure(Expedition.session)["route"] = "umbwe"
+	Artifacts.keep(Expedition.session, "lava-tower", [0, 1])
+	Artifacts.keep(Expedition.session, "barranco-wall", [1])
+	Artifacts.keep(Expedition.session, "barranco-wall", [1, 7])
+	eq(Artifacts.count(Expedition.session), 3, "two from the tower, one from the wall, nothing twice or out of range")
+	eq(Artifacts.kept(Expedition.session)[0]["name"], Artifacts.for_climb("lava-tower", "umbwe")[0][0], "the fastest way's own artifacts")
+	var s: Dictionary = Expedition.session["state"]
+	s["summitReached"] = true
+	s["returnedSafely"] = true
+	s["highestAltitude"] = 5895
+	Records.delete_all()
+	var run := Records.expedition_finished(Expedition.session)
+	eq(int(run["artifacts"]), 3, "the record counts them")
+	eq(int(run["leader"]["artifacts"]), 3 * Artifacts.POINTS, "and they are in its points")
+	Records.delete_all()
+	Expedition.new_expedition(8)
+	eq(Artifacts.count(Expedition.session), 0, "a new expedition starts with none")
+
+
 ## The helmet turns a falling stone into a knock (stamina), not a fall; the
 ## rope catches the next slip.
 func test_a_helmet_and_a_rope() -> void:

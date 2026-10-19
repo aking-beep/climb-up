@@ -60,7 +60,6 @@ func _ready() -> void:
 			scene.climber.global_position = Terrain.feet(Vector2i(spots[0]))
 			scene.camera.snap()
 			await get_tree().create_timer(1.0).timeout
-		scene.hazards.flowers = int(scene.hazards.flowers_total * 0.8)
 		scene.finish("complete")
 		await get_tree().create_timer(hold if not spots.is_empty() else 2.0).timeout
 		if "clean" in OS.get_cmdline_user_args() and scene.get("hud"):

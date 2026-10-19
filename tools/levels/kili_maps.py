@@ -380,7 +380,7 @@ EXTRA_GEAR = {
 }
 
 
-# Boulders to hop where the everlastings used to keep the walk busy.
+# Boulders to hop, to keep the walk busy.
 EXTRA_HOPS = {"summit_night": [(25, 76), (53, 58)]}
 
 # A cairn on the long walk out after the tower top (past the rolling
@@ -408,13 +408,12 @@ def rim_lee(m, rim=32):
 
 def main():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from flowers import sprinkle
     from gear import place as place_gear
     from gauntlet import gauntlet, wildlife, spread
     for name, build in (("lava_tower", lava_tower), ("summit_night", summit_night), ("descent", descent)):
         m = build()
         if name == "descent":
-            # The way down is its own: no gauntlet, no flowers. Written
+            # The way down is its own: no gauntlet. Written
             # after the others so they stay byte-identical. It has gear.
             print(name, "gear placed:", place_gear(m.g, EXTRA_GEAR[name]))
             out = LEVELS / name / f"{name}.txt"
@@ -442,7 +441,6 @@ def main():
             m.g[y][x] = "#"
         if name in EXTRA_CAIRNS:
             print(name, "cairns placed:", place_gear(m.g, EXTRA_CAIRNS[name], "K"))
-        print(name, "everlastings:", sprinkle(m.g, spacing=9 if name == "summit_night" else 5))
         out = LEVELS / name / f"{name}.txt"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(m.text())

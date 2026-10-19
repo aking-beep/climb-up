@@ -173,7 +173,11 @@ MAX_NOTES = 60
 DIFFICULTY = {"lemosho": "standard", "machame": "hard", "umbwe": "hardest"}
 # Permit days per route (Trek.ROUTES in the game).
 PERMIT = {"lemosho": 13, "machame": 9, "umbwe": 8}
-LEADER_MAX, LEADER_TEAM, LEADER_MISSING = 130, 10, 8
+LEADER_TEAM, LEADER_MISSING = 10, 8
+# Artifacts (godot/modes/expedition/artifacts.gd): points each, and the most
+# one expedition can bring home (two on each of four climbs).
+ARTIFACT_POINTS, ARTIFACT_MAX = 6, 8
+LEADER_MAX = 130 + ARTIFACT_POINTS * ARTIFACT_MAX
 
 
 def js_round(x: float) -> int:
@@ -208,10 +212,11 @@ def score(s: dict) -> int:
     return max(0, min(100, js_round(overall)))
 
 
-def leader_points(s: dict, route: str, team_home: int) -> int:
+def leader_points(s: dict, route: str, team_home: int, artifacts: int = 0) -> int:
     """Records.leader_points, ported: the score, +10 when all four summit and
-    come home, -8 per teammate missing on a summit run, and (whole team
-    only) 2 per spare permit day up to 10 and 1 per 10 supplies up to 10."""
+    come home, -8 per teammate missing on a summit run, (whole team only)
+    2 per spare permit day up to 10 and 1 per 10 supplies up to 10, and 6
+    per artifact brought home on any run that came home safely."""
     sc = score(s)
     summit, home = bool(s["summitReached"]), bool(s["returnedSafely"])
     everyone = summit and home and team_home >= 4
@@ -224,7 +229,8 @@ def leader_points(s: dict, route: str, team_home: int) -> int:
         left = PERMIT.get(route, 13) * 24.0 - float(s["elapsedHours"])
         speed = js_round(max(0.0, min(5.0, left / 24.0)) * 2.0)
         stores = js_round(max(0.0, min(100.0, float(s["supplies"]))) / 10.0)
-    return max(0, min(LEADER_MAX, sc + team + speed + stores))
+    relics = ARTIFACT_POINTS * max(0, min(ARTIFACT_MAX, artifacts)) if home else 0
+    return max(0, min(LEADER_MAX, sc + team + speed + stores + relics))
 
 
 def check_expedition(payload: dict) -> dict:
@@ -264,8 +270,16 @@ def check_expedition(payload: dict) -> dict:
         raise Rejected("bad expedition fields")
     if not 0 <= team_home <= 4 or (team_home > 0 and not bool(s["returnedSafely"])):
         raise Rejected("a team that does not add up")
+    # Artifacts are the client's word too (a replay would check them), but
+    # never more than the climbs hold.
     try:
-        points = leader_points(s, route, team_home)
+        artifacts = int(run.get("artifacts", 0))
+    except (TypeError, ValueError):
+        raise Rejected("bad expedition fields")
+    if not 0 <= artifacts <= ARTIFACT_MAX:
+        raise Rejected("more artifacts than the mountain holds")
+    try:
+        points = leader_points(s, route, team_home, artifacts)
     except (KeyError, TypeError, ValueError):
         raise Rejected("bad expedition fields")
     if "points" in run and int(run["points"]) != points:

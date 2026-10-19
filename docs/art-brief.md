@@ -64,7 +64,7 @@ layout so they drop in, with more variation tiles.
 
 `tools/art/props_hd.py` → `assets/terrain/props/hd/`: cairn, sign, grass,
 pebbles, groundsel, lobelia, rest stone, exit post, tents, boulder, fire
-(4 frames), stones, water, gear, everlastings, thistle, siafu ants,
+(4 frames), stones, water, gear, artifacts, thistle, siafu ants,
 raven. Same sizes as the pixel versions beside them.
 
 ## Backdrops, weather, light

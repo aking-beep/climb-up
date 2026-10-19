@@ -232,6 +232,8 @@ func _ready() -> void:
 	var mine: bool = Expedition.climb.get("challengeId") == spec["id"]
 	hazards.setup(self, terrain, ground, climber, float(d.get("rockPeriod", 5.0)) / trek_factor["steep"], spec.get("gear", []),
 		Expedition.climb.get("taken", []) if mine else [], Expedition.climb.get("gear", []) if mine else [])
+	hazards.place_artifacts(Artifacts.for_climb(spec["id"], String(Expedition.trek().get("route", ""))),
+		Artifacts.kept_on(Expedition.session, spec["id"]), Expedition.climb.get("taken", []) if mine else [])
 	hazards.engaged.connect(engage)
 	hazards.found_gear.connect(_on_gear)
 	for i in (Expedition.climb.get("gear", []) if mine else []):
@@ -333,7 +335,7 @@ func _place_props() -> void:
 					props.add_child(_sprite("rest_stone", feet))
 				"X":
 					if spec.get("summit", false):
-						# The top of Kilimanjaro: the Uhuru sign, flags, flowers.
+						# The top of Kilimanjaro: the Uhuru sign and flags.
 						var top := SummitTop.new()
 						top.name = "SummitTop"
 						top.position = feet + Vector2(-44, 0)
@@ -488,6 +490,9 @@ func brief() -> void:
 		for g in spec.get("gear", []):
 			names.append(String(g[0]))
 		rows.append({"tone": "good", "icon": "crate", "title": "Gear", "text": "Hidden on this climb, each before what it helps with: %s. Each one makes the climb easier. Fail the climb or fall in a hole and you start again with none: it goes back where it was." % ", ".join(names)})
+	var left := hazards.artifacts_total() - hazards.artifacts_kept
+	if left > 0:
+		rows.append({"tone": "good", "icon": "crate", "title": "Artifacts", "text": "%s of Kilimanjaro's history hidden on the most dangerous ground of this climb (different on each route). Each one you bring home is worth %d leader points at the end. A slip drops every one you carry, ravens snatch them, and a failed climb leaves them behind." % ["Two pieces" if left == 2 else "One piece", Artifacts.POINTS]})
 	# What the climb costs back at camp, before you start it.
 	var stakes: Dictionary = Coordinator.CLIMBS.get(spec["id"], {}).get("stakes", {})
 	if not stakes.is_empty():
@@ -952,14 +957,11 @@ func _on_slipped(saved: bool, reason: String) -> void:
 		line = "Too hurt to go on: you collapse. Back to the last cairn."
 	if climber.slips >= max_slips:
 		line = "Slip %d of %d: the climb is over." % [climber.slips, max_slips]
-	var lost := hazards.drop_flowers()
+	var lost := hazards.drop_artifacts()
 	if lost > 0:
-		# Picked flowers are this attempt's: forget them in the save too.
-		var keys: Array = []
-		for cell in terrain.markers.get("f", []):
-			keys.append("%d,%d" % [cell.x, cell.y])
-		forget_taken(keys)
-		line += " You drop all %d everlastings: they are back on the ground." % lost
+		# Carried artifacts are this attempt's: forget them in the save too.
+		forget_taken(hazards.artifact_keys())
+		line += " You drop %s: back where you found %s." % (["the artifact", "it"] if lost == 1 else ["both artifacts", "them"])
 	hud.flash(line, 3.0)
 
 
@@ -1243,8 +1245,8 @@ func outcome_now(kind: String) -> ChallengeOutcome:
 	o.gear_found = gear_this_attempt
 	o.food = snacks * SNACK
 	o.fire_hours = fires.size() * FIRE_HOURS
-	o.flowers = hazards.flowers
-	o.flowers_total = hazards.flowers_total
+	o.artifacts = hazards.artifacts_kept + (0 if kind == "fail" else hazards.artifacts.size())
+	o.artifacts_total = hazards.artifacts_total()
 	o.stars = star_count(kind, o)
 	o.hurt = int(round(climber.hurt_total))
 	o.dosed = dosed
@@ -1266,15 +1268,14 @@ func slip_summary() -> String:
 	return "Slips: %s.%s" % [", ".join(parts), (" Try next: " + tip) if tip != "" else ""]
 
 
-## Up to three: reach the top; no slips that counted; three in four of the
-## everlastings picked.
+## Up to three: reach the top; no slips that counted; both artifacts kept.
 func star_count(kind: String, o: ChallengeOutcome) -> int:
 	if kind != "complete":
 		return 0
 	var n := 1
 	if o.slips == 0:
 		n += 1
-	if hazards.flowers_total == 0 or hazards.flowers * 4 >= hazards.flowers_total * 3:
+	if o.artifacts >= o.artifacts_total:
 		n += 1
 	return n
 
@@ -1292,8 +1293,14 @@ func finish(kind: String) -> void:
 	else:
 		climber.lock(true)
 	if kind == "fail":
-		# Lost the climb: the next go starts with no gear.
+		# Lost the climb: the next go starts with no gear, and the artifacts
+		# carried go back where they were found.
 		lose_gear()
+		hazards.drop_artifacts()
+		forget_taken(hazards.artifact_keys())
+	else:
+		# The top, or a retreat walked down: what you carry is yours.
+		Artifacts.keep(Expedition.session, spec["id"], hazards.artifacts)
 	panel.hide_panel()
 	Audio.stop_ambience()
 	var o := outcome_now(kind)
@@ -1301,7 +1308,7 @@ func finish(kind: String) -> void:
 	var copy: Dictionary = spec["copy"]
 	_outcome = o
 	stars = o.stars
-	var best := Expedition.record_best(spec["id"], o.stars, o.flowers)
+	var best := Expedition.record_best(spec["id"], o.stars, o.artifacts)
 	var head: String = {"complete": copy["doneComplete"], "retreat": copy["doneRetreat"], "fail": copy["doneFail"]}[kind]
 	var summit: bool = kind == "complete" and spec.get("summit", false)
 	if summit:
@@ -1311,11 +1318,14 @@ func finish(kind: String) -> void:
 		lines.append("%d of 3 stars%s" % [o.stars, "  ·  a new best" if best else ""])
 		lines.append("Star: topped out")
 		lines.append(("Star: " if o.slips == 0 else "Missed: ") + "no slips that counted (%d)" % o.slips)
-		lines.append(("Star: " if o.flowers * 4 >= o.flowers_total * 3 else "Missed: ") + "everlastings %d of %d (three in four)" % [o.flowers, o.flowers_total])
+		lines.append(("Star: " if o.artifacts >= o.artifacts_total else "Missed: ") + "artifacts %d of %d" % [o.artifacts, o.artifacts_total])
 		if o.stars == 3:
 			lines.append("Three stars: the party's spirits lift at camp.")
 	else:
-		lines.append("Everlastings %d of %d · cairn %d of %d" % [o.flowers, o.flowers_total, checkpoint, cairns.size() - 1])
+		lines.append("Artifacts %d of %d · cairn %d of %d" % [o.artifacts, o.artifacts_total, checkpoint, cairns.size() - 1])
+	var mine := Artifacts.kept_on(Expedition.session, spec["id"])
+	if not mine.is_empty() and kind != "fail":
+		lines.append("Kept: %s (+%d leader points each, if the team gets home)" % [", ".join(mine.map(func(i: int) -> String: return String(hazards.artifact_words[i][0]))), Artifacts.POINTS])
 	if not fires.is_empty():
 		lines.append("Fires at the cairns: %d (the expedition is %d hour%s later)" % [fires.size(), fires.size() * FIRE_HOURS, "" if fires.size() * FIRE_HOURS == 1 else "s"])
 	if snacks > 0:

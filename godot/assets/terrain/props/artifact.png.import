@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://qa426nofyfat"
-path="res://.godot/imported/everlasting.png-03f123580aa4721a4d5587ed808f360b.ctex"
+uid="uid://c50a1ejhwp74d"
+path="res://.godot/imported/artifact.png-87b690cd57a38b94a689d9f7620ed37c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/terrain/props/hd/everlasting.png"
-dest_files=["res://.godot/imported/everlasting.png-03f123580aa4721a4d5587ed808f360b.ctex"]
+source_file="res://assets/terrain/props/artifact.png"
+dest_files=["res://.godot/imported/artifact.png-87b690cd57a38b94a689d9f7620ed37c.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.92
+compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

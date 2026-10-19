@@ -201,6 +201,7 @@ exactly (the parity test still holds); a trek layer on top
   | Team | -8 per teammate | not home, on a run that reached the summit |
   | Speed | +2 per unused permit day, up to +10 | whole team home only |
   | Stores | +1 per 10 supplies left, up to +10 | whole team home only |
+  | Artifacts | +6 per artifact brought home, up to +48 | any run that came home safely |
 
   Fast at the top without your team ranks below slow with it: being
   quick and thrifty is worth something only when everyone made it. The
@@ -275,8 +276,8 @@ exactly (the parity test still holds); a trek layer on top
   sunrise (`SummitTop`, `SummitDawn`): along the rim the sky turns from
   night to violet, rose and gold, the stars go out and the sun lifts out of
   the cloud sea. At the top: the Uhuru sign, a string of climbers' flags,
-  everlastings in bloom, petals on the wind and a moment to look before the
-  results. All drawn in code, no new textures.
+  petals on the wind and a moment to look before the results. All drawn in
+  code, no new textures.
 
   **Camp gives energy back** (`Trek.camp_recovery`): a night's sleep gives
   about 10 low down, 6 at 4,600 m, less hungry or ill, almost double on a
@@ -364,7 +365,8 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
 - **White-necked ravens** circle over stretches of the path on every climb
   (the summit night has four). Stand about under one and it calls, then
   dives at the spot where you were: keep moving and it misses. A hit costs
-  12 stamina and it flies off with one of your everlastings.
+  12 stamina, and it snatches an artifact you carry and drops it back
+  where you found it.
 - **Water caches** give most of the stamina bar back, once per attempt.
 - **Gear.** Three pieces per climb, hidden off the obvious line (an
   alcove up a side face, the back of a niche, a ledge up a pinnacle), each
@@ -372,14 +374,30 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
 
 **Always something to do, always something earned.**
 
-- **Everlastings** (the papery Kilimanjaro flower) are rare finds: 2 or 3
-  a climb, never two within 70 tiles (8 in all, about a tenth of what
-  there were). Each is 15 stamina back; they glint, and the count shows at
-  the top of the screen. Gear and cairns fill the way instead.
-- **Fall and you drop them.** A slip that counts scatters every everlasting
-  you are carrying back onto the ground where you found it: the count goes
-  to 0 and you pick them up again on the next go. (Gear goes only with a
-  hole or a lost climb.)
+- **Artifacts** (`modes/expedition/artifacts.gd`): pieces of Kilimanjaro's
+  history and culture, two on every played climb (the Lava Tower, the
+  Barranco Wall, the summit night and the way down). They are different
+  on each route: the long way (easy), the faster way (medium) and the
+  fastest way (hard) each hide their own two per climb, 24 in all. Among
+  them are a Chagga honey barrel, a mfongo stone, Yohani Lauwo's walking
+  stick, the Uhuru Torch, Nyerere's candle and an mbege gourd. Each tells
+  its story when you pick it up, and again on the results screen.
+  - **Hard to get.** Each lies on the climb's own line (the level tests'
+    bot walks over every one), on its most dangerous ground: stonefall
+    chutes, cracked slabs, ice, exposed ledges, wildlife. The fastest way
+    gets the worst spots.
+  - **Hard to keep.** A slip that counts drops every artifact you carry
+    back where you found it. A raven can snatch one. A failed climb leaves
+    them behind. The top, or a retreat you walk down from, keeps them for
+    the expedition.
+  - **Worth a lot.** Each one brought home is +6 leader points at the end
+    (up to +48 for all eight), but only if the expedition comes home
+    safely. Summit or not, the team has to get down with them.
+  - The count shows at the top of the screen; the brief says what is
+    hidden.
+- **No everlastings.** The papery flowers that gave a little stamina back
+  are gone from the climbs and the summit. (Gear goes only with a hole or
+  a lost climb.)
 - **No length meter.** The HUD does not say how far along the climb you
   are; you see the next obstacle, not the distance left.
 - **An obstacle every few steps.** `tools/levels/gauntlet.py` lines every
@@ -394,7 +412,7 @@ Mega Man stages or Metroid rooms, all along the walk, not only on the faces.
   (`wildlife`) adds plants and ants where a boulder would not fit, with a
   full hop's headroom and six tiles between any two.
 - **Stars at the top:** one for topping out, one for no slips that counted,
-  one for three in four of the everlastings. The results card shows them
+  one for keeping both of the climb's artifacts. The results card shows them
   and your best is kept; a three-star climb lifts the party at camp
   (+3 team, +2 energy).
 - **Pacing is tested.** Every climb logs each moment the player has to act

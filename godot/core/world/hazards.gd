@@ -19,6 +19,11 @@ extends Node2D
 ## Gear (*): three pieces per climb, each placed before what it helps with
 ## (the level says what each does). It lasts this attempt: fail the climb
 ## or fall in a hole and it goes back where it was (drop_gear).
+##
+## Artifacts (Artifacts.DATA, placed by the level, not the map): two per
+## climb for the chosen route. Carried until the climb ends; a slip that
+## counts drops them all back where they were found (drop_artifacts), and
+## a raven can take one (steal_artifact).
 
 signal found_gear(index: int)
 ## Something the player had to deal with: for the level's pacing log.
@@ -58,11 +63,11 @@ var pickups: Array = []
 var rollers: Array = []      # spawners: {cell, dir, offset, next}
 var rolling: Array = []      # stones on the move: {node, dir, vy, start}
 var gear_count := 0
-## Everlastings: little flowers along the ground, a breath back each.
-var flowers := 0
-var flowers_total := 0
-const FLOWER_BREATH := 15.0
-var _flower_tex: Texture2D
+## Artifacts: [[name, story, [x, y]], ...] for this climb and route; the
+## indices carried right now; how many were kept on an earlier go.
+var artifact_words: Array = []
+var artifacts: Array = []
+var artifacts_kept := 0
 var _was_warned := false
 var _was_breaking := false
 var _clock := -1.0
@@ -132,22 +137,36 @@ func setup(lvl: Node, t: Terrain, g: TileMapLayer, c: Climber, period: float, wo
 		var gone := taken.has(key)
 		s.visible = not gone
 		pickups.append({"cell": cell, "kind": "water", "key": key, "node": s, "taken": gone})
-	_flower_tex = Art.tex("res://assets/terrain/props/everlasting.png")
-	for cell in terrain.markers.get("f", []):
+
+
+## The route's artifacts on this climb. `kept`: indices already kept on this
+## expedition (not shown again); `taken`: the save's picked keys, so a
+## resumed climb still carries what it had.
+func place_artifacts(words: Array, kept: Array, taken: Array) -> void:
+	artifact_words = words
+	var tex := Art.tex("res://assets/terrain/props/artifact.png")
+	for n in words.size():
+		var cell := Vector2i(int(words[n][2][0]), int(words[n][2][1]))
 		var s := Sprite2D.new()
 		var at := AtlasTexture.new()
-		at.atlas = _flower_tex
-		at.region = Rect2(0, 0, 10, 10)
+		at.atlas = tex
+		at.region = Rect2(0, 0, 12, 12)
 		s.texture = at
-		s.position = Terrain.feet(cell) - Vector2(0, 5)
+		s.position = Terrain.feet(cell) - Vector2(0, 8)
 		add_child(s)
-		var key := "%d,%d" % [cell.x, cell.y]
-		var gone := taken.has(key)
-		s.visible = not gone
-		flowers_total += 1
-		if gone:
-			flowers += 1
-		pickups.append({"cell": cell, "kind": "flower", "key": key, "node": s, "taken": gone})
+		var key := "artifact:%d" % n
+		var had := kept.has(n)
+		var carried := not had and taken.has(key)
+		if had:
+			artifacts_kept += 1
+		if carried:
+			artifacts.append(n)
+		s.visible = not had and not carried
+		pickups.append({"cell": cell, "kind": "artifact", "index": n, "key": key, "node": s, "taken": had or carried})
+
+
+func artifacts_total() -> int:
+	return artifact_words.size()
 
 
 ## The columns a chute's stones can fall in (the marker and its neighbours),
@@ -183,10 +202,11 @@ func step() -> void:
 	_was_breaking = breaking
 	var t := Time.get_ticks_msec() / 1000.0
 	for p in pickups:
-		if p["kind"] == "flower" and not p["taken"]:
-			# A glint now and then, so the eye finds the next one.
-			var glint := fposmod(t * 0.7 + p["cell"].x * 0.37, 3.0) < 0.25
-			p["node"].texture.region = Rect2(10 if glint else 0, 0, 10, 10)
+		if p["kind"] == "artifact" and not p["taken"]:
+			# A glint now and then, and a slow bob: something worth the risk.
+			var glint := fposmod(t * 0.7 + p["cell"].x * 0.37, 2.0) < 0.3
+			p["node"].texture.region = Rect2(12 if glint else 0, 0, 12, 12)
+			p["node"].offset.y = sin(t * 2.0 + p["index"]) * 1.0
 	for p in pickups:
 		if p["kind"] == "gear" and not p["taken"]:
 			p["node"].offset.y = sin(t * 3.0 + p["index"]) * 1.5
@@ -471,16 +491,16 @@ func _pickups() -> void:
 		if not body.intersects(Rect2(Vector2(cell) * Terrain.TILE, Vector2.ONE * Terrain.TILE)):
 			continue
 		p["taken"] = true
-		if p["kind"] == "flower":
-			flowers += 1
-			climber.stamina.value = minf(climber.stamina.max_value, climber.stamina.value + FLOWER_BREATH)
+		if p["kind"] == "artifact":
+			artifacts.append(p["index"])
 			p["node"].visible = false
-			_burst(p["node"].position, Color(1.0, 0.98, 0.85), 6)
-			Audio.play("chime", -20.0, 0.1)
+			_burst(p["node"].position, Color(1.0, 0.86, 0.45), 20)
+			Audio.play("sting", -6.0)
+			Haptics.tap(40)
 			level.on_water(p["key"])
-			engaged.emit("flower")
-			if flowers == flowers_total:
-				level.hud.flash("Every everlasting on this climb: %d of %d." % [flowers, flowers_total], 3.0)
+			engaged.emit("artifact")
+			var words: Array = artifact_words[p["index"]]
+			level.hud.flash("An artifact: %s! %s Keep it safe: a slip drops it." % [words[0], words[1]], 8.0)
 			continue
 		engaged.emit(p["kind"])
 		if p["kind"] == "water":
@@ -500,35 +520,41 @@ func _pickups() -> void:
 			found_gear.emit(p["index"])
 
 
-## A fall that counted: everything picked on this climb is dropped and goes
-## back on the ground. You start again from the cairn with nothing.
-func drop_flowers() -> int:
-	var lost := flowers
+## A fall that counted (or a lost climb): every artifact carried is dropped
+## and goes back where it was found. Returns how many; the keys to forget in
+## the save are artifact_keys().
+func drop_artifacts() -> int:
+	var lost := artifacts.size()
 	if lost == 0:
 		return 0
-	flowers = 0
 	for p in pickups:
-		if p["kind"] == "flower" and p["taken"]:
+		if p["kind"] == "artifact" and artifacts.has(p["index"]):
 			p["taken"] = false
 			p["node"].visible = true
-	_burst(climber.global_position - Vector2(0, 12), Color(1.0, 0.98, 0.85), mini(30, 6 + lost))
+	artifacts.clear()
+	_burst(climber.global_position - Vector2(0, 12), Color(1.0, 0.86, 0.45), 18)
 	return lost
 
 
-## A raven takes one everlasting you were carrying; it turns up back where it
-## grew. False when you had none.
-func steal_flower() -> bool:
-	if flowers == 0:
-		return false
-	for i in range(pickups.size() - 1, -1, -1):
-		var p: Dictionary = pickups[i]
-		if p["kind"] == "flower" and p["taken"]:
+func artifact_keys() -> Array:
+	var keys: Array = []
+	for n in artifact_words.size():
+		keys.append("artifact:%d" % n)
+	return keys
+
+
+## A raven snatches the last artifact you picked up and drops it back where
+## it was. False when you carry none.
+func steal_artifact() -> String:
+	if artifacts.is_empty():
+		return ""
+	var n: int = artifacts.pop_back()
+	for p in pickups:
+		if p["kind"] == "artifact" and p["index"] == n:
 			p["taken"] = false
 			p["node"].visible = true
-			flowers -= 1
 			level.forget_taken([p["key"]])
-			return true
-	return false
+	return String(artifact_words[n][0])
 
 
 ## The spec's gear entries in the order of the * markers (bottom to top,

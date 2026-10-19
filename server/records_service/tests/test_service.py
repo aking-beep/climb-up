@@ -316,6 +316,50 @@ class LeaderPoints(Base):
         self.assertEqual(board["entries"][0]["points"], out_a["points"])
 
 
+class ArtifactPoints(Base):
+    """Artifacts brought home (godot/modes/expedition/artifacts.gd) count in
+    leader points, the same as the game; the count is checked for range."""
+
+    def with_artifacts(self, artifacts, home=4, returned=True):
+        from server.records_service import validate
+        e = expedition()
+        pl = e["payload"]
+        pl["state"]["returnedSafely"] = returned
+        pl["run"]["teamHome"] = home if returned else 0
+        pl["run"]["artifacts"] = artifacts
+        pl["run"]["points"] = validate.leader_points(pl["state"], pl["route"], pl["run"]["teamHome"], artifacts)
+        return e
+
+    def test_artifacts_home_add_their_points(self):
+        from server.records_service import validate
+        p = self.player(name="Collector")
+        plain = self.with_artifacts(0)["payload"]["run"]["points"]
+        code, out = self.submit(p["token"], self.with_artifacts(3))
+        self.assertTrue(out["ok"], out)
+        self.assertEqual(out["points"] - plain, 3 * validate.ARTIFACT_POINTS)
+
+    def test_no_points_for_artifacts_that_did_not_come_home(self):
+        from server.records_service import validate
+        e = self.with_artifacts(4, returned=False)
+        st = e["payload"]["state"]
+        self.assertEqual(validate.leader_points(st, "lemosho", 0, 4), validate.leader_points(st, "lemosho", 0, 0))
+
+    def test_more_artifacts_than_the_mountain_holds_are_refused(self):
+        from server.records_service import validate
+        p = self.player(name="Hoarder")
+        code, out = self.submit(p["token"], self.with_artifacts(validate.ARTIFACT_MAX + 1))
+        self.assertFalse(out["ok"])
+        self.assertIn("artifacts", out["reason"])
+
+    def test_claimed_points_must_include_the_artifacts_honestly(self):
+        p = self.player(name="Padder")
+        e = self.with_artifacts(2)
+        e["payload"]["run"]["points"] += 6
+        code, out = self.submit(p["token"], e)
+        self.assertFalse(out["ok"])
+        self.assertIn("leader points", out["reason"])
+
+
 class Offline(Base):
     def test_a_late_daily_go_from_offline_is_accepted_for_a_while(self):
         p = self.player(name="Offline Olly")

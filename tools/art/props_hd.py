@@ -271,19 +271,20 @@ def gear():
     p.at(0).save("gear")
 
 
-def everlasting():
-    p = Pen(20, 10)
+def artifact():
+    """A small banded clay pot in a soft glow (see godot_hazards.artifact)."""
+    p = Pen(24, 12)
     for f in range(2):
-        q = p.at(f * 10)
-        q.line([(5.0, 9.8), (5.0, 6.0)], 0.6, c("#7d8a72"))
-        for a in range(0, 360, 45):
-            ang = math.radians(a + 22)
-            ex, ey = 5 + math.cos(ang) * 2.2, 4 + math.sin(ang) * 2.2
-            q.ellipse(ex - 1.2, ey - 1.2, ex + 1.2, ey + 1.2, c("#ffffff" if f else "#f4efe2"))
-        q.ellipse(3.8, 2.8, 6.2, 5.2, c("#f0b832"))
+        q = p.at(f * 12)
+        q.ellipse(0.6, 1.4, 11.4, 12.0, c("#ffe08a", 60 if f == 0 else 120), outline=False)
+        q.poly([(4.2, 2.2), (7.8, 2.2), (7.4, 3.4), (9.2, 5.2), (9.2, 8.8), (7.8, 10.8), (4.2, 10.8), (2.8, 8.8), (2.8, 5.2), (4.6, 3.4)], c("#b5643a"))
+        q.poly([(2.9, 5.9), (9.1, 5.9), (9.1, 7.6), (2.9, 7.6)], c("#efe2c4"), outline=False)
+        for i in range(3):
+            x = 3.6 + i * 2.0
+            q.poly([(x, 7.6), (x + 0.9, 6.0), (x + 1.8, 7.6)], c("#c23a2a"), outline=False)
         if f:
-            q.poly([(8.0, 0.4), (8.4, 1.6), (9.6, 2.0), (8.4, 2.4), (8.0, 3.6), (7.6, 2.4), (6.4, 2.0), (7.6, 1.6)], c("#ffffff"), outline=False)
-    p.at(0).save("everlasting")
+            q.poly([(9.6, 0.2), (10.0, 1.4), (11.2, 1.8), (10.0, 2.2), (9.6, 3.4), (9.2, 2.2), (8.0, 1.8), (9.2, 1.4)], c("#ffffff"), outline=False)
+    p.at(0).save("artifact")
 
 
 def thistle():
@@ -341,7 +342,7 @@ def main():
         pebbles(i)
     tent("#f08a2a", "#c4621a", "#ffb45a", "tent_orange")
     tent("#3e86d8", "#2a60a8", "#7ab4f0", "tent_blue")
-    fire(); rock(); water(); gear(); everlasting(); thistle(); ants(); raven()
+    fire(); rock(); water(); gear(); artifact(); thistle(); ants(); raven()
     print("wrote props to", OUT)
 
 
