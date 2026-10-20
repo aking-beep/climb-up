@@ -361,7 +361,7 @@ func follow(script: Array) -> bool:
 		# Knocked back to a cairn (a stone, a gust, a slip the rope held):
 		# go back to the start of this stretch and try it again, as a
 		# player would. Three times a stretch, eight a climb at most.
-		if failures.size() > had and step[0] in ["climb", "traverse", "down", "walk", "fetch"] and tries < 3 and total < 8 and not level.get("_ended"):
+		if failures.size() > had and step[0] in ["climb", "traverse", "down", "walk", "fetch", "finish"] and tries < 3 and total < 8 and not level.get("_ended"):
 			total += 1
 			tries += 1
 			retries += 1
