@@ -105,6 +105,13 @@ func _ready() -> void:
 					if c["cell"].y > spots[i].y:
 						c["clipped"] = true
 						c["node"].texture.region = Rect2(8, 0, 8, 14)
+			elif scene.get("alpine") != null and spots[i].y < scene.alpine.current()["base"].y / Terrain.TILE - 1.0:
+				# Leading the pitch: on the rock, the pitons below clipped.
+				climber.hang_at(Terrain.feet(Vector2i(spots[i])))
+				for pt in scene.alpine.current()["pitons"]:
+					if pt["cell"].y > spots[i].y:
+						pt["clipped"] = true
+				scene.alpine._refresh()
 			scene.camera.snap()
 		await get_tree().create_timer(hold).timeout
 		get_viewport().get_texture().get_image().save_png("%s_%d.png" % [out, i])

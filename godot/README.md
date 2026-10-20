@@ -228,8 +228,24 @@ exactly (the parity test still holds); a trek layer on top
   stamina; a stone, a fall or a slab that knocks you off costs a slip and
   a bruise off the bar you get back at the cairn (`Climber.KNOCK`). No
   wall on a route is taller than that route's smallest bar can climb
-  (`route_levels.FACE_MAX`), so the fastest way has many short walls, more
-  stonefall and more in the way rather than taller faces.
+  (`route_levels.FACE_MAX`) in one go, so the fastest way has many short
+  walls, more stonefall and more in the way, and its tall walls are
+  climbed on a rope.
+
+  **Alpine pitches on the fastest way** (`modes/expedition/levels/alpine.gd`,
+  `Line.pitch` in the generator). The Umbwe Ridge, the Arrow Glacier and
+  the Western Breach each have three pitches: clefts 10 to 12 rows tall
+  (a chimney between a prow and the ledge), pitons every 3 rows and an
+  anchor on the ledge at the top. Your partner (Lena, or whoever the trek
+  still has) belays from the foot. Tap CLIP at each piton. Once clipped,
+  a fall (empty arms, a stone) is held by the rope as far below the last
+  piton as you were above it: no slip, but the knock hurts, and you never
+  go below the foot of the pitch. Tap REST on the rock to hang on the
+  rope; each clip is worth 60% of the bar. At the anchor you are tied in
+  until you tap PULL eight times to bring your partner up (a little
+  breath each); they clean the pitons and follow you to the next pitch.
+  Fall before the first piton and it is an ordinary slip back to the
+  cairn, the pitch to lead again. `tests/test_alpine.gd` checks each rule.
 
   **Nothing is given away.** Gear and the two artifacts lie off the line:
   on ledges over the path, up a wall you climb for them and climb back

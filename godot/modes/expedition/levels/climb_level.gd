@@ -519,6 +519,11 @@ func _decor_room(cell: Vector2i, name: String) -> bool:
 	for a in layout.get("artifacts", []):
 		if absi(int(a[0]) - cell.x) <= 3 and absi(int(a[1]) - cell.y) <= 4:
 			return false
+	# Nor over a pitch's anchor, or at its foot where the partner belays.
+	for p in layout.get("pitches", []):
+		for at in [p["anchor"], p["base"]]:
+			if absi(int(at[0]) - cell.x) <= 3 and absi(int(at[1]) - cell.y) <= 4:
+				return false
 	return true
 
 
