@@ -662,7 +662,7 @@ def southern_icefields(L):
     L.face(6, "C", chute=True)
     L.walk(4); L.cairn(); L.walk(4)
     L.ice(8); L.walk(3)
-    L.crevasse(); L.walk(4)
+    L.crevasse(); L.rocks(7)
     L.mate()
     L.walk(4)
     L.spur(6, "gear:rope")
