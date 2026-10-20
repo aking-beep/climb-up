@@ -305,6 +305,9 @@ func test_the_faster_ways_are_harder_climbs() -> void:
 						hazards += 1
 			var walls := 0
 			var worst := 0.0
+			# Rows climbed along the line: walls, side walls (up and down) and
+			# pitches.
+			var climbed := 0
 			for a in lay["script"]:
 				if a[0] in ["climb", "down", "pitch"]:
 					walls += 1
@@ -327,6 +330,7 @@ func test_the_faster_ways_are_harder_climbs() -> void:
 						longest = maxi(longest, prev - int(r))
 						prev = int(r)
 					check(bottom - top >= 9, "%s on %s: a pitch taller than any wall (%d rows)" % [climb, route, bottom - top])
+					climbed += bottom - top
 					worst = maxf(worst, longest * Terrain.TILE / Climber.CLIMB_UP * StaminaModel.RATES["climb"])
 				if a[0] in ["climb", "fetch"]:
 					var col := int(floor(float(a[1]["x"])))
@@ -336,13 +340,20 @@ func test_the_faster_ways_are_harder_climbs() -> void:
 					while t.is_climbable(Vector2i(col, row + rows)):
 						loose = loose or t.kind(Vector2i(col, row + rows)) == Terrain.Kind.LOOSE
 						rows += 1
+					climbed += rows * (2 if a[0] == "fetch" else 1)
 					# What the wall costs to climb, resting first (StaminaModel).
 					var cost := rows * Terrain.TILE / Climber.CLIMB_UP * StaminaModel.RATES["climb"] * (StaminaModel.LOOSE_FACTOR if loose else 1.0)
 					worst = maxf(worst, cost)
 			check(worst <= Trek.MIN_BAR[route] * 0.95, "%s on %s: the costliest wall (%.0f) fits the smallest bar (%d)" % [climb, route, worst, int(Trek.MIN_BAR[route])])
-			size.append([walls, hazards])
-		for k in 2:
-			check(size[k + 1][1] > size[k][1], "%s: more in the way on the %s way (%d vs %d)" % [climb, ["faster", "fastest"][k], size[k + 1][1], size[k][1]])
+			size.append([walls, hazards, float(hazards) / t.width, climbed])
+		check(size[1][1] > size[0][1], "%s: more in the way on the faster way (%d vs %d)" % [climb, size[1][1], size[0][1]])
+		if climb == "descent":
+			check(size[2][1] > size[1][1], "%s: more in the way on the fastest way (%d vs %d)" % [climb, size[2][1], size[1][1]])
+		else:
+			# The fastest way up is a climbing route (the pitches): hard by its
+			# climbing, with more in the way for its length than the long way.
+			check(size[2][2] > size[0][2], "%s: more in the way for its length on the fastest way (%.2f vs %.2f a tile)" % [climb, size[2][2], size[0][2]])
+			check(size[2][3] > size[1][3] and size[2][3] > size[0][3], "%s: the fastest way climbs the most (%s rows)" % [climb, [size[0][3], size[1][3], size[2][3]]])
 		check(size[2][0] >= size[1][0] and size[2][0] >= size[0][0], "%s: the fastest way has the most walls (%s)" % [climb, size])
 		lvl.free()
 
@@ -449,7 +460,12 @@ func _spread(climb: String, route: String, t: Terrain) -> void:
 	var all: Array = []
 	for ch in ["n", "a", "v"]:
 		all.append_array(t.markers.get(ch, []))
-	check(all.size() >= 4, "%s has wildlife (%d)" % [id, all.size()])
+	# The fastest way is a climbing route: its walks are short ledges
+	# between pitches, too short to line with creatures (and nothing dives
+	# at you on the rock). The others are walks with wildlife along them.
+	var climbing_route := route == "umbwe"
+	if not climbing_route:
+		check(all.size() >= 4, "%s has wildlife (%d)" % [id, all.size()])
 	# Not bunched: nothing within 8 tiles of another on the same stretch.
 	for i in all.size():
 		for j in range(i + 1, all.size()):
@@ -457,6 +473,8 @@ func _spread(climb: String, route: String, t: Terrain) -> void:
 			var b: Vector2i = all[j]
 			check(absi(a.y - b.y) > 4 or absi(a.x - b.x) >= 8, "%s: %s and %s are apart" % [id, a, b])
 	# Spread from the bottom of the walk to the top, not all in one band.
+	if climbing_route:
+		return
 	var start: int = t.markers["P"][0].y
 	var exit: int = t.markers["X"][0].y
 	var lo := 0
