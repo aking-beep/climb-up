@@ -236,7 +236,8 @@ exactly (the parity test still holds); a trek layer on top
   (`Trek.ROCK`): a small bar, but light, practised climbers. Once clipped,
   holding still for half a second hangs you on the rope and the arms
   come back (`Alpine.HANG_STILL`). Each hard climb's first two pitches
-  have pitons every 2 rows, then every 3. `test_alpine` climbs every
+  have pitons every 3 rows, then every 4, with a jug (a big hold to
+  shake out on) halfway between them. `test_alpine` climbs every
   pitch of the Western Breach like a person who stops to look and never
   presses REST, and must get up each one without a fall.
 
@@ -266,17 +267,19 @@ exactly (the parity test still holds); a trek layer on top
   joined by short ledges, so at least 60% of the time you are moving is
   on the rock, not walking (`ClimbLevel.climbing_share`, checked by the
   route test). Pitches are clefts 16 to 18 rows tall
-  (a chimney between a prow and the ledge), pitons every 3 rows and an
-  anchor on the ledge at the top. Your partner (Lena, or whoever the trek
+  (a chimney between a prow and the ledge), pitons every 3 or 4 rows, jugs
+  between, and an anchor on the ledge at the top. Your partner (Lena, or whoever the trek
   still has) belays from the foot. Tap CLIP at each piton. Once clipped,
   a fall (empty arms, a slip) is held by the rope as far below the last
   piton as you were above it: no slip, but the knock hurts, and you never
   go below the foot of the pitch. Hold still once clipped (or tap REST) to hang on the
   rope; each clip is worth 60% of the bar. At the anchor you are tied in
   until you tap PULL eight times to bring your partner up (a little
-  breath each); they clean the pitons and follow you to the next pitch.
-  Fall before the first piton and it is an ordinary slip back to the
-  cairn, the pitch to lead again. `tests/test_alpine.gd` checks each rule.
+  breath each); they follow you to the next pitch. Fall before the first
+  piton and it is an ordinary slip back to the cairn. The gear stays on
+  the wall: after a restart from a cairn, every draw you clipped is still
+  clipped (and still holds a fall), and a partner you pulled up a pitch
+  is already up there: no clipping or pulling twice. `tests/test_alpine.gd` checks each rule.
 
   **Nothing is given away.** Gear and the two artifacts lie off the line:
   on ledges over the path, up a wall you climb for them and climb back

@@ -15,9 +15,15 @@ extends Node2D
 ##     given back while you hang there.
 ## At the anchor you clip in and bring your partner up: tap PULL, PULLS
 ## times; each pull costs a little breath. Only then does the climb go on:
-## the partner follows you to the next pitch, cleaning the pitons as they
-## come. Fall off before the first piton, or off the rope altogether, and it
-## is a slip like any other: back to the cairn, the pitch to lead again.
+## the partner follows you to the next pitch. Fall off before the first
+## piton, or off the rope altogether, and it is a slip like any other: back
+## to the cairn.
+##
+## The gear stays on the wall (the party fixes its rope as it goes): every
+## quickdraw you clip stays clipped for the rest of the climb, so after a
+## restart from a cairn you climb back up through your own draws and never
+## clip one twice, and a partner you have pulled up a pitch is already up
+## there (no pulling twice).
 
 const T := Terrain.TILE
 ## How close the chest must be to a piton to clip it.
@@ -75,19 +81,34 @@ func setup(lvl: ClimbLevel, defs: Array) -> void:
 	for d in defs:
 		var p := {"x": float(d["x"]), "base": Terrain.feet(Vector2i(int(d["base"][0]), int(d["base"][1]))),
 			"top": int(d["top"]), "anchor": Terrain.feet(Vector2i(int(d["anchor"][0]), int(d["anchor"][1]))),
-			"pitons": [], "done": false}
+			"pitons": [], "done": false, "hauled": false}
 		for cell in d["pitons"]:
 			var c := Vector2i(int(cell[0]), int(cell[1]))
 			var s := _quickdraw()
 			s.position = Vector2(c) * T + Vector2(4, 11)
 			add_child(s)
 			p["pitons"].append({"cell": c, "node": s, "clipped": false})
-		# The anchor: two pitons and a sling on the ledge's back wall.
-		var a := _quickdraw()
+		# The anchor: bolted to the ledge's back wall.
+		var a := Sprite2D.new()
+		a.texture = load("res://assets/crag/anchor-hd.png")
+		a.scale = Vector2.ONE * 0.3
+		a.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		a.z_index = 1
 		a.position = p["anchor"] + Vector2(T * 0.6, -T * 1.1)
-		a.modulate = Color(1.0, 0.85, 0.55)
 		add_child(a)
 		p["node"] = a
+		# Jugs up the cleft (J): a big hold across both columns, to hang on
+		# and shake out.
+		var col := int(floor(float(p["x"]))) - 1
+		for row in range(int(p["top"]), Terrain.cell_of(p["base"]).y + 1):
+			if lvl.terrain.kind(Vector2i(col, row)) == Terrain.Kind.JUG:
+				var j := Sprite2D.new()
+				j.texture = load("res://assets/crag/jug-hd.png")
+				j.scale = Vector2.ONE * 0.3
+				j.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+				j.z_index = 1
+				j.position = Vector2(col + 1, row + 0.5) * T
+				add_child(j)
 		pitches.append(p)
 	_rope = Line2D.new()
 	_rope.width = 1.6
@@ -213,13 +234,9 @@ func reset_to(feet: Vector2) -> void:
 	climber.on_rope = false
 	if belaying:
 		belaying = false
+	# Behind you, done; ahead, to climb again (through the draws you left).
 	for p in pitches:
-		if not p["done"] and p["anchor"].x <= feet.x + 1.0:
-			_finish_pitch(p)
-	for p in pitches:
-		if not p["done"]:
-			for pt in p["pitons"]:
-				pt["clipped"] = false
+		p["done"] = p["anchor"].x <= feet.x + 1.0
 	lead = 0
 	while lead < pitches.size() and pitches[lead]["done"]:
 		lead += 1
@@ -347,8 +364,14 @@ func _at_anchor() -> void:
 	resting = false
 	climber.on_rope = false
 	clip_target = -1
-	if partner == null:
-		level.hud.flash("At the anchor. Nobody to bring up: you fix the rope and climb on alone.", 2.4)
+	if partner == null or p["hauled"]:
+		if partner:
+			# Up here already from your first time up this pitch.
+			partner.helped()
+			partner.catch_up(climber.global_position)
+			level.hud.flash("Back at the anchor. %s is already up: on you go." % partner_name, 2.0)
+		else:
+			level.hud.flash("At the anchor. Nobody to bring up: you fix the rope and climb on alone.", 2.4)
 		_finish_pitch(p)
 		lead += 1
 		return
@@ -377,6 +400,7 @@ func _pull() -> void:
 	if pulls >= PULLS:
 		hauls += 1
 		belaying = false
+		p["hauled"] = true
 		_finish_pitch(p)
 		lead += 1
 		partner.helped()
@@ -384,16 +408,12 @@ func _pull() -> void:
 		climber.lock(false)
 		level.engage("haul")
 		Audio.play("chime", -10.0)
-		level.hud.flash("%s is up. They clean the pitons on the way: on to the next pitch." % partner_name if lead < pitches.size() else "%s is up. That was the last pitch." % partner_name, 2.4)
+		level.hud.flash("%s is up: on to the next pitch." % partner_name if lead < pitches.size() else "%s is up. That was the last pitch." % partner_name, 2.4)
 		_refresh()
 
 
 func _finish_pitch(p: Dictionary) -> void:
 	p["done"] = true
-	# The second takes the gear out on the way up.
-	for pt in p["pitons"]:
-		pt["clipped"] = false
-		pt["node"].visible = false
 
 
 func _refresh() -> void:

@@ -170,7 +170,7 @@ func test_pull_the_partner_up_at_the_anchor() -> void:
 	check(c.stamina.value < had, "pulling costs breath")
 	eq(partner.state, Companion.State.FOLLOWING, "the partner follows you on")
 	for pt in p["pitons"]:
-		check(not pt["node"].visible, "the partner cleaned the pitons")
+		check(pt["node"].visible, "the gear stays on the wall")
 	await _done()
 
 
@@ -214,4 +214,50 @@ func test_a_person_gets_up_every_pitch() -> void:
 		eq(c.rope_falls, falls, "pitch %d: not even a fall on the rope" % (i + 1))
 		while al.belaying:
 			await press("interact")
+	await _done()
+
+
+## The gear stays on the wall: after a restart from a cairn below, the
+## draws you clipped are still clipped (and still hold a fall), and at an
+## anchor where you already pulled your partner up, they are already there.
+func test_the_draws_stay_after_a_restart() -> void:
+	await _load("lava-tower", "umbwe")
+	var al: Alpine = level.alpine
+	var p: Dictionary = al.current()
+	# Lead the pitch: clip every piton, and bring the partner up.
+	for i in p["pitons"].size():
+		await _on_pitch_at(i)
+		await _clip_in_reach()
+	eq(al.clipped(), p["pitons"].size(), "every piton clipped")
+	c.respawn(p["anchor"])
+	await physics_frames(3)
+	check(al.belaying, "at the anchor")
+	while al.belaying:
+		await press("interact")
+	eq(al.hauls, 1, "the partner is up")
+	# Back down at the start (a restart from below the pitch).
+	c.respawn(level.cairns[0])
+	al.reset_to(level.cairns[0])
+	await physics_frames(2)
+	eq(al.lead, 0, "the pitch is ahead again")
+	eq(al.clipped(), p["pitons"].size(), "every draw still clipped")
+	for pt in p["pitons"]:
+		check(pt["node"].visible, "and still on the wall")
+	# Nothing to clip on the way back up.
+	await _on_pitch_at(1)
+	await physics_frames(5)
+	eq(al.clip_target, -1, "nothing to clip twice")
+	# A fall there is held by the draws already in.
+	c.hang_at(c.global_position + Vector2(0, -Terrain.TILE))
+	await physics_frames(2)
+	var slips := c.slips
+	c.slip("arms")
+	await drive([], func() -> bool: return c.state != Climber.State.SLIP, 3.0, "the rope comes tight")
+	eq(c.slips, slips, "the draws you left hold the fall")
+	# At the anchor again: no pulling twice.
+	c.respawn(p["anchor"])
+	await physics_frames(3)
+	check(not al.belaying, "the partner is already up")
+	eq(al.lead, 1, "on to the next pitch")
+	eq(al.hauls, 1, "pulled up once")
 	await _done()

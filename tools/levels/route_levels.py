@@ -205,14 +205,16 @@ class Line:
         self.y = hi
         self._track()
 
-    def pitch(self, h, kind="C", chute=False, every=3):
+    def pitch(self, h, kind="C", chute=False, every=4):
         """An alpine pitch (the fastest way, Alpine): a cleft h rows tall, a
         chimney or a couloir, too tall for the bar in one go. A two-wide
         line of rock between a prow on the left and the ledge on the right,
         pitons up it every `every` rows and an anchor on the ledge at the
         top. The partner belays from the foot; you clip as you climb, rest
         on the rope, and at the anchor pull the partner up. A climb's first
-        pitches put their pitons closer (every=2): it builds up."""
+        pitches put their pitons closer (every=3): it builds up. Where they
+        are 4 apart, a jug halfway between two (J, a big hold to hang on
+        and shake out) breaks the stretch."""
         assert every <= FACE_MAX[self.route] * (1.0 / LOOSE if kind == "L" else 1.0) + 0.01, (self.route, "pitons too far apart")
         c, x, lo = self.c, self.x, self.y
         hi = lo - h
@@ -227,6 +229,10 @@ class Line:
             # Stones down the cleft's left column; the line is the right.
             c.put(x, hi - 6, "r")
         pitons = [[x + 1, r] for r in range(lo - every, hi, -every)]
+        if every >= 4:
+            for (_, r) in pitons[:-1]:
+                c.put(x, r - every // 2, "J")
+                c.put(x + 1, r - every // 2, "J")
         anchor = [x + 3, hi - 1]
         c.pitches.append({"x": x + 1.5, "base": [x - 1, lo - 1], "top": hi, "pitons": pitons, "anchor": anchor})
         c.clear_spans.append((x - 3, x - 1, lo - 1))
@@ -498,11 +504,11 @@ def umbwe_ridge(L):
     rock. A quarter of the bar."""
     L.start(13, [(1, "T"), (3, "F"), (5, "m"), (7, "l"), (9, "P")], sign_at=11)
     L.walk(2)
-    L.pitch(16, "C", every=2)
+    L.pitch(16, "C", every=3)
     L.walk(2); L.cairn(); L.walk(2)
     L.spur(5, "gear:gloves")
     L.walk(2); L.ice(4); L.walk(2)
-    L.pitch(17, "C", chute=True, every=2)
+    L.pitch(17, "C", chute=True, every=3)
     L.walk(2); L.sign(1); L.walk(2)
     L.spur(5, "gear:helmet", chute=True)
     L.walk(2); L.gap(2); L.walk(2)
@@ -616,11 +622,11 @@ def arrow_glacier(L):
     crevasse. A quarter of the bar."""
     L.start(13, [(1, "T"), (3, "F"), (5, "l"), (7, "j"), (9, "P")], sign_at=11)
     L.walk(2)
-    L.pitch(16, "C", every=2)
+    L.pitch(16, "C", every=3)
     L.walk(2); L.cairn(); L.walk(2); L.sign(1); L.walk(2)
     L.spur(4, "gear:helmet")
     L.walk(2); L.ice(4); L.walk(2)
-    L.pitch(17, "C", chute=True, every=2)
+    L.pitch(17, "C", chute=True, every=3)
     L.walk(2); L.mark("R", 1); L.walk(2)
     L.spur(5, "gear:crampons", chute=True)
     L.walk(2); L.ice(5); L.walk(2)
@@ -735,11 +741,11 @@ def western_breach(L):
     L.walk(2)
     L.spur(4, "gear:helmet")
     L.walk(2)
-    L.pitch(16, "C", chute=True, every=2)
+    L.pitch(16, "C", chute=True, every=3)
     L.walk(2); L.cairn(); L.walk(2)
     L.spur(4, "gear:headlamp", chute=True)
     L.walk(2); L.ice(4); L.walk(2)
-    L.pitch(17, "C", chute=True, every=2)
+    L.pitch(17, "C", chute=True, every=3)
     L.walk(2); L.mark("R", 1); L.walk(2)
     L.spur(4, "gear:crampons", chute=True)
     L.walk(2)
