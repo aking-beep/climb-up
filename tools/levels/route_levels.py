@@ -211,7 +211,9 @@ class Line:
             self._column(x + k, y)
         c.fill(x, y, x + 2, y + h - 1, "C")
         self._column(x + 3, y + h)
-        c.say("walk", x - 0.7)
+        # Stand a step back from the lip: from right at its edge there is no
+        # stepping down onto the face.
+        c.say("walk", x - 1.5)
         if rest:
             c.say("rest", 0.95, self.need(h))
         c.say("down", {"dir": 1, "row": y + h})
