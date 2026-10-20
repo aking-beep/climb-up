@@ -337,20 +337,26 @@ func follow(script: Array) -> bool:
 	var i := 0
 	var tries := 0
 	var section := 0
+	var furthest := 0
+	var total := 0
 	while i < script.size():
 		var step: Array = script[i]
 		if outcome != null and step[0] != "finish":
 			break
 		if step[0] == "walk" and i != section:
 			section = i
-			tries = 0
+			# New ground: fresh tries (going back over old ground is not).
+			if i > furthest:
+				tries = 0
+		furthest = maxi(furthest, i)
 		var had := failures.size()
 		await _act(step)
 		i += 1
 		# Knocked back to a cairn (a stone, a gust, a slip the rope held):
 		# go back to the start of this stretch and try it again, as a
-		# player would. Twice at most.
-		if failures.size() > had and step[0] in ["climb", "traverse", "down", "walk", "fetch"] and tries < 2 and not level.get("_ended"):
+		# player would. Twice a stretch, eight a climb at most.
+		if failures.size() > had and step[0] in ["climb", "traverse", "down", "walk", "fetch"] and tries < 2 and total < 8 and not level.get("_ended"):
+			total += 1
 			tries += 1
 			retries += 1
 			failures.resize(had)
