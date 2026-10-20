@@ -493,8 +493,16 @@ func _act(step: Array) -> void:
 				if String(slots[k]["id"]) == String(step[1]) and not slots[k]["on"]:
 					await press("use_%d" % (k + 1))
 		"finish":
+			# On to the exit the way every walk goes: sitting out the gusts on
+			# open ground, keeping moving on slabs.
 			var dir := "move_right" if int(step[1]) > 0 else "move_left"
-			await drive([dir], func() -> bool: return outcome != null, 120.0, "to the exit")
+			var had := failures.size()
+			await cross(9999.0 if int(step[1]) > 0 else -9999.0)
+			if outcome == null:
+				# The walk stopped short of the exit (a wall, a knock-back):
+				# say so in the step's own words.
+				failures.resize(had)
+				await drive([dir], func() -> bool: return outcome != null, 20.0, "to the exit")
 
 
 # --- Finding things on the loaded layout ------------------------------------
