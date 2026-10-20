@@ -286,8 +286,8 @@ func _rockfall(dt: float, now: float) -> void:
 		var col := _column(chute, k)
 		var top := Terrain.feet(chute["cell"]) - Vector2(0, Terrain.TILE)
 		var grit: CPUParticles2D = chute["grit"]
-		if climber.is_climbing() and now >= at - WARN:
-			# On the rock: this stone never comes.
+		if climber.is_climbing() and now >= at - WARN and absf(col * Terrain.TILE + Terrain.TILE / 2.0 - climber.global_position.x) < 4.0 * Terrain.TILE:
+			# You are on the rock under it: this stone never comes.
 			chute["warned"] = k
 			chute["next"] = k + 1
 			grit.emitting = false

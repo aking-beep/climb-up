@@ -868,6 +868,23 @@ def ravens_off_rests(c, reach=6):
                 c.g[y][x] = "."
 
 
+def rollers_off_rests(c, reach=34):
+    """No rolling stone across a place the line sits down: a stone rolls
+    left (b) or right (d) about `reach` tiles (Hazards.ROLL_RANGE) along
+    its ground, and one that comes at someone resting is not fair."""
+    rests = []
+    for k, a in enumerate(c.script):
+        if a[0] == "rest" and k > 0 and c.script[k - 1][0] == "walk":
+            rests.append(c.script[k - 1][1])
+    for y in range(c.h):
+        for x in range(c.w):
+            ch = c.g[y][x]
+            if ch in "bd":
+                lo, hi = (x - reach, x) if ch == "b" else (x, x + reach)
+                if any(lo <= rx <= hi and any(abs(py - y) <= 1 for px, py in c.path if abs(px - rx) < 1) for rx in rests):
+                    c.g[y][x] = "."
+
+
 def fill_quiet(c, gap=9, kinds=("#",), rest_reach=7):
     """Nothing to do for more than `gap` tiles of the line (two seconds or
     so at a walk) gets something: a boulder to hop, or a raven
@@ -973,6 +990,7 @@ def build(name, route):
             wildlife(c.g, every=max(4, g["every"] - 2), kinds=("ants", "plant"))
         thin_wildlife(c)
     ravens_off_rests(c)
+    rollers_off_rests(c)
     if g.get("ravens_spread"):
         place_ravens(c, 5 if g["ravens_spread"] is True else g["ravens_spread"])
     fill_quiet(c, kinds=g.get("quiet", ("#",)))
