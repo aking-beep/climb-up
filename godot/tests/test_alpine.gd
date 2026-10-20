@@ -57,7 +57,7 @@ func test_only_the_fastest_way_ropes_up() -> void:
 			var al: Alpine = level.alpine
 			eq(al != null, route == "umbwe", "%s on %s: pitches only on the fastest way" % [climb, route])
 			if al:
-				eq(al.pitches.size(), 3, "%s: three pitches" % climb)
+				check(al.pitches.size() >= 6, "%s: a climbing route, mostly pitches (%d)" % [climb, al.pitches.size()])
 				for p in al.pitches:
 					check(p["pitons"].size() >= 3, "%s: pitons up each pitch" % climb)
 					check(float(p["base"].y) - float(p["top"]) * Terrain.TILE >= 9.0 * Terrain.TILE, "%s: each pitch taller than the bar climbs in one go" % climb)

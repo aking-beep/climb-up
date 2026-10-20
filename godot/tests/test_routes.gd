@@ -82,6 +82,11 @@ func _play(climb: String) -> void:
 				outcome.artifacts, outcome.artifacts_total, retries])
 			if outcome and outcome.slips > 0:
 				print("      slips by cause: ", level.slips_by_cause)
+			print("      %s %s: %d%% of the moving time on the rock (%.0f s climbing, %.0f s walking)" % [climb, route, int(level.climbing_share() * 100.0), level.climbing, level.travel])
+			if route == "umbwe" and climb != "descent":
+				# The fastest way is a climbing route: most of it on the rock,
+				# clipping and pulling up, the rest walking.
+				check(level.climbing_share() >= 0.6, "%s on %s: at least 60%% of the moving time climbing (%d%%)" % [climb, route, int(level.climbing_share() * 100.0)])
 			# The fastest way's pitches: led on the rope, every partner pulled
 			# up at every anchor.
 			var al: Alpine = level.alpine

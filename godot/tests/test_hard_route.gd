@@ -148,3 +148,16 @@ func test_the_rain_makes_wet_rock_and_poor_rests() -> void:
 	eq(c.stamina.wet, 1.0, "drizzle: dry enough")
 	check(c.stamina.recovery > open_recovery * 1.5, "a rest in the open gives back more out of the downpour (%.2f vs %.2f)" % [c.stamina.recovery, open_recovery])
 	await _done()
+
+
+## The bar on screen is as long as the bar is big: the fastest way's is a
+## quarter of the long way's, not a long bar a quarter full.
+func test_the_hard_bar_is_drawn_a_quarter_as_long() -> void:
+	var widths := {}
+	for route in ["lemosho", "umbwe"]:
+		await _load("lava-tower", route)
+		await physics_frames(3)
+		widths[route] = level.hud.bar_width()
+		await _done()
+	var ratio: float = widths["umbwe"] / widths["lemosho"]
+	check(ratio > 0.2 and ratio < 0.32, "the hard bar is drawn a quarter as long (%.0f px of %.0f)" % [widths["umbwe"], widths["lemosho"]])

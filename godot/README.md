@@ -232,6 +232,9 @@ exactly (the parity test still holds); a trek layer on top
   walls, more stonefall and more in the way, and its tall walls are
   climbed on a rope.
 
+  **The fastest way's bar is short on screen too**: the HUD draws the bar
+  as long as it is big, a quarter of the long way's (`Hud.bar_width`).
+
   **The fastest way's bar grows** (`Trek.GROW`, `Trek.grow`): it starts at
   a quarter, and a rest gives back at most that quarter (`Climber.rest_cap`;
   sit again for more, and that is another rest). Every piece of gear and
@@ -251,7 +254,10 @@ exactly (the parity test still holds); a trek layer on top
 
   **Alpine pitches on the fastest way** (`modes/expedition/levels/alpine.gd`,
   `Line.pitch` in the generator). The Umbwe Ridge, the Arrow Glacier and
-  the Western Breach each have three pitches: clefts 10 to 12 rows tall
+  the Western Breach are climbing routes: seven or eight pitches each,
+  joined by short ledges, so at least 60% of the time you are moving is
+  on the rock, not walking (`ClimbLevel.climbing_share`, checked by the
+  route test). Pitches are clefts 16 to 18 rows tall
   (a chimney between a prow and the ledge), pitons every 3 rows and an
   anchor on the ledge at the top. Your partner (Lena, or whoever the trek
   still has) belays from the foot. Tap CLIP at each piton. Once clipped,

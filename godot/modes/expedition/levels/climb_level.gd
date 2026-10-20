@@ -145,6 +145,9 @@ var pace_log: Array = []
 ## Seconds spent walking (a face being climbed is play in itself; resting
 ## and reading are the player's choice).
 var travel := 0.0
+## Seconds spent on the rock (climbing, hanging, clipping; not sitting back
+## on the rope). The fastest way is mostly this: climbing_share().
+var climbing := 0.0
 var _travel_clock := -1.0
 var _was_on_ice := false
 var _was_exposed := false
@@ -729,6 +732,8 @@ func _physics_process(_delta: float) -> void:
 		# At normal walking pace: the cold slows you, but the spacing of
 		# things along the route is what this measures.
 		travel += clampf(climber.clock - _travel_clock, 0.0, 0.1) * climber.chill
+	if _travel_clock >= 0.0 and climber.is_climbing() and not climber.on_rope:
+		climbing += clampf(climber.clock - _travel_clock, 0.0, 0.1)
 	_travel_clock = climber.clock
 	# Stepping onto ice is a challenge of its own: keep your footing.
 	if climber.on_ice and not _was_on_ice:
@@ -1321,6 +1326,11 @@ func _interact() -> void:
 
 func engage(kind: String) -> void:
 	pace_log.append([climber.clock, kind, travel, climber.global_position / Terrain.TILE])
+
+
+## Of the time spent moving (climbing and walking), the share on the rock.
+func climbing_share() -> float:
+	return climbing / maxf(0.001, climbing + travel)
 
 
 ## How far along the route: cairns reached, and the way to the next one (or

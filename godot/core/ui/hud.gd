@@ -50,6 +50,8 @@ func _ready() -> void:
 	v.add_child(kicker)
 	_bar = ProgressBar.new()
 	_bar.custom_minimum_size = Vector2(140, 6)
+	# Its own length, not the panel's: the fastest way's bar is a short one.
+	_bar.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_bar.show_percentage = false
 	_bar.max_value = 100
 	v.add_child(_bar)
@@ -144,6 +146,11 @@ func flash(text: String, seconds: float = 2.6) -> void:
 ## The message showing now (or the last one), for tests.
 func flash_text() -> String:
 	return _flash.text
+
+
+## How long the stamina bar is drawn, in pixels (its size, not how full).
+func bar_width() -> float:
+	return _bar.size.x
 
 
 ## The stamina bar is pulsing (under 25%).
