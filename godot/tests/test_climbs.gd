@@ -306,8 +306,28 @@ func test_the_faster_ways_are_harder_climbs() -> void:
 			var walls := 0
 			var worst := 0.0
 			for a in lay["script"]:
-				if a[0] in ["climb", "down"]:
+				if a[0] in ["climb", "down", "pitch"]:
 					walls += 1
+				if a[0] == "pitch":
+					# An alpine pitch (Alpine) is climbed a stretch at a time:
+					# rest on the rope at each piton. Its costliest stretch is
+					# the longest climb between two of them (or from the foot,
+					# or to the top).
+					var col := int(floor(float(a[1]["x"])))
+					var top := int(a[1]["row"])
+					var bottom := top
+					while t.is_climbable(Vector2i(col, bottom)):
+						bottom += 1
+					var prev := bottom
+					var longest := 0
+					var rows_at: Array = a[1]["pitons"].map(func(p: Array) -> int: return int(p[1]))
+					rows_at.sort()
+					rows_at.reverse()
+					for r in rows_at + [top]:
+						longest = maxi(longest, prev - int(r))
+						prev = int(r)
+					check(bottom - top >= 9, "%s on %s: a pitch taller than any wall (%d rows)" % [climb, route, bottom - top])
+					worst = maxf(worst, longest * Terrain.TILE / Climber.CLIMB_UP * StaminaModel.RATES["climb"])
 				if a[0] in ["climb", "fetch"]:
 					var col := int(floor(float(a[1]["x"])))
 					var row := int(a[1]["row"])

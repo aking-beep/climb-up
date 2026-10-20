@@ -745,7 +745,7 @@ def western_breach(L):
     L.ice(5); L.walk(3)
     L.spur(4, "gear:crampons", chute=True)
     L.walk(5)
-    L.face(3, "L", chute=True)
+    L.face(3, "L")
     L.walk(3); L.mark("R", 1); L.walk(4)
     L.mate()
     L.walk(3)
@@ -772,7 +772,7 @@ def western_breach(L):
     L.walk(3); L.mark("R", 1); L.walk(3); L.ice(6); L.wind(6); L.mark("R", 1); L.rocks(6)
     L.sign(1); L.mark("V", 5); L.walk(12)
     L.finish(16, summit=True)
-    return {"every": 3, "kinds": ("hop", "raven", "pit", "ice", "slabs", "raven", "hop", "pit"), "wildlife": False, "quiet": ("v", "#"), "ravens_spread": 6}
+    return {"every": 3, "kinds": ("hop", "raven", "pit", "ice", "slabs", "raven", "hop", "pit"), "wildlife": False, "quiet": ("v", "#"), "ravens_spread": 7}
 
 
 def way_down(route):

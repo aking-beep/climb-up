@@ -233,11 +233,11 @@
   [
    "climb",
    {
-    "x": 109.5,
+    "x": 108.5,
     "dir": 1,
     "row": 46,
     "lean": 1,
-    "chute": true,
+    "chute": false,
     "niche": null,
     "kind": "L"
    }
