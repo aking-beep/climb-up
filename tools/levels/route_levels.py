@@ -608,7 +608,7 @@ def arrow_glacier(L):
     L.spur(5, "artifact", chute=True, raven=True)
     L.walk(6); L.ice(6); L.walk(4); L.sign(1); L.mark("T", 6); L.mark("V", 9); L.walk(12)
     L.finish(10)
-    return {"every": 4, "kinds": ("hop", "pit", "slabs", "ice", "raven", "hop", "pit"), "wildlife": False}
+    return {"every": 4, "kinds": ("hop", "pit", "slabs", "ice", "raven", "hop", "pit"), "wildlife": False, "quiet": ("v", "#"), "ravens_spread": True}
 
 
 def stella_point(L):
@@ -644,7 +644,7 @@ def stella_point(L):
     L.spur(8, "artifact", chute=True)
     L.rocks(8); L.sign(1); L.mark("V", 5); L.walk(14)
     L.finish(16, summit=True)
-    return {"every": 7, "kinds": ("hop", "raven", "pit", "raven", "hop", "ice"), "wildlife": False}
+    return {"every": 7, "kinds": ("hop", "raven", "pit", "raven", "hop", "ice"), "wildlife": False, "quiet": ("v", "#"), "ravens_spread": True}
 
 
 def southern_icefields(L):
@@ -681,7 +681,7 @@ def southern_icefields(L):
     L.spur(7, "artifact", windy=True, raven=False)
     L.walk(6); L.up(3); L.walk(6); L.sign(1); L.mark("V", 5); L.walk(14)
     L.finish(16, summit=True)
-    return {"every": 5, "kinds": ("hop", "raven", "pit", "ice", "slabs", "raven", "hop", "ice"), "wildlife": False}
+    return {"every": 5, "kinds": ("hop", "raven", "pit", "ice", "slabs", "raven", "hop", "ice"), "wildlife": False, "quiet": ("v", "#"), "ravens_spread": True}
 
 
 def western_breach(L):
@@ -728,7 +728,7 @@ def western_breach(L):
     L.face(3, "L")
     L.walk(3); L.ice(6); L.wind(6); L.sign(1); L.mark("V", 5); L.walk(12)
     L.finish(16, summit=True)
-    return {"every": 3, "kinds": ("hop", "raven", "pit", "ice", "slabs", "raven", "hop", "pit"), "wildlife": False}
+    return {"every": 3, "kinds": ("hop", "raven", "pit", "ice", "slabs", "raven", "hop", "pit"), "wildlife": False, "quiet": ("v", "#"), "ravens_spread": True}
 
 
 def way_down(route):
@@ -811,6 +811,80 @@ def thin_wildlife(c):
                     kept.append((x, y))
 
 
+def ravens_off_rests(c, reach=6):
+    """No raven over a place the line sits down: a raven dives at whoever
+    sits still under it."""
+    rests = []
+    for k, a in enumerate(c.script):
+        if a[0] == "rest" and k > 0 and c.script[k - 1][0] == "walk":
+            rests.append(c.script[k - 1][1])
+    for y in range(c.h):
+        for x in range(c.w):
+            if c.g[y][x] == "v" and any(abs(x - rx) < reach for rx in rests):
+                c.g[y][x] = "."
+
+
+def fill_quiet(c, gap=12, kinds=("#",), rest_reach=7):
+    """Nothing to do for more than `gap` tiles of the line (about three
+    seconds at a walk) gets something: a boulder to hop, or a raven
+    circling over it (never over a place the line sits down)."""
+    rests = [c.script[k - 1][1] for k, a in enumerate(c.script)
+             if a[0] == "rest" and k > 0 and c.script[k - 1][0] == "walk"]
+    exits = [(x, y) for y in range(c.h) for x in range(c.w) if c.g[y][x] == "X"]
+    busy = set("nav#KSRw*VTFlmjpMPXrbdgo")
+    last = 0
+    turn = 0
+    for i, (x, y) in enumerate(c.path):
+        here, below = c.get(x, y), c.get(x, y + 1)
+        eventful = (here in busy or here == "E" or below in "ic" or c.get(x, y - 3) == "v"
+                    or any(c.get(xx, yy) in "CLs" for xx in range(x - 1, x + 2) for yy in range(y - 4, y + 2)))
+        if eventful:
+            last = i
+            continue
+        if i - last < gap:
+            continue
+        fair = (here == "." and below == "#"
+                and all(c.get(xx, y) == "." and c.get(xx, y + 1) in SOLID for xx in (x - 2, x - 1, x + 1, x + 2))
+                and all(c.get(xx, yy) == "." for xx in range(x - 2, x + 3) for yy in range(y - 4, y))
+                and not any(c.get(xx, yy) in busy - {"#"} for xx in range(x - 3, x + 4) for yy in range(y - 2, y + 1))
+                and all(abs(x - ex) > 9 or abs(y - ey) > 3 for ex, ey in exits))
+        if not fair:
+            continue
+        kind = kinds[turn % len(kinds)]
+        if kind == "v" and any(abs(x - rx) < rest_reach for rx in rests):
+            kind = "#"
+        if kind == "v":
+            c.put(x, y - 3, "v")
+        else:
+            c.put(x, y, "#")
+        turn += 1
+        last = i
+
+
+def place_ravens(c, n=5, rest_reach=7):
+    """Ravens spread along the whole line, bottom to top (the high, bare
+    places with nothing else living): one in each of n stretches, over open
+    ground, away from where the line sits down and from other creatures."""
+    rests = [c.script[k - 1][1] for k, a in enumerate(c.script)
+             if a[0] == "rest" and k > 0 and c.script[k - 1][0] == "walk"]
+    path = c.path
+    have = [(x, y) for y in range(c.h) for x in range(c.w) if c.g[y][x] in "nav"]
+    for k in range(n):
+        lo, hi = len(path) * k // n, len(path) * (k + 1) // n
+        if any(path[lo][0] <= hx <= path[hi - 1][0] for hx, hy in have):
+            continue
+        for i in range(lo + (hi - lo) // 2, hi):
+            x, y = path[i]
+            if (c.get(x, y) == "." and c.get(x, y + 1) == "#" and c.get(x, y - 3) == "."
+                    and all(c.get(x, yy) == "." for yy in range(y - 4, y))
+                    and all(abs(x - rx) >= rest_reach for rx in rests)
+                    and not any(c.get(xx, yy) in "EKSPXM" for xx in range(x - 6, x + 7) for yy in range(y - 1, y + 1))
+                    and all(abs(x - hx) >= 8 or abs(y - hy) > 4 for hx, hy in have)):
+                c.put(x, y - 3, "v")
+                have.append((x, y - 3))
+                break
+
+
 def clear_before_exit(c, n=7):
     """Nothing to hop just before the exit post."""
     for y in range(c.h):
@@ -852,6 +926,10 @@ def build(name, route):
         if g["wildlife"]:
             wildlife(c.g, every=max(4, g["every"] - 2), kinds=("ants", "plant"))
         thin_wildlife(c)
+    ravens_off_rests(c)
+    if g.get("ravens_spread"):
+        place_ravens(c)
+    fill_quiet(c, kinds=g.get("quiet", ("#",)))
     clear_before_exit(c)
     for x0, x1, row in c.clear_spans:
         for x in range(x0, x1 + 1):
