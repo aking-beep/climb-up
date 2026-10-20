@@ -369,8 +369,18 @@ func _resume_at(script: Array, fallback: int) -> int:
 	var x := tx()
 	for j in script.size():
 		var a: Array = script[j]
-		if a[0] == "walk" and float(a[1]) > x + 0.3:
-			return j
+		var at := NAN
+		if a[0] == "walk":
+			at = float(a[1])
+		elif a[0] in ["climb", "fetch"]:
+			at = float(a[1]["x"])
+		if is_nan(at) or at <= x + 0.3:
+			continue
+		# Back to the walk that leads to it (and its rest).
+		var k := j
+		while k > 0 and script[k][0] != "walk":
+			k -= 1
+		return k
 	return fallback
 
 

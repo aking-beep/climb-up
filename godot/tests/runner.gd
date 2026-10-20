@@ -4,7 +4,8 @@ extends Node
 ##
 ##     godot --headless --path godot res://tests/runner.tscn
 ##
-## Pass `-- only=<name>` to run suites whose file name contains <name>.
+## Pass `-- only=<name>` to run suites whose file name contains <name>, and
+## `test=<name>` to run only the tests whose name contains <name>.
 ##
 ## A script error during a test (a bad call, a null, a type error) fails
 ## that test, even when the test's own checks passed.
@@ -35,9 +36,12 @@ func _ready() -> void:
 	await get_tree().process_frame
 	Expedition.navigate = false
 	var only := ""
+	var pick := ""
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("only="):
 			only = arg.substr(5)
+		elif arg.begins_with("test="):
+			pick = arg.substr(5)
 	var files: Array[String] = []
 	for f in DirAccess.get_files_at("res://tests"):
 		if f.begins_with("test_") and f.ends_with(".gd") and f != "test_case.gd" and (only == "" or only in f):
@@ -51,7 +55,7 @@ func _ready() -> void:
 		var script: Script = load("res://tests/" + f)
 		for m in script.get_script_method_list():
 			var name: String = m["name"]
-			if not name.begins_with("test_"):
+			if not name.begins_with("test_") or (pick != "" and not pick in name):
 				continue
 			var suite: TestCase = script.new()
 			suite.tree = get_tree()

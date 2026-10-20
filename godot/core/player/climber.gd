@@ -121,6 +121,7 @@ const HURT_GUARD := 1.0
 ## Every hit is scaled by the route (Trek.hurt_factor): the long way's
 ## knocks hurt half as much.
 var hurt_scale := 1.0
+const HIT_MAX := 0.4
 ## What being knocked off costs, on top of the slip: taken off the bar you
 ## get back at the cairn (respawn).
 const KNOCK := {"rock": 8.0, "fall": 8.0, "hole": 6.0, "slab": 6.0, "wind": 4.0}
@@ -845,7 +846,9 @@ func hurt(amount: float, reason: String) -> bool:
 	if _hurt_cool > 0.0 or state in [State.SLIP, State.DONE, State.LOCKED]:
 		return false
 	_hurt_cool = HURT_GUARD
-	amount *= hurt_scale
+	# The route scales it; and no one hit takes more than HIT_MAX of the
+	# bar, so the fastest way's quarter bar is never two nettles from empty.
+	amount = minf(amount * hurt_scale, stamina.max_value * HIT_MAX)
 	var spent := stamina.value <= amount
 	stamina.value = maxf(0.0, stamina.value - amount)
 	hurt_total += amount

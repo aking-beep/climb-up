@@ -87,6 +87,7 @@ class Course:
         self.path = []            # standing cells along the line, in order
         self.mate = None
         self.niches = []
+        self.clear_spans = []      # (x0, x1, row) kept free of the gauntlet
 
     def fill(self, x0, y0, x1, y1, ch):
         for y in range(max(0, y0), min(self.h - 1, y1) + 1):
@@ -217,10 +218,12 @@ class Line:
         self._track()
 
     def gap(self, w=2, depth=5):
-        """A stream bed or a crack to jump: w wide, depth deep, floored."""
-        c = self.c
+        """A stream bed or a crack to jump: w wide, depth deep, floored;
+        depth None is a hole open to the bottom of the map (fall in and the
+        climb starts again)."""
         for k in range(w):
-            self._column(self.x + k, self.y + depth)
+            if depth is not None:
+                self._column(self.x + k, self.y + depth)
         self.x += w
 
     def crevasse(self):
@@ -268,7 +271,11 @@ class Line:
         for k in range(3, n - 2, 5):
             self.c.put(self.x - n + k, self.y - 1, "#")
 
-    def ice(self, n):
+    def ice(self, n, clear=False):
+        """Ice underfoot (mud in the forest). A clear run keeps nothing on it:
+        a long slide, with nothing to hop."""
+        if clear:
+            self.c.clear_spans.append((self.x, self.x + n - 1, self.y - 1))
         self.walk(n, floor="i")
 
     def wind(self, n):
@@ -372,7 +379,7 @@ def shira_cathedral(L):
     """Easy. Moorland, a buttress of old basalt, a windy rim, the way back
     down. Big bar, short walls, few stones."""
     L.start(30, [(3, "T"), (7, "F"), (10, "T"), (14, "m"), (17, "l"), (22, "P")], sign_at=26)
-    L.walk(6)
+    L.walk(3); L.gap(2, depth=None); L.walk(4)
     L.spur(4, "gear:poles")
     L.walk(10); L.up(4); L.walk(12)
     L.cairn(); L.sign(4); L.walk(10)
@@ -633,7 +640,7 @@ def stella_point(L):
     L.spur(8, "artifact", chute=True)
     L.walk(8); L.sign(1); L.mark("V", 5); L.walk(14)
     L.finish(16, summit=True)
-    return {"every": 8, "kinds": ("hop", "pit", "raven", "hop", "ice"), "wildlife": False}
+    return {"every": 7, "kinds": ("hop", "raven", "pit", "raven", "hop", "ice"), "wildlife": False}
 
 
 def southern_icefields(L):
@@ -645,7 +652,7 @@ def southern_icefields(L):
     L.walk(6); L.up(4); L.walk(6); L.cairn(); L.walk(4)
     L.face(5, "s")
     L.walk(4); L.sign(1); L.walk(4)
-    L.ice(10); L.walk(4)
+    L.ice(14, clear=True); L.walk(4)
     L.spur(6, "gear:headlamp")
     L.walk(6); L.up(4); L.walk(4)
     L.face(6, "C", chute=True)
@@ -670,7 +677,7 @@ def southern_icefields(L):
     L.spur(7, "artifact", windy=True, raven=False)
     L.walk(6); L.up(3); L.walk(6); L.sign(1); L.mark("V", 5); L.walk(14)
     L.finish(16, summit=True)
-    return {"every": 6, "kinds": ("hop", "pit", "ice", "slabs", "hop", "ice", "pit"), "wildlife": False}
+    return {"every": 5, "kinds": ("hop", "raven", "pit", "ice", "slabs", "raven", "hop", "ice"), "wildlife": False}
 
 
 def western_breach(L):
@@ -696,9 +703,9 @@ def western_breach(L):
     L.mate()
     L.walk(3)
     L.face(5, "C", chute=True)
-    L.walk(4); L.cairn(); L.walk(3); L.slabs(); L.walk(4)
+    L.walk(4); L.cairn(); L.walk(3); L.slabs(); L.ice(6); L.walk(3)
     L.spur(5, "gear:rope", chute=True)
-    L.walk(5)
+    L.walk(3); L.wind(7); L.slabs(); L.walk(3)
     L.face(4, "s", chute=True)
     L.walk(3); L.mark("R", 1); L.walk(4)
     L.spur(5, "artifact", chute=True, windy=True)
@@ -715,9 +722,9 @@ def western_breach(L):
     L.face(5, "C", chute=True)
     L.walk(3); L.mark("R", 1); L.walk(4)
     L.face(4, "L")
-    L.walk(4); L.sign(1); L.mark("V", 5); L.walk(12)
+    L.walk(3); L.ice(6); L.wind(6); L.sign(1); L.mark("V", 5); L.walk(12)
     L.finish(16, summit=True)
-    return {"every": 4, "kinds": ("hop", "pit", "ice", "slabs", "hop", "raven", "pit"), "wildlife": False}
+    return {"every": 3, "kinds": ("hop", "raven", "pit", "ice", "slabs", "raven", "hop", "pit"), "wildlife": False}
 
 
 def way_down(route):
@@ -842,6 +849,12 @@ def build(name, route):
             wildlife(c.g, every=max(4, g["every"] - 2), kinds=("ants", "plant"))
         thin_wildlife(c)
     clear_before_exit(c)
+    for x0, x1, row in c.clear_spans:
+        for x in range(x0, x1 + 1):
+            if c.g[row][x] in "#inav":
+                c.g[row][x] = "."
+            if c.g[row - 3][x] == "v":
+                c.g[row - 3][x] = "."
     for x, y in c.artifacts:
         c.put(x, y, ".")
     order = GEAR_ORDER[name][route]

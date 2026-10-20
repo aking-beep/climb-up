@@ -96,11 +96,13 @@ func test_knocks_hurt_half_as_much_on_the_long_way() -> void:
 		c.stamina.value = c.stamina.max_value
 		var before := c.stamina.value
 		check(c.hurt(10.0, "thistle"), "a thistle")
-		lost[route] = before - c.stamina.value
+		lost[route] = [before - c.stamina.value, c.stamina.max_value]
 		await _done()
-	eq(lost["lemosho"], 5.0, "the long way: half the hurt")
-	eq(lost["machame"], 10.0, "the faster way: all of it")
-	eq(lost["umbwe"], 10.0, "the fastest way: all of it, out of a quarter of the bar")
+	eq(lost["lemosho"][0], 5.0, "the long way: half the hurt")
+	eq(lost["machame"][0], 10.0, "the faster way: all of it")
+	# All of it on the fastest way too, but no one hit takes more than
+	# Climber.HIT_MAX of the (quarter) bar.
+	eq(lost["umbwe"][0], minf(10.0, lost["umbwe"][1] * Climber.HIT_MAX), "the fastest way: all of it, up to %d%% of its quarter bar" % int(Climber.HIT_MAX * 100))
 
 
 ## Every obstacle costs something: a stone or a fall that knocks you off
