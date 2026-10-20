@@ -836,7 +836,9 @@ def fill_quiet(c, gap=12, kinds=("#",), rest_reach=7):
     turn = 0
     for i, (x, y) in enumerate(c.path):
         here, below = c.get(x, y), c.get(x, y + 1)
-        eventful = (here in busy or here == "E" or below in "ic" or c.get(x, y - 3) == "v"
+        # Challenges only: cairns, signs and finds are something to see,
+        # not something to deal with.
+        eventful = (here in "nav#rbd" or here == "E" or below in "ic" or c.get(x, y - 3) == "v"
                     or any(c.get(xx, yy) in "CLs" for xx in range(x - 1, x + 2) for yy in range(y - 4, y + 2)))
         if eventful:
             last = i
