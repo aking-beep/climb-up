@@ -297,6 +297,13 @@ class Line:
     def mark(self, ch, dx=0):
         self.c.put(self.x + dx, self.y - 1, ch)
 
+    def breather(self, dx=1):
+        """A stone to sit by in the lee, and the line sits there: a rest on
+        a long walk."""
+        self.mark("R", dx)
+        self.c.say("walk", self.x + dx + 0.5)
+        self.c.say("rest", 0.98)
+
     def cairn(self, dx=1):
         x = self.x + dx
         self.c.put(x, self.y - 1, "K")
@@ -718,7 +725,7 @@ def western_breach(L):
     L.walk(5)
     L.face(4, "C", chute=True)
     L.walk(4); L.cairn(); L.walk(3); L.sign(1); L.walk(3)
-    L.wind(9); L.walk(3); L.mark("R", 1); L.rocks(6)
+    L.wind(9); L.walk(3); L.breather(); L.rocks(6)
     L.down(4); L.walk(3); L.ice(8); L.walk(3)
     L.crevasse(); L.walk(3)
     L.spur(4, "gear:gloves")
@@ -728,7 +735,7 @@ def western_breach(L):
     L.face(4, "C", chute=True)
     L.walk(3); L.mark("R", 1); L.walk(4)
     L.face(3, "L")
-    L.walk(3); L.mark("R", 1); L.walk(3); L.ice(6); L.wind(6); L.mark("R", 1); L.walk(3)
+    L.walk(3); L.mark("R", 1); L.walk(3); L.ice(6); L.wind(6); L.mark("R", 1); L.rocks(6)
     L.sign(1); L.mark("V", 5); L.walk(12)
     L.finish(16, summit=True)
     return {"every": 3, "kinds": ("hop", "raven", "pit", "ice", "slabs", "raven", "hop", "pit"), "wildlife": False, "quiet": ("v", "#"), "ravens_spread": 6}
