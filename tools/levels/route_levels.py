@@ -756,7 +756,7 @@ def way_down(route):
             L.wind(8)
         L.walk(4)
         L.spur(4, "gear:crampons")
-        L.walk(4); L.ice(6 + 2 * hard); L.walk(1)
+        L.walk(4); L.ice(6 + 2 * hard); L.walk(3)
         L.step(5)
         L.walk(4); L.mark("R", 2); L.sign(4); L.walk(8)
         L.spur(6 if hard < 2 else 5, "artifact", chute=True)
