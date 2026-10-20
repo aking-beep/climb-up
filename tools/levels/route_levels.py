@@ -501,7 +501,7 @@ def karanga_valley(L):
     L.step(6)
     L.walk(6); L.cairn(); L.walk(4)
     L.spur(5, "gear:poles")
-    L.walk(6); L.mark("g", 2); L.down(5); L.walk(10); L.mark("o", 3); L.walk(6)
+    L.walk(6); L.mark("g", 2); L.down(5); L.rocks(10); L.mark("o", 3); L.walk(6)
     L.sign(1); L.walk(4); L.mark("w", 1); L.walk(4)
     L.gap(2); L.walk(4); L.gap(2); L.walk(6)
     L.spur(5, "gear:gloves")
