@@ -148,13 +148,17 @@ func cross(until_x: float) -> bool:
 	var dir := "move_right" if until_x > tx() else "move_left"
 	var sign := 1 if dir == "move_right" else -1
 	var arrived := func() -> bool: return tx() >= until_x if dir == "move_right" else tx() <= until_x
+	var sat := 0
 	for i in 60 * 150:
 		if arrived.call() or level.panel.open:
 			break
 		var held := {"_": false}
 		var ahead := c.terrain.kinds_in(c.body_rect(c.global_position + Vector2(sign * T, 0)))
 		var windy: bool = c.exposed or ahead.has(Terrain.Kind.EXPOSED)
-		if c.state == Climber.State.GROUND and c.stamina.fraction() < 0.2 and not _on_slab():
+		# Out of breath: sit (twice at most here: where sitting gives
+		# nothing back, in the wind, walk on).
+		if c.state == Climber.State.GROUND and c.stamina.fraction() < 0.2 and not _on_slab() and sat < 2:
+			sat += 1
 			await rest_up(0.9)
 			continue
 		if _on_slab():
@@ -466,6 +470,10 @@ func _act(step: Array) -> void:
 				await drive(["climb_up"], func() -> bool: return c.is_climbing(), 3.0, "onto the side wall")
 			if not await up_to(float(s["row"]), "the side wall at %.1f" % x, "move_right"):
 				return
+			# Breath first, on the ledge's sheltered first step: out on a
+			# windy ledge, sitting gives nothing back.
+			if c.stamina.value < float(s.get("down", 0.0)) * 1.5:
+				await rest_up(0.98)
 			await cross(float(s["item"]))
 			await cross(float(s["back"]))
 			# On the ledge: breath for the way down if it is short.
