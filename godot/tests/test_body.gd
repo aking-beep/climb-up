@@ -11,6 +11,9 @@ func _load(challenge: String, prep: Callable = Callable()) -> void:
 	Settings.touch_controls = false
 	Expedition.session = TestSessions.at(challenge)
 	check(Expedition.pending() != null, "the careful party reached %s" % challenge)
+	# The faster way, where a hit costs all it says (the long way halves
+	# them: test_places).
+	Trek.ensure(Expedition.session)["route"] = "machame"
 	if prep.is_valid():
 		prep.call()
 	Expedition.climb = {}

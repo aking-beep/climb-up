@@ -718,8 +718,8 @@ def western_breach(L):
     L.walk(5)
     L.face(4, "C", chute=True)
     L.walk(4); L.cairn(); L.walk(3); L.sign(1); L.walk(3)
-    L.wind(9); L.walk(3); L.mark("R", 1); L.walk(3)
-    L.down(4); L.rocks(6); L.ice(8); L.walk(3)
+    L.wind(9); L.walk(3); L.mark("R", 1); L.rocks(6)
+    L.down(4); L.walk(3); L.ice(8); L.walk(3)
     L.crevasse(); L.walk(3)
     L.spur(4, "gear:gloves")
     L.walk(4); L.ice(6); L.walk(4); L.cairn(); L.walk(4)
@@ -731,7 +731,7 @@ def western_breach(L):
     L.walk(3); L.mark("R", 1); L.walk(3); L.ice(6); L.wind(6); L.mark("R", 1); L.walk(3)
     L.sign(1); L.mark("V", 5); L.walk(12)
     L.finish(16, summit=True)
-    return {"every": 3, "kinds": ("hop", "raven", "pit", "ice", "slabs", "raven", "hop", "pit"), "wildlife": False, "quiet": ("v", "#"), "ravens_spread": True}
+    return {"every": 3, "kinds": ("hop", "raven", "pit", "ice", "slabs", "raven", "hop", "pit"), "wildlife": False, "quiet": ("v", "#"), "ravens_spread": 6}
 
 
 def way_down(route):
@@ -933,7 +933,7 @@ def build(name, route):
         thin_wildlife(c)
     ravens_off_rests(c)
     if g.get("ravens_spread"):
-        place_ravens(c)
+        place_ravens(c, 5 if g["ravens_spread"] is True else g["ravens_spread"])
     fill_quiet(c, kinds=g.get("quiet", ("#",)))
     clear_before_exit(c)
     for x0, x1, row in c.clear_spans:
