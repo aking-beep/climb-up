@@ -51,7 +51,7 @@ Classifications:
 | A7 | Secure signing and upload documented | PASS | `docs/release/android-signing.md`: Play App Signing, upload key made offline, env-only passwords, backups, CI secrets. `.gitignore` blocks `*.jks`, `*.keystore`, `keystore.properties`, `*.aab`, `godot/android/`. No key is in the repository |
 | A8 | Landscape orientation | PASS (manifest, emulator) / NOT TESTED (physical) | `screenOrientation=11` (userLandscape). On emulators running Android 10 and 14 with the device held in portrait: ROTATION_90. After turning the device: ROTATION_270. Never portrait |
 | A9 | Lifecycle (pause, focus loss, back button, resume) | PASS (tests, emulator) / NOT TESTED (physical) | `test_platform`: backgrounding mid-climb pauses the crag and saves the expedition. Emulators (API 29, 34): Home then back resumes **the same process**; a second cold start runs |
-| A10 | APK size cap (≤ 31,457,280 bytes) | PASS | Release 29,625,478 (1.8 MB under). Debug 31,440,499 (16 KB under, after dropping a duplicate fog image): trim art before adding any |
+| A10 | APK size cap (≤ 31,457,280 bytes) | PASS | Release 29,629,745 (1.8 MB under). Debug 31,444,766 (12 KB under, after dropping a duplicate fog image): trim art before adding any |
 | A11 | Permissions are the minimum | PASS | `INTERNET` and `ACCESS_NETWORK_STATE` (online records), `VIBRATE` (haptics, a setting). `INTERNET` was missing before this sprint: online records could never have worked on Android |
 
 ## B. Online records
