@@ -722,7 +722,7 @@ def western_breach(L):
     L.spur(4, "gear:gloves")
     L.walk(4); L.ice(6); L.walk(4); L.cairn(); L.walk(4)
     L.spur(4, "artifact", chute=True, raven=False, windy=True)
-    L.walk(5)
+    L.walk(2); L.mark("R", 1); L.walk(3)
     L.face(4, "C", chute=True)
     L.walk(3); L.mark("R", 1); L.walk(4)
     L.face(3, "L")
