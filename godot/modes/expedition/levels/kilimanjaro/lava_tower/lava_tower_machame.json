@@ -275,11 +275,11 @@
   [
    "climb",
    {
-    "x": 243.5,
+    "x": 242.5,
     "dir": 1,
     "row": 16,
     "lean": 1,
-    "chute": true,
+    "chute": false,
     "niche": null,
     "kind": "L"
    }

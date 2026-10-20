@@ -436,7 +436,7 @@ def lava_tower(L):
     L.walk(4); L.cairn(); L.walk(4)
     L.spur(6, "gear:helmet")
     L.walk(8); L.slabs(); L.walk(6)
-    L.face(5, "L", chute=True)
+    L.face(5, "L")
     L.walk(5); L.sign(1); L.mark("V", 4); L.walk(8)
     L.spur(8, "artifact", chute=True)
     L.walk(8); L.roller(16); L.cairn(); L.walk(4)
