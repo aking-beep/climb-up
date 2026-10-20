@@ -382,7 +382,9 @@ func _resume_at(script: Array, fallback: int) -> int:
 			at = float(a[1])
 		elif a[0] in ["climb", "fetch"]:
 			at = float(a[1]["x"])
-		if is_nan(at) or at <= x + 0.3:
+		# A wall whose foot you stand at is still ahead if its top is above.
+		var wall_above: bool = a[0] == "climb" and absf(at - x) < 3.0 and float(a[1]["row"]) < ty() - 0.5
+		if is_nan(at) or (at <= x + 0.3 and not wall_above):
 			continue
 		# Back to the walk that leads to it (and its rest).
 		var k := j
