@@ -338,7 +338,9 @@ class Line:
         else:
             c.artifacts.append(list(cell))
         if windy:
-            for xx in (x + 2, x + 3, x + 5, x + 6):
+            # The wind crosses the ledge; its first step, at the top of the
+            # wall, is in the lee, a place to rest before climbing down.
+            for xx in (x + 3, x + 5, x + 6):
                 c.put(xx, s - 1, "E")
         if chute:
             c.put(x + 1, s - 6, "r")
