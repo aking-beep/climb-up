@@ -826,8 +826,8 @@ def ravens_off_rests(c, reach=6):
 
 
 def fill_quiet(c, gap=9, kinds=("#",), rest_reach=7):
-    """Nothing to do for more than `gap` tiles of the line (two seconds or so
-    seconds at a walk) gets something: a boulder to hop, or a raven
+    """Nothing to do for more than `gap` tiles of the line (two seconds or
+    so at a walk) gets something: a boulder to hop, or a raven
     circling over it (never over a place the line sits down)."""
     rests = [c.script[k - 1][1] for k, a in enumerate(c.script)
              if a[0] == "rest" and k > 0 and c.script[k - 1][0] == "walk"]
