@@ -350,6 +350,8 @@ func follow(script: Array) -> bool:
 				tries = 0
 		furthest = maxi(furthest, i)
 		var had := failures.size()
+		if OS.get_environment("BOT_TRACE") != "":
+			print("      step %d %s at %s" % [i, step, where()])
 		await _act(step)
 		i += 1
 		# Knocked back to a cairn (a stone, a gust, a slip the rope held):
