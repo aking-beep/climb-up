@@ -405,7 +405,7 @@ def shira_cathedral(L):
     L.face(5, "L")
     L.walk(5); L.sign(1); L.mark("V", 4); L.walk(10)
     L.spur(8, "artifact", chute=True)
-    L.rocks(14); L.cairn(); L.walk(6)
+    L.rocks(14); L.cairn(); L.walk(2); L.rocks(7)
     L.down(6); L.rocks(10); L.down(5); L.rocks(8)
     L.finish(9)
     return {"every": 9, "kinds": ("hop", "plant", "hop", "raven"), "wildlife": True}
