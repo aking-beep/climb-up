@@ -266,6 +266,7 @@ func _ready() -> void:
 	stamina.recovery = clampf(stamina.recovery * condition["recovery"], 0.2, 1.2)
 	stamina.thin_air *= condition["thinAir"]
 	stamina.grip = condition["grip"]
+	stamina.shoes = Trek.rock_factor(Expedition.session)
 	climate = Climate.from_spec(spec.get("climate", {}))
 	_base_recovery = stamina.recovery
 	_base_drain = stamina.drain

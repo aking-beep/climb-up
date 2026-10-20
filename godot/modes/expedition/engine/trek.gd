@@ -117,6 +117,15 @@ static func hurt_factor(session: Dictionary) -> float:
 ## quarter (ClimbLevel.rest_cap).
 const GROW := 4.0
 const GROWS := {"umbwe": true}
+## What being on the rock costs, by route: the fastest way is a climbing
+## route with a small bar, climbed by people who move light on the rock
+## (a pitch's few rows between pitons on a quarter bar, with room to stop
+## and look).
+const ROCK := {"umbwe": 0.6}
+
+
+static func rock_factor(session: Dictionary) -> float:
+	return float(ROCK.get(String(ensure(session)["route"]), 1.0))
 
 
 static func grows(session: Dictionary) -> bool:

@@ -454,7 +454,10 @@ func lead_pitch(s: Dictionary) -> void:
 			continue
 		var held := {"_": false}
 		if c.state == Climber.State.GROUND and c.global_position.distance_to(al.current()["base"]) < 3.0 * T and hz.threat_at(c.global_position.x, 1.6):
-			pass  # a stone coming down the cleft: wait at the foot
+			# A stone coming down the cleft: step back under the prow and
+			# let it pass.
+			if tx() > x - 3.0:
+				held["move_left"] = true
 		else:
 			held["climb_up"] = true
 			if c.is_climbing() and c.terrain.hold_at(c.body_rect(c.global_position + Vector2(0, -6))) == Terrain.Kind.AIR:

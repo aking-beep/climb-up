@@ -232,6 +232,14 @@ exactly (the parity test still holds); a trek layer on top
   walls, more stonefall and more in the way, and its tall walls are
   climbed on a rope.
 
+  **Balance on the fastest way:** rock costs 60% as much there
+  (`Trek.ROCK`): a small bar, but light, practised climbers. Once clipped,
+  holding still for half a second hangs you on the rope and the arms
+  come back (`Alpine.HANG_STILL`). Each hard climb's first two pitches
+  have pitons every 2 rows, then every 3. `test_alpine` climbs every
+  pitch of the Western Breach like a person who stops to look and never
+  presses REST, and must get up each one without a fall.
+
   **The fastest way's bar is short on screen too**: the HUD draws the bar
   as long as it is big, a quarter of the long way's (`Hud.bar_width`).
 
@@ -263,7 +271,7 @@ exactly (the parity test still holds); a trek layer on top
   still has) belays from the foot. Tap CLIP at each piton. Once clipped,
   a fall (empty arms, a slip) is held by the rope as far below the last
   piton as you were above it: no slip, but the knock hurts, and you never
-  go below the foot of the pitch. Tap REST on the rock to hang on the
+  go below the foot of the pitch. Hold still once clipped (or tap REST) to hang on the
   rope; each clip is worth 60% of the bar. At the anchor you are tied in
   until you tap PULL eight times to bring your partner up (a little
   breath each); they clean the pitons and follow you to the next pitch.

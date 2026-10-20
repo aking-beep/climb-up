@@ -61,6 +61,10 @@ var _caught := false
 var _fall_top := 0.0
 var _fall_from_stamina := 0.0
 var _rope: Line2D
+## Holding still this long once clipped hangs you on the rope.
+const HANG_STILL := 0.5
+var _still := 0.0
+var _hang_said := false
 var _draw_tex: Texture2D
 
 
@@ -307,6 +311,8 @@ func _rest_on_rope() -> void:
 		return
 	var pressed := GameInput.pressed_now("rest")
 	var dt := get_physics_process_delta_time()
+	if GameInput.move() != Vector2.ZERO:
+		_still = 0.0
 	if resting:
 		var give := minf(ROPE_RATE * climber.stamina.max_value * dt, rope_left)
 		climber.stamina.value = minf(climber.stamina.max_value, climber.stamina.value + give)
@@ -315,6 +321,17 @@ func _rest_on_rope() -> void:
 			resting = false
 			if rope_left <= 0.0:
 				level.hud.flash("That's all the rope gives here: clip the next piton for more.", 2.0)
+	elif clipped() > 0 and on_pitch() and not pressed and GameInput.move() == Vector2.ZERO and rope_left > 0.0 \
+			and climber.stamina.value < climber.stamina.max_value - 0.5:
+		# Holding still once clipped: you hang on the rope and the arms come
+		# back on their own (no need to know the REST button).
+		_still += dt
+		if _still >= HANG_STILL:
+			resting = true
+			level.engage("rope_rest")
+			if not _hang_said:
+				_hang_said = true
+				level.hud.flash("Clipped in: hold still and you hang on the rope, and your arms come back.", 2.6)
 	elif pressed and clipped() > 0 and on_pitch():
 		if rope_left > 0.0:
 			resting = true

@@ -27,6 +27,7 @@ const ANT_RANGE := 2.0 * 16.0
 const ANT_SIZE := Vector2(18.0, 5.0)
 ## A raven calls for RAVEN_WARN seconds, then dives in RAVEN_DIVE to where you
 ## were when it called, climbs back in RAVEN_BACK, and waits RAVEN_REST.
+## It only goes for someone on foot, and misses anyone already on the rock.
 const RAVEN_WARN := 0.7
 const RAVEN_DIVE := 0.45
 const RAVEN_BACK := 1.0
@@ -177,7 +178,8 @@ func _fly(rv: Dictionary, dt: float, now: float) -> void:
 			n.position = (rv["from"] as Vector2).lerp(rv["target"], k * k)
 			if not rv["hit"]:
 				var r := Rect2(n.position - RAVEN_SIZE / 2.0, RAVEN_SIZE)
-				if climber.body_rect().intersects(r) and climber.hurt(RAVEN_HURT, "raven"):
+				# On the rock you are out of its reach: it pulls up short.
+				if climber.body_rect().intersects(r) and not climber.is_climbing() and climber.hurt(RAVEN_HURT, "raven"):
 					rv["hit"] = true
 					raven_hits += 1
 					_puff(n.position, Color(0.2, 0.2, 0.22))

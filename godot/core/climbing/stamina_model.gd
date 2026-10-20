@@ -45,7 +45,8 @@ var drain: float = 1.0
 var thin_air: float = 1.0
 ## Multiplies what holding on to rock costs (numb fingers in the cold).
 var grip: float = 1.0
-## Multiplies what being on rock costs: the shoes (crag mode).
+## Multiplies what being on rock costs: the shoes (crag mode), or how
+## light the route's climbers move on it (Trek.rock_factor).
 var shoes: float = 1.0
 ## False on expedition climbs: there, standing about gives nothing back;
 ## only REST (and a rest stone) does.
