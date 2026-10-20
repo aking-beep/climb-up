@@ -7,7 +7,7 @@ extends Node2D
 ## the top (the layout's "pitches", from tools/levels/route_levels.py). Your
 ## partner stays at the foot to belay. On the way up, tap CLIP when a piton
 ## is in reach (a little breath, one hand off the rock). Once clipped:
-##   - a fall (empty arms, a stone, a slip) is held by the rope: no slip
+##   - a fall (empty arms, a slip) is held by the rope: no slip
 ##     counted, but the knock hurts, and you hang as far below the last
 ##     piton as you were above it, plus the stretch (no further down than
 ##     the foot of the pitch);

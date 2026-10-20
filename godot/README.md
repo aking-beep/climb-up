@@ -232,13 +232,30 @@ exactly (the parity test still holds); a trek layer on top
   walls, more stonefall and more in the way, and its tall walls are
   climbed on a rope.
 
+  **The fastest way's bar grows** (`Trek.GROW`, `Trek.grow`): it starts at
+  a quarter, and a rest gives back at most that quarter (`Climber.rest_cap`;
+  sit again for more, and that is another rest). Every piece of gear and
+  every artifact you pick up grows the bar by 4, for good, like hearts in
+  Zelda: once per find, kept for the rest of the expedition, up to the long
+  way's full bar.
+
+  **Stones never fall on a wall.** A chute holds its stones while you are
+  climbing, and one already falling goes past you (`Hazards._rockfall`).
+  Stones are for the ground: read the grit at the foot, then climb.
+
+  **Rain** (`core/weather/rain_schedule.gd`, the Umbwe Ridge): drizzle,
+  then a darkening sky, then a downpour, on a schedule. In a downpour wet
+  rock costs half as much again to climb or hang on, and a rest out in the
+  open gives back half as fast; under rock (a prow, an overhang) or on a
+  rest stone you are out of it. The HUD says when it pours.
+
   **Alpine pitches on the fastest way** (`modes/expedition/levels/alpine.gd`,
   `Line.pitch` in the generator). The Umbwe Ridge, the Arrow Glacier and
   the Western Breach each have three pitches: clefts 10 to 12 rows tall
   (a chimney between a prow and the ledge), pitons every 3 rows and an
   anchor on the ledge at the top. Your partner (Lena, or whoever the trek
   still has) belays from the foot. Tap CLIP at each piton. Once clipped,
-  a fall (empty arms, a stone) is held by the rope as far below the last
+  a fall (empty arms, a slip) is held by the rope as far below the last
   piton as you were above it: no slip, but the knock hurts, and you never
   go below the foot of the pitch. Tap REST on the rock to hang on the
   rope; each clip is worth 60% of the bar. At the anchor you are tied in

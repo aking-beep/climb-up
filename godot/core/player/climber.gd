@@ -109,6 +109,13 @@ var helmet := false
 ## rest may (the expedition counts rests between cairns and then eats camp
 ## food). Not set (the crag): every rest refills.
 var rest_gate: Callable
+## The most one sit gives back (the fastest way: the starting quarter of
+## the bar, ClimbLevel). Once it has, you stand up: sit again for more, and
+## that is another rest. INF: no limit.
+var rest_cap := INF
+## True for a frame when a sit ran out at rest_cap (the level says so).
+var rest_capped := false
+var _sit_gain := 0.0
 var _sit_refills := true
 var _sit_asked := false
 const ICE_ACCEL := 150.0
@@ -327,6 +334,7 @@ func _ground(delta: float, input: Vector2) -> void:
 	if GameInput.pressed_now("rest"):
 		state = State.REST
 		_sit_asked = false
+		_sit_gain = 0.0
 		_sit_refills = true
 		velocity.x = 0.0
 		return
@@ -814,7 +822,16 @@ func _rest(delta: float, input: Vector2) -> void:
 			_sit_asked = true
 			_sit_refills = rest_gate.call() if rest_gate.is_valid() else true
 		last_activity = "rest" if _sit_refills else "sit"
+	var had := stamina.value
 	stamina.tick(delta, last_activity)
+	_sit_gain += maxf(0.0, stamina.value - had)
+	if _sit_gain >= rest_cap:
+		# All one sit gives on this route: up you get.
+		stamina.value -= _sit_gain - rest_cap
+		_sit_gain = 0.0
+		rest_capped = true
+		state = State.GROUND
+		return
 	_weather(delta, Vector2.ZERO)
 	if state == State.REST and (input.length() > 0.3 or GameInput.pressed_now("rest")):
 		state = State.GROUND

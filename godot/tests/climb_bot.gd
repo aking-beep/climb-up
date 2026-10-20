@@ -421,6 +421,7 @@ func lead_pitch(s: Dictionary) -> void:
 	var x := float(s["x"])
 	var which: int = al.lead
 	var stretch := float(s.get("stretch", 15.0))
+	await wait_for_dry(6.0)
 	if s.get("chute", false):
 		await wait_for_stone_window((x - 1.0) * T)
 	await drive(["move_right"], func() -> bool: return c.is_climbing() or tx() >= x - 0.3, 20.0, "to the pitch at %.1f" % x)
@@ -467,6 +468,15 @@ func lead_pitch(s: Dictionary) -> void:
 		failures.append("never brought the partner up the pitch at %.1f: %s" % [x, where()])
 
 
+## In the rain (RainSchedule): before a wall, wait at its foot until the
+## next `seconds` stay out of a downpour, as a careful player would.
+func wait_for_dry(seconds: float) -> void:
+	var rain: RainSchedule = level.get("rain")
+	if rain == null or rain.dry_for(c.clock, seconds):
+		return
+	await drive([], func() -> bool: return rain.dry_for(c.clock, seconds), 60.0, "waiting out the downpour")
+
+
 ## One press of a button (an action held for a frame, then let go).
 func press(action: String) -> void:
 	GameInput.scripted = {"_": false, action: true}
@@ -490,6 +500,7 @@ func _act(step: Array) -> void:
 			var right: bool = int(s["dir"]) > 0
 			var dir := "move_right" if right else "move_left"
 			var x := float(s["x"])
+			await wait_for_dry(absf(ty() - float(s["row"])) * 0.6 + 2.0)
 			if s.get("chute", false):
 				await wait_for_stone_window(x * T)
 			await drive([dir], func() -> bool: return c.is_climbing() or (tx() >= x - 0.5 if right else tx() <= x), 20.0, "to the face at %.1f" % x)
@@ -534,6 +545,7 @@ func _act(step: Array) -> void:
 			# to it, back to the edge and down the wall again.
 			var s: Dictionary = step[1]
 			var x := float(s["x"])
+			await wait_for_dry(absf(float(s["floor"]) - float(s["row"])) * 1.2 + 4.0)
 			if s.get("chute", false):
 				await wait_for_stone_window(x * T)
 			await drive(["move_right"], func() -> bool: return c.is_climbing() or tx() >= x - 0.3, 20.0, "to the side wall at %.1f" % x)

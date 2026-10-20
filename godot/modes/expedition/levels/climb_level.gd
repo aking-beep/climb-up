@@ -75,6 +75,15 @@ var hud: Hud
 var mate: Companion
 ## The fastest way's alpine pitches (Alpine), when the layout has any.
 var alpine: Alpine
+## The fastest way's bar (Trek.grows): it starts at a quarter (bar_base), a
+## rest gives back at most that much, and every find grows it by Trek.GROW,
+## up to the long way's full bar (bar_full).
+var bar_base := 0.0
+var bar_full := 0.0
+## Rain showers (spec theme "weather": "rain"): a downpour now and then.
+var rain: RainSchedule
+var _downpour := false
+var _rain_said := false
 var hazards: Hazards
 var creatures: Creatures
 ## The body the trek left you (Condition.of): health, sleep, food, sickness,
@@ -244,7 +253,12 @@ func _ready() -> void:
 	condition = Condition.of(Expedition.session, dosed)
 	# The route sets the bar's size (the long way's full bar, half, a
 	# quarter: Trek.bar_factor), never below what its walls need.
+	bar_full = roundf(stamina.max_value * condition["stamina"])
 	stamina.max_value = maxf(Trek.min_bar(Expedition.session), roundf(stamina.max_value * condition["stamina"] * Trek.bar_factor(Expedition.session)))
+	bar_base = stamina.max_value
+	if Trek.grows(Expedition.session):
+		# What the finds of earlier climbs grew it by, kept.
+		stamina.max_value = minf(maxf(bar_full, bar_base), bar_base + Trek.GROW * Trek.grown(Expedition.session).size())
 	stamina.value = stamina.max_value
 	stamina.recovery = clampf(stamina.recovery * condition["recovery"], 0.2, 1.2)
 	stamina.thin_air *= condition["thinAir"]
@@ -253,6 +267,8 @@ func _ready() -> void:
 	_base_recovery = stamina.recovery
 	_base_drain = stamina.drain
 	wind = WindSchedule.new(float(s["weatherRisk"]), seed, float(d["wind"]) + (trek_factor["steep"] - 1.0) * 40.0)
+	if String(spec["theme"].get("weather", "")) == "rain":
+		rain = RainSchedule.new(seed, float(spec["theme"].get("showers", 24.0)))
 	if Expedition.climb.get("challengeId") == spec["id"]:
 		attempt_id = Expedition.climb.get("attemptId", attempt_id)
 
@@ -297,6 +313,8 @@ func _ready() -> void:
 	# On Kilimanjaro, empty arms hang on for a moment: time to climb down.
 	climber.arms_grace = ARMS_GRACE
 	climber.rest_gate = _rest_gate
+	if Trek.grows(Expedition.session):
+		climber.rest_cap = bar_base
 	climber.grabbed.connect(func() -> void:
 		Haptics.tap(12)
 		engage("grab")
@@ -361,6 +379,24 @@ func _ready() -> void:
 	camera.snap()
 
 	Scenery.build(self, terrain, camera, theme)
+	if rain:
+		# The downpour: heavier, faster drops over the drizzle, on when it pours.
+		var heavy := CPUParticles2D.new()
+		heavy.name = "Downpour"
+		heavy.amount = 260
+		heavy.lifetime = 0.7
+		heavy.emitting = false
+		heavy.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+		heavy.emission_rect_extents = Vector2(320, 10)
+		heavy.position = Vector2(0, -190)
+		heavy.direction = Vector2(0.25, 1)
+		heavy.spread = 2.0
+		heavy.initial_velocity_min = 420.0
+		heavy.initial_velocity_max = 520.0
+		heavy.texture = Scenery._streak(2, 12)
+		heavy.color = Color(0.72, 0.82, 0.95, 0.55)
+		heavy.z_index = 5
+		camera.add_child(heavy)
 	# The summit night ends in a sunrise over the cloud sea.
 	if spec.get("summit", false):
 		dawn = SummitDawn.new()
@@ -686,6 +722,7 @@ func _physics_process(_delta: float) -> void:
 		lowest_stamina = minf(lowest_stamina, stamina.fraction())
 	_arms()
 	_weather()
+	_rain()
 	_symptoms()
 	_mate_breath()
 	if _travel_clock >= 0.0 and climber.last_activity in ["walk", "walk_up", "ice"]:
@@ -701,9 +738,14 @@ func _physics_process(_delta: float) -> void:
 	if climber.exposed and not _was_exposed and climber.state == Climber.State.GROUND:
 		engage("wind")
 	_was_exposed = climber.exposed
-	# A rest is spent once it has filled you up.
+	# A rest is spent once it has filled you up, or (the fastest way) once
+	# it has given back its quarter of the bar.
 	if _rest_open and stamina.value >= stamina.max_value - 0.5:
 		_rest_open = false
+	if climber.rest_capped:
+		climber.rest_capped = false
+		_rest_open = false
+		hud.flash("A rest gives back %d at most on this route. Sit again for more: that is another rest." % int(bar_base), 2.6)
 	# Sitting out a gust on an exposed ledge.
 	var sheltering := climber.state == Climber.State.REST and climber.exposed and climber.gust == WindSchedule.Phase.BLOW
 	if sheltering and not _was_bracing:
@@ -795,7 +837,51 @@ func _weather() -> void:
 		hud.flash("Hot sun (%d°C): every move costs a little more. Water helps." % int(round(degrees)), 3.0)
 
 
+## The rain (RainSchedule): in a downpour wet rock costs more and a rest
+## out in it gives less; under rock you are out of it.
+func _rain() -> void:
+	if rain == null:
+		return
+	var now := climber.clock
+	var phase := rain.phase_at(now)
+	var pour := phase == RainSchedule.Phase.POUR
+	stamina.wet = RainSchedule.WET_ROCK if pour else 1.0
+	if pour and not sheltered():
+		stamina.recovery *= RainSchedule.OPEN_REST
+	if phase == RainSchedule.Phase.COMING and not _downpour:
+		_downpour = true
+		engage("rain")
+		Audio.play("gust", -8.0)
+		if not _rain_said:
+			_rain_said = true
+			hud.flash("The rain is coming down harder. In a downpour wet rock costs more to climb and resting in the open gives less: get under rock, or wait it out before a wall.", 4.0)
+	elif phase == RainSchedule.Phase.DRIZZLE:
+		_downpour = false
+	var heavy := camera.get_node_or_null("Downpour") as CPUParticles2D
+	if heavy:
+		heavy.emitting = pour
+	if _tint and pour:
+		_tint.color = _tint.color * Color(0.78, 0.8, 0.86)
+
+
+## Out of the rain: on a rest stone, or with rock over your head.
+func sheltered() -> bool:
+	if climber.last_activity == "rest_stone":
+		return true
+	var head := Terrain.cell_of(climber.global_position - Vector2(0, Climber.SIZE.y + 2))
+	for dy in range(0, 6):
+		if terrain.is_solid(head + Vector2i(0, -dy)):
+			return true
+	return false
+
+
+func pouring() -> bool:
+	return rain != null and rain.pouring(climber.clock)
+
+
 func climate_line() -> String:
+	if pouring():
+		return "%d°C · downpour: wet rock costs more%s" % [int(round(degrees)), ", you are under rock" if sheltered() else ", rest under rock"]
 	if climber.last_activity == "rest_stone" and degrees < Climate.COOL:
 		return "%d°C · sheltered by the rest stone: full rest" % int(round(degrees))
 	return Climate.words(degrees)
@@ -1274,8 +1360,26 @@ func _on_gear(index: int) -> void:
 	if not held.has(index):
 		held.append(index)
 	Expedition.remember({"gear": held})
+	on_find("gear:%s:%s:%d" % [spec["id"], route, index])
 	var slot := gear_kinds.find(kind) + 1
 	hud.flash("%s is in your pack. Put it on when you want it: tap it in the pack (key %d)." % [String(GEAR[kind]["label"]), slot], 4.0)
+
+
+## Found a piece of gear or an artifact: on the fastest way the bar grows
+## (once per find, for good).
+func on_find(key: String) -> void:
+	if not Trek.grow(Expedition.session, key):
+		return
+	var room := maxf(bar_full, bar_base) - stamina.max_value
+	if room <= 0.0:
+		return
+	var more := minf(Trek.GROW, room)
+	stamina.max_value += more
+	stamina.value = minf(stamina.max_value, stamina.value + more)
+	engage("grow")
+	Audio.play("record", -8.0)
+	Haptics.tap(30)
+	hud.flash("Your stamina bar grows! +%d, now %d. It stays bigger for the rest of the expedition." % [int(more), int(stamina.max_value)], 3.0)
 
 
 ## Found a drink: into the pack, for when you choose.

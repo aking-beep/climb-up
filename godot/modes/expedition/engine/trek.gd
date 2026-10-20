@@ -110,6 +110,38 @@ static func hurt_factor(session: Dictionary) -> float:
 	return float(HURT.get(String(ensure(session)["route"]), 1.0))
 
 
+## The fastest way grows its bar the way a Zelda hero gains hearts: every
+## piece of gear and every artifact you pick up adds GROW to the bar, for
+## good (once per find, kept for the rest of the expedition, up to the
+## long way's full bar). A rest there gives back at most the starting
+## quarter (ClimbLevel.rest_cap).
+const GROW := 4.0
+const GROWS := {"umbwe": true}
+
+
+static func grows(session: Dictionary) -> bool:
+	return GROWS.get(String(ensure(session)["route"]), false)
+
+
+## Finds that have grown the bar so far (keys).
+static func grown(session: Dictionary) -> Array:
+	var t := ensure(session)
+	if typeof(t.get("grown")) != TYPE_ARRAY:
+		t["grown"] = []
+	return t["grown"]
+
+
+## Records a find; true when it is new (the bar grows).
+static func grow(session: Dictionary, key: String) -> bool:
+	if not grows(session):
+		return false
+	var g := grown(session)
+	if g.has(key):
+		return false
+	g.append(key)
+	return true
+
+
 static func permit_days(session: Dictionary) -> int:
 	return int(route(session)["permit"])
 

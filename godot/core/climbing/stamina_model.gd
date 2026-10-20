@@ -55,6 +55,9 @@ var still_recovers := true
 var walk_gear: float = 1.0
 var ice_gear: float = 1.0
 var rock_gear: float = 1.0
+## Multiplies what being on rock costs: wet rock in a downpour
+## (RainSchedule.WET_ROCK), 1 when dry.
+var wet: float = 1.0
 const ON_ROCK := ["climb", "hang", "traverse", "crimp", "crimp_hang", "sloper", "sloper_hang"]
 const WALKING := ["walk", "walk_up", "ice"]
 
@@ -100,7 +103,7 @@ func rate(activity: String, loose: bool = false) -> float:
 	if activity in WALKING:
 		r *= thin_air * (ice_gear if activity == "ice" else walk_gear)
 	elif activity in ON_ROCK:
-		r *= grip * shoes * rock_gear
+		r *= grip * shoes * rock_gear * wet
 	if r > 0.0:
 		return r * drain * (LOOSE_FACTOR if loose else 1.0)
 	return r * recovery

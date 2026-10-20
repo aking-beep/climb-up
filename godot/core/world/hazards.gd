@@ -6,7 +6,10 @@ extends Node2D
 ## Rockfall (r markers): stones come down a chute of three columns on a
 ## schedule. Each is announced by trickling grit and a rattle over the
 ## column it will fall in; step to another column or under rock, and it
-## misses. A hit is a slip (a helped teammate can still catch it).
+## misses. A hit is a slip (a helped teammate can still catch it). Never
+## while you are on a wall: a chute holds its stones while you climb, and
+## one already falling goes past (stones are for the ground: read the
+## grit at the foot, then climb).
 ##
 ## Cracked slabs (c tiles): solid until you stand on one; then it creaks and
 ## goes. Keep walking and you are across. Stop (even to sit out a gust) and you
@@ -283,6 +286,12 @@ func _rockfall(dt: float, now: float) -> void:
 		var col := _column(chute, k)
 		var top := Terrain.feet(chute["cell"]) - Vector2(0, Terrain.TILE)
 		var grit: CPUParticles2D = chute["grit"]
+		if climber.is_climbing() and now >= at - WARN:
+			# On the rock: this stone never comes.
+			chute["warned"] = k
+			chute["next"] = k + 1
+			grit.emitting = false
+			continue
 		if now >= at - WARN and chute["warned"] != k:
 			chute["warned"] = k
 			grit.position = Vector2(col * Terrain.TILE + Terrain.TILE / 2.0, top.y)
@@ -304,6 +313,10 @@ func _rockfall(dt: float, now: float) -> void:
 		node.position.y += r["vy"] * dt
 		node.rotation += dt * 6.0
 		var box := Rect2(node.position - Vector2.ONE * ROCK_HALF, Vector2.ONE * ROCK_HALF * 2.0)
+		if box.intersects(climber.body_rect()) and climber.is_climbing():
+			# It bounces off the rock beside you.
+			_shatter(r)
+			continue
 		if box.intersects(climber.body_rect()) and not climber.state in [Climber.State.SLIP, Climber.State.DONE, Climber.State.LOCKED, Climber.State.HELP]:
 			_shatter(r)
 			if climber.helmet:
@@ -501,6 +514,8 @@ func _pickups() -> void:
 			Audio.play("sting", -6.0)
 			Haptics.tap(40)
 			level.on_water(p["key"])
+			if level.has_method("on_find"):
+				level.on_find(p["key"])
 			engaged.emit("artifact")
 			var words: Array = artifact_words[p["index"]]
 			level.hud.flash("An artifact: %s! %s Keep it safe: a slip drops it." % [words[0], words[1]], 8.0)
