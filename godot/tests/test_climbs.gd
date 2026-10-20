@@ -695,7 +695,11 @@ func test_the_summit_is_the_boss_but_never_impossible() -> void:
 		await follow(level.layout["script"])
 		check(outcome != null and outcome.result == "complete", "the summit on %s, even worn out" % route)
 		if route == "umbwe":
-			check(level.lowest_stamina < 0.25, "and the fastest way is the hardest: down to %d%% of the bar" % int(level.lowest_stamina * 100))
+			# The fastest way is the hardest by its small bar and its climbing
+			# (balanced so a player is not thrown off it): a worn party has
+			# the smallest bar of the three.
+			check(c.stamina.max_value - Trek.GROW * Trek.grown(Expedition.session).size() <= Trek.MIN_BAR["machame"] and Trek.MIN_BAR["umbwe"] < Trek.MIN_BAR["machame"],
+				"and the fastest way is the hardest: the smallest bar (%d before its finds)" % int(c.stamina.max_value - Trek.GROW * Trek.grown(Expedition.session).size()))
 		print("      worn-out summit (%s): %d s, %d slips, lowest %d%% of a %d bar, food eaten %d, %d retries, slips by cause %s" % [route, int(c.clock), c.slips, int(level.lowest_stamina * 100), int(c.stamina.max_value), level.snacks * ClimbLevel.SNACK, retries, level.slips_by_cause])
 		retries = 0
 		await _done()
