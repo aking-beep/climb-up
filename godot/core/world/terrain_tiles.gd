@@ -141,6 +141,7 @@ static func set_slab(ground: TileMapLayer, cell: Vector2i, stage: String) -> voi
 
 const HD := 4
 const HD_DIR := "res://assets/terrain/hd/"
+const PALETTE := preload("res://core/world/palette.gdshader")
 const HD_SOLID := 0
 const HD_BACK := 1
 const HD_FACE := 2
@@ -196,6 +197,11 @@ static func paint_hd(terrain: Terrain, ground: TileMapLayer, back: TileMapLayer,
 	hd.add_child(edges)
 	ground.set_meta("hd", hd)
 	back.set_meta("hd", hd_back)
+	var recolour := palette_material(theme)
+	if recolour:
+		hd.material = recolour
+		hd_back.material = recolour
+		edges.use_parent_material = true
 	var crag := terrain.markers.has("Q")
 	for y in terrain.height:
 		for x in terrain.width:
@@ -228,6 +234,28 @@ static func paint_hd(terrain: Terrain, ground: TileMapLayer, back: TileMapLayer,
 	# The pixel layers keep their collision; only the HD ones are drawn.
 	ground.visible = false
 	back.visible = false
+
+
+## The place's own rock colours (theme "ramp": colours dark to light, and
+## "rampAmount"), or null to keep the painting's (shaders/palette).
+static func palette_material(theme: Dictionary) -> ShaderMaterial:
+	var stops: Array = theme.get("ramp", [])
+	if stops.size() < 2:
+		return null
+	var g := Gradient.new()
+	g.set_color(0, Color(stops[0]))
+	g.set_color(1, Color(stops[stops.size() - 1]))
+	for i in range(1, stops.size() - 1):
+		g.add_point(float(i) / float(stops.size() - 1), Color(stops[i]))
+	var gt := GradientTexture1D.new()
+	gt.gradient = g
+	gt.width = 128
+	var m := ShaderMaterial.new()
+	m.shader = PALETTE
+	m.set_shader_parameter("ramp", gt)
+	m.set_shader_parameter("amount", float(theme.get("rampAmount", 0.9)))
+	m.set_shader_parameter("contrast", float(theme.get("rampContrast", 1.15)))
+	return m
 
 
 ## Copies the back wall's cells to its HD layer (after a level adds its own).

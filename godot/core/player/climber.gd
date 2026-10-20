@@ -118,6 +118,13 @@ const ICE_DECEL := 70.0
 var hurt_total := 0.0
 ## A moment after a hit when nothing else can hurt you.
 const HURT_GUARD := 1.0
+## Every hit is scaled by the route (Trek.hurt_factor): the long way's
+## knocks hurt half as much.
+var hurt_scale := 1.0
+## What being knocked off costs, on top of the slip: taken off the bar you
+## get back at the cairn (respawn).
+const KNOCK := {"rock": 8.0, "fall": 8.0, "hole": 6.0, "slab": 6.0, "wind": 4.0}
+var bruise := 0.0
 var _hurt_cool := 0.0
 ## Being unwell, from the trek: a dizzy spell (half speed, the feet wander)
 ## or a cramp (doubled over: no walking, no hopping), seconds left of each.
@@ -243,6 +250,13 @@ func respawn(feet: Vector2) -> void:
 	state = State.GROUND
 	fall_from = feet.y
 	stamina.refill(0.75 if spotter_caught_last else 0.5)
+	# Knocked off by a stone or a fall, it hurts: the bruise comes off what
+	# you get back (never below a quarter of the bar).
+	if bruise > 0.0:
+		var hit := bruise * hurt_scale
+		stamina.value = maxf(stamina.max_value * 0.25, stamina.value - hit)
+		hurt_total += hit
+		bruise = 0.0
 	dizzy = 0.0
 	cramp = 0.0
 	spotter_caught_last = false
@@ -825,11 +839,13 @@ func _weather(delta: float, input: Vector2) -> void:
 
 ## Something hurt you: it takes stamina, the one bar. Returns false when it
 ## could not (just hit, falling, done). A hit you have no stamina left for
-## is a collapse, and that is a slip.
+## is a collapse, and that is a slip. The route scales every hit
+## (hurt_scale: the long way's knocks hurt half as much).
 func hurt(amount: float, reason: String) -> bool:
 	if _hurt_cool > 0.0 or state in [State.SLIP, State.DONE, State.LOCKED]:
 		return false
 	_hurt_cool = HURT_GUARD
+	amount *= hurt_scale
 	var spent := stamina.value <= amount
 	stamina.value = maxf(0.0, stamina.value - amount)
 	hurt_total += amount
@@ -852,6 +868,7 @@ func slip(reason: String) -> void:
 		spotter_caught_last = true
 	else:
 		slips += 1
+	bruise = float(KNOCK.get(reason, 0.0))
 	state = State.SLIP
 	_timer = 0.0
 	velocity = Vector2(0.0, velocity.y)

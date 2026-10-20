@@ -15,6 +15,8 @@ var _route: ProgressBar
 var _route_label: Label
 var _fps: Label
 var _temp: Label
+## The pack (ClimbLevel.pack_slots): numbered, what is on lit.
+var _pack: Label
 
 
 func _ready() -> void:
@@ -58,6 +60,9 @@ func _ready() -> void:
 	_temp = _label(8, Color(0.75, 0.88, 1.0))
 	_temp.visible = false
 	v.add_child(_temp)
+	_pack = _label(9, Color(0.98, 0.9, 0.62))
+	_pack.visible = false
+	v.add_child(_pack)
 	_hint = _label(9, Color(0.95, 0.94, 0.91))
 	_hint.position = Vector2(8, 66)
 	_backed(_hint)
@@ -150,6 +155,9 @@ func update_from(level: Node) -> void:
 	var c: Climber = level.climber
 	var pct := int(round(c.stamina.fraction() * 100.0))
 	_bar.value = pct
+	# The bar is drawn as big as it is: the long way's full bar is the full
+	# width, the faster way's half, the fastest way's a quarter.
+	_bar.custom_minimum_size.x = clampf(140.0 * c.stamina.max_value / 100.0, 28.0, 140.0)
 	var fill := StyleBoxFlat.new()
 	fill.bg_color = Color("#c0573e") if pct < 25 else (Color("#d9a441") if pct < 50 else Color("#7fa36b"))
 	_bar.add_theme_stylebox_override("fill", fill)
@@ -198,6 +206,15 @@ func update_from(level: Node) -> void:
 		_temp.text = level.climate_line()
 		var deg: float = level.degrees
 		_temp.add_theme_color_override("font_color", Color(1.0, 0.72, 0.45) if deg >= Climate.WARM else (Color(0.95, 0.94, 0.91) if deg >= Climate.COOL else Color(0.68, 0.84, 1.0)))
+	if level.has_method("pack_slots"):
+		var bits: Array = []
+		var slots: Array = level.pack_slots()
+		for i in slots.size():
+			var it: Dictionary = slots[i]
+			var word := "%s ×%d" % [it["label"], it["count"]] if it["id"] == "drink" else (("%s ON" % it["label"]) if it["on"] else String(it["label"]))
+			bits.append(word if Settings.touch_enabled() else "%d %s" % [i + 1, word])
+		_pack.text = ("Pack: " + " · ".join(bits)) if not bits.is_empty() else ""
+		_pack.visible = _pack.text != ""
 	_hint.text = _hint_for(level)
 	_hint.visible = _hint.text != ""
 	# On touch the context button says what it does; keys need the reminder.

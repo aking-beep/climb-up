@@ -172,7 +172,7 @@ func refresh() -> void:
 	var s: Dictionary = Expedition.state()
 	diorama.show_state(s)
 	_backdrop.texture = diorama._plate.texture
-	_place.text = "%s · %s m" % [Kili.checkpoint_name(s["checkpoint"]), ExpeditionEngine.format_meters(s["altitude"])]
+	_place.text = "%s · %s m" % [Places.stop_name(s["checkpoint"], String(Trek.ensure(Expedition.session).get("route", ""))), ExpeditionEngine.format_meters(s["altitude"])]
 	_fill_stats(s)
 	_fill_portraits(s)
 	_fill_tabs()
@@ -843,8 +843,9 @@ func _results(s: Dictionary) -> void:
 
 func _label(text: String, size: int, color: Color, font: Font) -> Label:
 	var l := Label.new()
-	# Every word on the camp screen in plain language (core/ui/plain.gd).
-	l.text = Plain.say(text)
+	# Every word on the camp screen in plain language (core/ui/plain.gd),
+	# with the route's own places (Places).
+	l.text = Places.say_now(Plain.say(text))
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
 	if font:
@@ -866,7 +867,7 @@ func _text_label(text: String, size: int, color: Color) -> Label:
 
 func _choice_button(label: String, detail: String, highlight: bool, on_press: Callable) -> Button:
 	var b := Button.new()
-	b.text = label if detail == "" else "%s\n%s" % [label, detail]
+	b.text = Places.say_now(label if detail == "" else "%s\n%s" % [label, detail])
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_theme_font_size_override("font_size", 9)

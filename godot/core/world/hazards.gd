@@ -15,10 +15,11 @@ extends Node2D
 ## Ice (i tiles) is in Climber: little grip, so you slide, and the edge
 ## guard does not hold you there.
 ##
-## Water caches (w): a drink, most of the bar back, once per attempt.
-## Gear (*): three pieces per climb, each placed before what it helps with
-## (the level says what each does). It lasts this attempt: fail the climb
-## or fall in a hole and it goes back where it was (drop_gear).
+## Drinks (w): into the pack, most of the bar back when you drink one.
+## Gear (*): five pieces per climb, each on a ledge off the line (the level
+## says what each does). It goes in the pack and works only while worn
+## (ClimbLevel.use_slot). It lasts this attempt: fail the climb or fall in a
+## hole and it goes back where it was (drop_gear).
 ##
 ## Artifacts (Artifacts.DATA, placed by the level, not the map): two per
 ## climb for the chosen route. Carried until the climb ends; a slip that
@@ -81,7 +82,9 @@ func setup(lvl: Node, t: Terrain, g: TileMapLayer, c: Climber, period: float, wo
 	climber = c
 	rock_period = period
 	gear_words = _gear_in_order(words)
-	_rock_tex = Art.tex("res://assets/terrain/props/rock.png")
+	# What comes down: stones, or a forest's dead branches (theme "stone").
+	var stone: String = lvl.spec.get("theme", {}).get("stone", "rock") if "spec" in lvl else "rock"
+	_rock_tex = Art.tex("res://assets/terrain/props/%s.png" % stone)
 	for y in terrain.height:
 		for x in terrain.width:
 			if terrain.kind(Vector2i(x, y)) == Terrain.Kind.CRUMBLE:
@@ -305,7 +308,7 @@ func _rockfall(dt: float, now: float) -> void:
 			_shatter(r)
 			if climber.helmet:
 				climber.hurt(HELMET_HIT, "rock")
-				level.hud.flash("A stone rings off your helmet: -%d stamina." % int(HELMET_HIT), 2.0)
+				level.hud.flash("A stone rings off your helmet: -%d stamina." % int(round(HELMET_HIT * climber.hurt_scale)), 2.0)
 			else:
 				climber.slip("rock")
 			continue
@@ -504,12 +507,15 @@ func _pickups() -> void:
 			continue
 		engaged.emit(p["kind"])
 		if p["kind"] == "water":
-			climber.stamina.value = minf(climber.stamina.max_value, climber.stamina.value + climber.stamina.max_value * WATER)
+			# Into the pack: drink it when you choose (ClimbLevel.use_slot).
 			p["node"].visible = false
 			_burst(p["node"].position, Color(0.6, 0.8, 1.0), 10)
 			Audio.play("chime", -10.0)
-			level.hud.flash("A water cache. You drink: stamina back up.")
-			level.on_water(p["key"])
+			if level.has_method("on_drink"):
+				level.on_drink(p["key"])
+			else:
+				climber.stamina.value = minf(climber.stamina.max_value, climber.stamina.value + climber.stamina.max_value * WATER)
+				level.on_water(p["key"])
 		else:
 			gear_count += 1
 			p["node"].visible = false

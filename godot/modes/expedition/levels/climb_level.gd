@@ -1,8 +1,10 @@
 class_name ClimbLevel
 extends Node2D
-## A played climb on Kilimanjaro: the Lava Tower, the Barranco Wall or the
-## summit night. Each level is an ASCII map (tools/levels) and a spec (its
-## script) with the climb's difficulty, look, people and words; this class
+## A played climb on Kilimanjaro: the first climb, the middle climb, the
+## summit night or the way down, each in the place the route goes (Places:
+## nine places up, three ways down). Each level is an ASCII map
+## (tools/levels) and a spec (its script, with an entry per route) with the
+## climb's difficulty, look, people and words; this class
 ## assembles the level from them and runs the climb: the brief, cairns,
 ## slips, wind, the teammate who needs help, retreat, and the outcome,
 ## which lands on the expedition through the Coordinator exactly once.
@@ -29,9 +31,9 @@ var route := ""
 var layout: Dictionary = {}
 ## What each route's layout is like, for the brief.
 const ROUTE_LINES := {
-	"lemosho": "The long way's line: short benches, low faces, little wind.",
-	"machame": "The faster way's line: longer benches, taller faces, more stonefall and wind.",
-	"umbwe": "The fastest way's line: the longest benches and tallest faces, loose rock, stonefall, wind, ice and cracked slabs.",
+	"lemosho": "The long way: your full stamina bar, and knocks hurt half as much.",
+	"machame": "The faster way: half the stamina bar, and knocks hurt in full.",
+	"umbwe": "The fastest way: a quarter of the stamina bar, knocks hurt in full, and more in the way.",
 }
 
 
@@ -81,14 +83,27 @@ var _next_dizzy := -1.0
 var _next_cramp := -1.0
 var ground_layer: TileMapLayer
 var gear_this_attempt := 0
-## Gear in hand on this attempt, by kind (GEAR). Lose the climb, or fall in
-## a hole, and it is all gone: back where it was found.
+## Gear in the pack on this attempt, by kind (GEAR), in the order found.
+## Lose the climb, or fall in a hole, and it is all gone: back where it was
+## found.
 var gear_kinds: Array = []
+## The pack: what you found is carried, not used. Gear works only while you
+## have it on (worn), and you choose: tap it in the pack (keys 1 to 6) to put
+## it on or take it off. Drinks wait in the pack until you drink one.
+var worn: Array = []
+var drinks := 0
+const PACK_SLOTS := 6
+## A worn rope that has held a slip is done (its catch is spent).
+var _rope_caught := 0
 ## REST refills you at most REST_LIMIT times between two cairns (a rest
 ## stone, and sitting out the wind, never count). Out of rests, a sit eats a
 ## snack from the camp's food instead: SNACK supplies, gone for the rest of
 ## the expedition. With no food to spare, a sit gives nothing back.
 const REST_LIMIT := 2
+## This route's rests a cairn: the long way's two; as many more as the bar
+## is smaller (four on half the bar, eight on a quarter), so every route can
+## get back the same stamina between two cairns, a smaller bar at a time.
+var rest_limit := REST_LIMIT
 const SNACK := 3
 var rests_left := REST_LIMIT
 var snacks := 0
@@ -121,6 +136,7 @@ var pace_log: Array = []
 var travel := 0.0
 var _travel_clock := -1.0
 var _was_on_ice := false
+var _was_exposed := false
 var _was_bracing := false
 var _outcome: ChallengeOutcome
 var stars := 0
@@ -128,10 +144,10 @@ var stars := 0
 ## they are unwell), sitting near them gives it back. At zero they stop.
 var mate_breath := 100.0
 const ARMS_GRACE := 3.0
-## However worn the party, a played climb's bar is never smaller than this:
-## every face on every climb fits in it, so a climb is always possible for
-## someone who rests to full before each face (test_climbs checks the
-## summit night at this bar).
+## However worn the party, the long way's bar is never smaller than this
+## (each route has its own floor: Trek.min_bar): every face on its climbs
+## fits in it, so a climb is always possible for someone who rests to full
+## before each face (test_climbs checks the summit night at this bar).
 const MIN_BAR := 48.0
 ## The emptiest the bar got on this go (a share of it): how close the climb
 ## came to beating you. For balance tests and the results.
@@ -187,11 +203,29 @@ var _gusting := false
 var _panel_closed_at := -1.0
 
 
+## Each route climbs its own place here (Places): the spec's "routes"
+## entry for the route replaces the base spec's keys (its "copy" is merged
+## over the base's, so a place can keep shared lines).
+func apply_route(for_route: String) -> void:
+	var over: Dictionary = spec.get("routes", {}).get(for_route, {})
+	for key in over:
+		if key == "copy" and spec.get("copy") is Dictionary:
+			var merged: Dictionary = (spec["copy"] as Dictionary).duplicate()
+			merged.merge(over[key], true)
+			spec["copy"] = merged
+		else:
+			spec[key] = over[key].duplicate(true) if over[key] is Dictionary or over[key] is Array else over[key]
+	spec["place"] = Places.climb_name(String(spec["id"]), for_route)
+
+
 func _ready() -> void:
+	route = route_of(Expedition.session)
+	apply_route(route)
+	rest_limit = int(ceil(REST_LIMIT / Trek.bar_factor(Expedition.session)))
+	rests_left = rest_limit
 	var d: Dictionary = spec["difficulty"]
 	# The route sets how forgiving the climbs are (Trek.max_slips).
 	max_slips = Trek.max_slips(Expedition.session, int(d["maxSlips"]))
-	route = route_of(Expedition.session)
 	layout = layout_for(route)
 	spec["map"] = map_path(route)
 	if layout.get("mate") is Dictionary and spec.get("mate", {}).size() > 0:
@@ -211,7 +245,9 @@ func _ready() -> void:
 	trek_factor = Trek.climb_factor(Expedition.session)
 	dosed = Expedition.climb.get("challengeId") == spec["id"] and Expedition.climb.get("dosed") == true
 	condition = Condition.of(Expedition.session, dosed)
-	stamina.max_value = maxf(MIN_BAR, roundf(stamina.max_value * condition["stamina"]))
+	# The route sets the bar's size (the long way's full bar, half, a
+	# quarter: Trek.bar_factor), never below what its walls need.
+	stamina.max_value = maxf(Trek.min_bar(Expedition.session), roundf(stamina.max_value * condition["stamina"] * Trek.bar_factor(Expedition.session)))
 	stamina.value = stamina.max_value
 	stamina.recovery = clampf(stamina.recovery * condition["recovery"], 0.2, 1.2)
 	stamina.thin_air *= condition["thinAir"]
@@ -252,8 +288,11 @@ func _ready() -> void:
 
 	climber = Climber.new()
 	climber.name = "Climber"
-	climber.helper_cost = float(d["helpCost"])
+	# Helping costs a share of the bar: on the smaller bars of the faster
+	# ways it is a bigger share, never more than you can have.
+	climber.helper_cost = roundf(float(d["helpCost"]) * maxf(0.4, Trek.bar_factor(Expedition.session)))
 	climber.setup(terrain, wind, stamina)
+	climber.hurt_scale = Trek.hurt_factor(Expedition.session)
 	add_child(climber)
 	climber.global_position = cairns[0]
 	climber.slipped.connect(_on_slipped)
@@ -288,8 +327,17 @@ func _ready() -> void:
 	hazards.engaged.connect(engage)
 	hazards.found_gear.connect(_on_gear)
 	for i in (Expedition.climb.get("gear", []) if mine else []):
-		gear_kinds.append(gear_kind(int(i)))
+		var kind := gear_kind(int(i))
+		if not gear_kinds.has(kind):
+			gear_kinds.append(kind)
+	if mine:
+		for k in Expedition.climb.get("worn", []):
+			if gear_kinds.has(String(k)) and not worn.has(String(k)):
+				worn.append(String(k))
+		drinks = int(Expedition.climb.get("drinks", 0))
 	_apply_gear()
+	if worn.has("rope"):
+		climber.spotter = true
 
 	creatures = Creatures.new()
 	creatures.name = "Creatures"
@@ -397,6 +445,7 @@ func _place_props() -> void:
 						props.add_child(_sprite("exit_post", feet))
 	# Tussock and pebbles on open ledge tops, scattered deterministically.
 	var green: bool = spec["theme"].get("grass", true)
+	var flora: Dictionary = spec["theme"].get("flora", {})
 	for y in terrain.height:
 		for x in terrain.width:
 			var cell := Vector2i(x, y)
@@ -405,9 +454,25 @@ func _place_props() -> void:
 			if terrain.is_climbable(cell + Vector2i.UP) or terrain.markers.get("K", []).has(cell + Vector2i.UP):
 				continue
 			var h := posmod(x * 92821 + y * 68917, 100)
-			if green and h < 22:
+			# The place's own plants and ice first (theme "flora": name ->
+			# share of ledge tops, in percent), then tussock and pebbles.
+			var placed := false
+			var acc := 0
+			for name in flora:
+				acc += int(flora[name])
+				if h < acc:
+					if _decor_room(cell + Vector2i.UP, name):
+						var sp := _sprite(name, Terrain.feet(cell + Vector2i.UP))
+						sp.z_index = -2 if name.begins_with("tree") else 0
+						props.add_child(sp)
+					placed = true
+					break
+			if placed:
+				continue
+			var hh := h - acc
+			if green and hh >= 0 and hh < 22:
 				props.add_child(_sprite("grass_%d" % (h % 4), Terrain.feet(cell + Vector2i.UP)))
-			elif h < 30:
+			elif hh >= 0 and hh < 30:
 				props.add_child(_sprite("pebbles_%d" % (h % 3), Terrain.feet(cell + Vector2i.UP)))
 	var cast: Dictionary = spec.get("people", {})
 	for ch in cast:
@@ -431,6 +496,27 @@ func _place_props() -> void:
 			if said.is_empty():
 				said = ["Let's get up this."]
 			people.append({"node": c, "title": who[1], "lines": said})
+
+
+## Room for a plant at `cell` (open, with nothing in the way): trees need
+## open air well above them and no marker nearby, so they never hide a find
+## or a face.
+func _decor_room(cell: Vector2i, name: String) -> bool:
+	var rows := 5 if name.begins_with("tree") else 2
+	for dy in rows:
+		for dx in [-1, 0, 1]:
+			var c := cell + Vector2i(dx, -dy)
+			if terrain.is_solid(c) or terrain.is_climbable(c):
+				return false
+	for ch in terrain.markers:
+		for m in terrain.markers[ch]:
+			if absi(m.x - cell.x) <= 2 and absi(m.y - cell.y) <= 2:
+				return false
+	# Nor over an artifact (they are on the layout, not the map).
+	for a in layout.get("artifacts", []):
+		if absi(int(a[0]) - cell.x) <= 3 and absi(int(a[1]) - cell.y) <= 4:
+			return false
+	return true
 
 
 func _sprite(name: String, feet: Vector2) -> Sprite2D:
@@ -476,7 +562,7 @@ func _resume_from_save() -> void:
 	if mate:
 		mate_state = String(saved.get("mate", "waiting"))
 	regrouped = saved.get("regrouped") == true
-	rests_left = clampi(int(saved.get("rests", REST_LIMIT)), 0, REST_LIMIT)
+	rests_left = clampi(int(saved.get("rests", rest_limit)), 0, rest_limit)
 	snacks = maxi(0, int(saved.get("snacks", 0)))
 	for f in saved.get("fires", []):
 		fires.append(int(f))
@@ -536,7 +622,7 @@ func brief() -> void:
 	var dangers: Array = spec.get("dangers", [])
 	if not dangers.is_empty():
 		facts.append("Watch for: " + ", ".join(dangers) + ".")
-	rows.append({"tone": "info", "icon": "clock", "title": "%d rests a cairn" % REST_LIMIT, "text": "REST fills you up %d times between two cairns (a rest lasts until you are full; rest stones and sitting out the wind don't count). After that, each rest eats camp food: supplies -%d, gone for the rest of the trip (you have %d)." % [REST_LIMIT, SNACK, food_left()]})
+	rows.append({"tone": "info", "icon": "clock", "title": "%d rests a cairn" % rest_limit, "text": "REST fills you up %d times between two cairns (a rest lasts until you are full; rest stones and sitting out the wind don't count). After that, each rest eats camp food: supplies -%d, gone for the rest of the trip (you have %d)." % [rest_limit, SNACK, food_left()]})
 	rows.append({"tone": "info", "icon": "bolt", "title": "Costs", "text": "Hops, ice, uphill and rock all cost stamina: more in the heat, the cold and thin air. In a gust, don't move: REST until it passes."})
 	if hazards.gear_total() > 0:
 		var names: Array = []
@@ -585,6 +671,7 @@ func _physics_process(_delta: float) -> void:
 		climber.slip("hole")
 	hazards.step()
 	creatures.step()
+	_pack_input()
 	if briefed and climber.state != Climber.State.LOCKED:
 		lowest_stamina = minf(lowest_stamina, stamina.fraction())
 	_arms()
@@ -600,6 +687,10 @@ func _physics_process(_delta: float) -> void:
 	if climber.on_ice and not _was_on_ice:
 		engage("ice")
 	_was_on_ice = climber.on_ice
+	# So is stepping out into the wind: walk between the gusts.
+	if climber.exposed and not _was_exposed and climber.state == Climber.State.GROUND:
+		engage("wind")
+	_was_exposed = climber.exposed
 	# A rest is spent once it has filled you up.
 	if _rest_open and stamina.value >= stamina.max_value - 0.5:
 		_rest_open = false
@@ -739,10 +830,10 @@ func _arrive() -> void:
 			checkpoint = i
 			engage("cairn")
 			Audio.play("cairn", -8.0)
-			var fresh := rests_left < REST_LIMIT
-			rests_left = REST_LIMIT
+			var fresh := rests_left < rest_limit
+			rests_left = rest_limit
 			_rest_open = false
-			hud.flash("Cairn %d of %d%s" % [checkpoint, cairns.size() - 1, " · rests back to %d" % REST_LIMIT if fresh else ""])
+			hud.flash("Cairn %d of %d%s" % [checkpoint, cairns.size() - 1, " · rests back to %d" % rest_limit if fresh else ""])
 			# The teammate you helped climbs with you, and says so.
 			var said: Array = spec.get("mate", {}).get("climbLines", [])
 			if mate_state == "helped" and not said.is_empty():
@@ -1033,7 +1124,7 @@ func _on_slip_finished() -> void:
 		checkpoint = 0
 	climber.respawn(cairns[checkpoint])
 	# Back at a cairn: a fresh stretch, with its rests.
-	rests_left = REST_LIMIT
+	rests_left = rest_limit
 	_rest_open = false
 	if mate and mate_state == "helped":
 		mate.catch_up(cairns[checkpoint])
@@ -1144,6 +1235,7 @@ func gear_kind(index: int) -> String:
 	return String(g[2]) if g.size() > 2 else "poles"
 
 
+## Found a piece of gear: into the pack. It does nothing until you put it on.
 func _on_gear(index: int) -> void:
 	gear_this_attempt += 1
 	var kind := gear_kind(index)
@@ -1155,20 +1247,83 @@ func _on_gear(index: int) -> void:
 	if not held.has(index):
 		held.append(index)
 	Expedition.remember({"gear": held})
+	var slot := gear_kinds.find(kind) + 1
+	hud.flash("%s is in your pack. Put it on when you want it: tap it in the pack (key %d)." % [String(GEAR[kind]["label"]), slot], 4.0)
+
+
+## Found a drink: into the pack, for when you choose.
+func on_drink(key: String) -> void:
+	drinks += 1
+	on_water(key)
+	Expedition.remember({"drinks": drinks})
+	hud.flash("%s, in your pack. Drink it when you need it (key %d)." % [String(spec.get("drink", "A drink")).capitalize(), pack_slots().size()], 3.5)
+
+
+## What is in the pack, in slot order: gear in the order found, then the
+## drinks. [{id, label, on, count}].
+func pack_slots() -> Array:
+	var out: Array = []
+	for k in gear_kinds:
+		out.append({"id": k, "label": String(GEAR[k]["label"]), "on": worn.has(k), "count": 1})
+	if drinks > 0:
+		out.append({"id": "drink", "label": "Drink", "on": false, "count": drinks})
+	return out.slice(0, PACK_SLOTS)
+
+
+## Uses what is in pack slot `i` (0-based): puts gear on or takes it off,
+## or drinks. Returns false when the slot is empty or it cannot be used now.
+func use_slot(i: int) -> bool:
+	var slots := pack_slots()
+	if i < 0 or i >= slots.size() or climber.state in [Climber.State.SLIP, Climber.State.DONE, Climber.State.LOCKED]:
+		return false
+	var item: Dictionary = slots[i]
+	var id := String(item["id"])
+	if id == "drink":
+		drinks -= 1
+		stamina.value = minf(stamina.max_value, stamina.value + stamina.max_value * Hazards.WATER)
+		Audio.play("chime", -10.0)
+		hud.flash("You drink %s: stamina back up." % String(spec.get("drink", "some water")), 2.5)
+		engage("drink")
+		Expedition.remember({"drinks": drinks})
+		return true
+	if worn.has(id):
+		worn.erase(id)
+		hud.flash("%s off, back in the pack." % String(GEAR[id]["label"]), 2.0)
+	else:
+		worn.append(id)
+		hud.flash("%s on." % String(GEAR[id]["label"]), 2.0)
+		Audio.play("clip", -8.0)
+	if id == "rope":
+		# A short rope: someone (the guide) can hold your next slip on it.
+		climber.spotter = worn.has("rope")
+		_rope_caught = climber.caught
+	engage("gear")
+	Expedition.remember({"worn": worn.duplicate()})
 	_apply_gear()
-	# A short rope: someone (the guide) can now hold your next slip.
-	if kind == "rope":
-		climber.spotter = true
+	return true
 
 
-## What the gear in hand does: to stamina costs, the ice, the wind.
+## What the gear you have on does: to stamina costs, the ice, the wind.
 func _apply_gear() -> void:
-	stamina.walk_gear = float(GEAR["poles"]["walk"]) if gear_kinds.has("poles") else 1.0
-	stamina.rock_gear = float(GEAR["gloves"]["rock"]) if gear_kinds.has("gloves") else 1.0
-	stamina.ice_gear = float(GEAR["crampons"]["ice"]) if gear_kinds.has("crampons") else 1.0
-	climber.crampons = gear_kinds.has("crampons")
-	climber.helmet = gear_kinds.has("helmet")
-	climber.wind_shell = gear_kinds.has("shell")
+	stamina.walk_gear = float(GEAR["poles"]["walk"]) if worn.has("poles") else 1.0
+	stamina.rock_gear = float(GEAR["gloves"]["rock"]) if worn.has("gloves") else 1.0
+	stamina.ice_gear = float(GEAR["crampons"]["ice"]) if worn.has("crampons") else 1.0
+	climber.crampons = worn.has("crampons")
+	climber.helmet = worn.has("helmet")
+	climber.wind_shell = worn.has("shell")
+
+
+## The pack's buttons (keys 1 to 6, the touch pack row), and a worn rope
+## used up by the slip it held.
+func _pack_input() -> void:
+	for i in PACK_SLOTS:
+		if GameInput.pressed_now("use_%d" % (i + 1)) and not panel.open:
+			use_slot(i)
+	if worn.has("rope") and climber.caught > _rope_caught:
+		worn.erase("rope")
+		gear_kinds.erase("rope")
+		Expedition.remember({"worn": worn.duplicate()})
+		hud.flash("The rope held you. It is done for this climb.", 3.0)
 
 
 ## Lost the climb (or fell in a hole): all the gear goes back where it was
@@ -1176,8 +1331,9 @@ func _apply_gear() -> void:
 func lose_gear() -> bool:
 	var had := not gear_kinds.is_empty()
 	gear_kinds.clear()
+	worn.clear()
 	hazards.drop_gear()
-	Expedition.remember({"gear": []})
+	Expedition.remember({"gear": [], "worn": []})
 	_apply_gear()
 	return had
 
@@ -1231,7 +1387,7 @@ func make_fire() -> void:
 	fires.append(checkpoint)
 	engage("fire")
 	stamina.value = stamina.max_value
-	rests_left = REST_LIMIT
+	rests_left = rest_limit
 	_rest_open = false
 	if mate and mate_state == "helped":
 		mate_breath = 100.0

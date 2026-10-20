@@ -5,7 +5,8 @@ extends RefCounted
 ## change the engine makes and adds what the engine leaves out:
 ##
 ## - a route, chosen at the gate, that sets the permit (how many days you
-##   have), the stores, and how hard every day up is;
+##   have), the stores, how hard every day up is, and the places it climbs
+##   (Places: each route's own three climbs, and the stamina bar on them);
 ## - the permit: every choice spends hours, and when the days run out while
 ##   you are still going up, the rangers walk you down;
 ## - sickness, per person: altitude sickness when the party climbs faster than
@@ -21,20 +22,20 @@ extends RefCounted
 const ROUTES := {
 	"lemosho": {
 		"name": "The long way", "line": "13 days · easy",
-		"text": "Twice the slips on each climb. Slow and steady: time to get used to the thin air, the most food and medicine.",
-		"permit": 13, "supplies": 94, "medicine": 3, "upEnergy": 0, "upAcclim": 0, "upHealth": 0, "risk": 0, "climb": 1.0, "porters": 0.4,
+		"text": "Twice the slips on each climb, your full stamina bar, and knocks hurt half as much. Slow and steady: time to get used to the thin air, the most food and medicine.",
+		"permit": 13, "supplies": 90, "medicine": 3, "upEnergy": 0, "upAcclim": 0, "upHealth": 0, "risk": 0, "climb": 1.0, "porters": 0.4,
 	},
 	"machame": {
 		"name": "The faster way", "line": "9 days · medium",
-		"text": "One extra slip on each climb. Starts higher, less food, tiring days up; people get sick sooner.",
+		"text": "One extra slip on each climb and half the stamina bar. Starts higher, less food, tiring days up; people get sick sooner.",
 		"start": "ebc", "startHours": 24,
-		"permit": 9, "supplies": 86, "medicine": 2, "upEnergy": -5, "upAcclim": -3, "upHealth": 0, "risk": 10, "climb": 1.15, "porters": 0.3,
+		"permit": 9, "supplies": 80, "medicine": 2, "upEnergy": -5, "upAcclim": -3, "upHealth": 0, "risk": 10, "climb": 1.15, "porters": 0.3,
 	},
 	"umbwe": {
 		"name": "The fastest way", "line": "8 days · hard",
-		"text": "Straight up, very fast. The least food and medicine, the hardest climbs, and the most altitude sickness. Pick your one or two rest days carefully.",
+		"text": "Straight up, very fast. A quarter of the stamina bar, the least food and medicine, the hardest climbs with the most in the way, and the most altitude sickness. Pick your one or two rest days carefully.",
 		"start": "camp1", "startHours": 36,
-		"permit": 8, "supplies": 84, "medicine": 1, "upEnergy": -7, "upAcclim": -5, "upHealth": -2, "risk": 16, "climb": 1.3, "porters": 0.2,
+		"permit": 8, "supplies": 76, "medicine": 1, "upEnergy": -7, "upAcclim": -5, "upHealth": -2, "risk": 16, "climb": 1.3, "porters": 0.2,
 	},
 }
 
@@ -85,6 +86,30 @@ static func max_slips(session: Dictionary, base: int) -> int:
 	return base
 
 
+## The played climbs' stamina bar, by route: the long way's full bar, half
+## of it on the faster way, a quarter on the fastest. (No route chosen yet,
+## as in the level tests: the full bar.)
+const BAR := {"lemosho": 1.0, "machame": 0.5, "umbwe": 0.25}
+## However worn the party, the bar is never smaller than this on the route:
+## every wall on that route's climbs fits in it (tools/levels/route_levels.py
+## FACE_MAX), so a climb is always possible for someone who rests first.
+const MIN_BAR := {"lemosho": 48.0, "machame": 30.0, "umbwe": 20.0}
+## How much each hit hurts, by route: the long way's half.
+const HURT := {"lemosho": 0.5, "machame": 1.0, "umbwe": 1.0}
+
+
+static func bar_factor(session: Dictionary) -> float:
+	return float(BAR.get(String(ensure(session)["route"]), 1.0))
+
+
+static func min_bar(session: Dictionary) -> float:
+	return float(MIN_BAR.get(String(ensure(session)["route"]), 48.0))
+
+
+static func hurt_factor(session: Dictionary) -> float:
+	return float(HURT.get(String(ensure(session)["route"]), 1.0))
+
+
 static func permit_days(session: Dictionary) -> int:
 	return int(route(session)["permit"])
 
@@ -113,7 +138,11 @@ static func route_card() -> Dictionary:
 	var choices: Array = []
 	for id in ["lemosho", "machame", "umbwe"]:
 		var r: Dictionary = ROUTES[id]
-		choices.append({"label": "%s · %s" % [r["name"], r["line"]], "detail": r["text"], "route": id})
+		# Each route climbs its own places (Places).
+		var climbs: Array = []
+		for climb in ["lava-tower", "barranco-wall", "summit-night"]:
+			climbs.append(Places.climb_name(climb, id))
+		choices.append({"label": "%s · %s" % [r["name"], r["line"]], "detail": "%s Climbs: %s." % [r["text"], ", ".join(climbs)], "route": id})
 	return {"id": "trek-route", "title": "Pick your route up the mountain",
 		"text": "Three ways up. More days is safer: your bodies get used to the thin air. Fewer days is faster but harder, and people get sick more. If you run out of days before the top, the park rangers send you home.",
 		"choices": choices, "trek": true}

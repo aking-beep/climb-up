@@ -8,6 +8,8 @@ extends CanvasLayer
 ## up or down climbs.
 ## Right thumb: JUMP, one context button that says what it will do (CLIMB,
 ## TALK, READ, HELP) and REST (also for sitting out a gust). Top right: pause.
+## Along the top edge: the pack, one button per thing carried (gear to put
+## on or take off, a drink).
 ## Everything presses the same input actions as keys, so gameplay never
 ## knows the difference. Shown automatically on touch devices (Settings).
 ##
@@ -31,6 +33,7 @@ var _act_label: Label
 var safe := {"left": 0.0, "right": 0.0, "top": 0.0, "bottom": 0.0}
 var scale_k := 1.0
 var buttons: Dictionary = {}
+var _pack_buttons: Array = []
 
 
 static func attach(lvl: Node) -> void:
@@ -73,6 +76,14 @@ func _ready() -> void:
 	_act_label = _act.get_child(0)
 	# Pause stays top right for both hands: clear of the stats, top left.
 	_button("pause", "II", Vector2(vp.x - 38 - safe["right"], 4 + safe["top"]), 32.0)
+	# The pack (ClimbLevel.pack_slots): a row along the top edge, right of
+	# centre, one button per thing carried; tap to put gear on or take it
+	# off, or to drink. Shown only when there is something in it.
+	if level and level.has_method("pack_slots"):
+		for i in 6:
+			var b := _button("use_%d" % (i + 1), "", Vector2(vp.x * 0.42 + i * 40.0 * k, 4 + safe["top"]), 34.0 * k)
+			b.visible = false
+			_pack_buttons.append(b)
 	# Rotating or resizing rebuilds the overlay against the new edges.
 	get_viewport().size_changed.connect(func() -> void: TouchControls.attach.call_deferred(level), CONNECT_ONE_SHOT)
 
@@ -194,3 +205,15 @@ func _process(_delta: float) -> void:
 	var word: String = level.get("action_word") if level and level.get("action_word") != null else ""
 	_act_label.text = word if word != "" else "ACT"
 	_act.modulate.a = 1.0 if word != "" else 0.45
+	if not _pack_buttons.is_empty():
+		var slots: Array = level.pack_slots()
+		for i in _pack_buttons.size():
+			var b: TouchScreenButton = _pack_buttons[i]
+			b.visible = i < slots.size()
+			if b.visible:
+				var it: Dictionary = slots[i]
+				var l: Label = b.get_child(0)
+				l.text = ("%s\n×%d" % [String(it["label"]).substr(0, 6).to_upper(), it["count"]]) if it["id"] == "drink" else String(it["label"]).substr(0, 6).to_upper()
+				l.add_theme_font_size_override("font_size", 7)
+				# What is on is lit.
+				b.modulate = Color(1.0, 0.9, 0.55) if it["on"] else Color(1, 1, 1, 0.85)

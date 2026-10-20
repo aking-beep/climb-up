@@ -32,6 +32,7 @@ func _init() -> void:
 			["trekking poles", "Stuck in the scree at the top of the first slope. The long slopes down cost less with them.", "poles"],
 			["crampons", "On the bench above the ice. On ice they bite: no sliding, and it costs less.", "crampons"],
 		],
+		"drink": "a bottle of water",
 		"theme": {
 			"night": false,
 			"far": "res://assets/scenery/summit-sea.png",
@@ -79,6 +80,93 @@ func _init() -> void:
 			"doneRetreat": "Down, slowly.",
 			"doneFail": "The descent took more than you had.",
 			"vista": "The sun comes up over the cloud sea. Take it in: then go down.",
+		},
+	}
+	# Each route comes down in its own weather (Places): the long way in
+	# sunshine (the spec above), the faster way through cloud, the fastest
+	# way in a storm.
+	spec["routes"] = {
+		"lemosho": {"hud": "The Mweka path"},
+		"machame": {
+			"hud": "Down through the cloud",
+			"difficulty": {"recovery": 0.75, "drain": 1.1, "wind": 36.0, "maxSlips": 3, "helpCost": 18.0, "rockPeriod": 5.5},
+			"climate": {"temps": [[0.0, -6.0], [0.5, 2.0], [1.0, 10.0]], "drift": 1.0,
+				"light": [[0.0, "#e8e8ec"], [0.5, "#dcdee2"], [1.0, "#e4e2dc"]]},
+			"gear": [
+				["goggles and a buff", "Out on the rim, past the path. Gusts push you less, and sitting on windy ground gives some breath back.", "shell"],
+				["trekking poles", "Up a rock off the first slope. The long slopes down cost less with them.", "poles"],
+				["crampons", "On a ledge above the ice, off the line. On ice they bite: no sliding, and it costs less.", "crampons"],
+			],
+			"drink": "a bottle of water",
+			"theme": {
+				"far": "",
+				"mid": "",
+				"foreground": "res://assets/scenery/summit-foreground.png",
+				"cliff": "res://assets/scenery/summit-wall-deep.png",
+				"deep": "res://assets/scenery/summit-wall.png",
+				"ramp": ["#1e1e22", "#3a3a40", "#5e5e64", "#9a9a9e", "#dedcd8"],
+				"sky": ["#7a8490", "#b4bac0", "#dadcde"],
+				"skylines": [
+					{"kind": "clouds", "color": "#c8ccd2", "light": "#eef0f2", "factor": [0.08, 0.12], "y": 250.0, "tall": 80.0, "seed": 2},
+					{"kind": "clouds", "color": "#d8dce0", "light": "#f6f8fa", "factor": [0.3, 0.35], "y": 300.0, "tall": 70.0, "near": true, "seed": 8},
+				],
+				"mist": 2.8,
+				"snow": false,
+				"grass": false,
+				"sunShafts": false,
+			},
+			"signs": [
+				["Stella Point · 5,756 m", "Cloud has come up over the rim. Get everyone down to Barafu: that is the game."],
+				["Halfway down", "You can see three cairns at most. Rest before the ice above the step."],
+				["Below the rock step", "The cloud is thinning. The last of the scree is ahead."],
+				["Barafu · 4,670 m", "Out of the cloud, the tents. The way home starts tomorrow."],
+			],
+			"copy": {
+				"kicker": "Stella Point · cloud",
+				"title": "Down through the cloud",
+				"brief": "You stood on the summit. Now get down, inside a cloud: the rim is open to the wind (don't move in a gust: REST until it passes), the scree is long, there is a rock step to climb down and ice above it. Jun is on the rim with nothing left in his legs.",
+			},
+		},
+		"umbwe": {
+			"hud": "Down in the storm",
+			"difficulty": {"recovery": 0.7, "drain": 1.15, "wind": 42.0, "maxSlips": 3, "helpCost": 20.0, "rockPeriod": 4.5},
+			"climate": {"temps": [[0.0, -12.0], [0.5, -6.0], [1.0, 2.0]], "drift": 1.0,
+				"light": [[0.0, "#c4c8d4"], [0.5, "#b8bcc8"], [1.0, "#ccd0d4"]]},
+			"gear": [
+				["a storm shell", "Out on the rim in the wind, off the path. Gusts push you less, and sitting on windy ground gives some breath back.", "shell"],
+				["trekking poles", "Up a rock off the first slope. The long slopes down cost less with them.", "poles"],
+				["crampons", "On a ledge above the ice, off the line. On ice they bite: no sliding, and it costs less.", "crampons"],
+			],
+			"drink": "snowmelt in a bottle",
+			"theme": {
+				"far": "",
+				"mid": "",
+				"foreground": "res://assets/scenery/summit-foreground.png",
+				"foregroundTint": "#8890a0",
+				"cliff": "res://assets/scenery/summit-wall-deep.png",
+				"deep": "res://assets/scenery/summit-wall.png",
+				"ramp": ["#14161c", "#282c36", "#444a56", "#747a86", "#c4c8d0"],
+				"sky": ["#3e4654", "#6e7684", "#9a9ea6"],
+				"skylines": [
+					{"kind": "ridge", "color": "#4a5260", "light": "#c8d2de", "factor": [0.05, 0.08], "y": 230.0, "tall": 120.0, "seed": 12},
+				],
+				"weather": "sleet",
+				"mist": 2.0,
+				"snow": false,
+				"grass": false,
+				"sunShafts": false,
+			},
+			"signs": [
+				["Stella Point · 5,756 m", "A storm is coming over the rim. Get everyone down to Barafu, fast and together."],
+				["Halfway down", "Sleet on the scree. Rest before the ice above the step."],
+				["Below the rock step", "The worst of the wind is above you now."],
+				["Barafu · 4,670 m", "The tents, still standing. Everyone in."],
+			],
+			"copy": {
+				"kicker": "Stella Point · storm",
+				"title": "Down in the storm",
+				"brief": "You stood on the summit, and the weather has turned. Sleet, wind on the rim (don't move in a gust: REST until it passes), long scree, a rock step to climb down and ice above it. Your bar is small on this route: rest at every cairn. Jun is on the rim with nothing left in his legs.",
+			},
 		},
 	}
 

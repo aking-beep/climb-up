@@ -207,31 +207,42 @@ exactly (the parity test still holds); a trek layer on top
   quick and thrifty is worth something only when everyone made it. The
   end screen shows the breakdown; the records screen ranks by points.
 
-  **The summit rim is fairer.** It used to be 52 tiles of wind in one
-  stretch, so a gust near the end sent you all the way back. Now open
-  saddles of 8 to 12 tiles take the wind (one on the long way, two on the
-  faster way, three on the fastest), with a lee after each holding a
-  cairn and a rest stone. A gust costs one saddle at most.
+  **Each route climbs its own places** (`modes/expedition/places.gd`,
+  `tools/levels/route_levels.py`): three played climbs per route, nine
+  places in all, plus a way down in each route's weather. Each place has
+  its own map and JSON layout, name, signs, people's words, gear, two
+  artifacts, climate, and look (a palette for the rock, its own sky,
+  skylines drawn in code, plants, weather):
 
-  **Every climb is laid out for the route you picked**
-  (`tools/levels/route_levels.py`, one map and one JSON layout per climb
-  per route, 12 in all). The places, people and story are the same on
-  every route; the ground is not:
+  | | First climb | Middle climb (Marco) | Summit night (Jun) | Way down |
+  | --- | --- | --- | --- | --- |
+  | The long way (Lemosho, easy) | Shira Cathedral: moorland, heather and protea, a basalt buttress, afternoon gold | Karanga Valley: down into the groundsel valley, across the stream, up its loose side | Stella Point: zigzags of scree under the stars, the rim at first light | The Mweka path, in sunshine |
+  | The faster way (Machame, medium) | Lava Tower: red scree, rolling stones, a chimney under stonefall | Barranco Wall: the scramble, Kissing Rock over the drop, the loose gully | The Southern Icefields: blue ice runs, seracs, a crevasse, a pink sunrise | Down through the cloud |
+  | The fastest way (Umbwe, hard) | Umbwe Ridge: cloud forest, root walls, mud, rain, falling branches, siafu | Arrow Glacier: grey scree and old ice under the Western Breach in sleet | The Western Breach: the rock band at night, stones down every gully, the crater | Down in the storm |
 
-  | | The long way (easy) | The faster way (medium) | The fastest way (hard) |
-  | --- | --- | --- | --- |
-  | Lava Tower | 3 faces, 34-tile benches, a short wind ledge | 4 faces, a 12-row chimney with a niche, slabs, a rolling stone on top | 5 faces, a 14-row chimney, two stonefall chutes, two wind ledges, slabs |
-  | Barranco Wall | 4 faces, no traverse | 5 faces, a band of rock across a void, the loose gully with a niche | 6 faces, a wider traverse, a 14-row gully, two wind ledges |
-  | Summit night | 4 switchbacks, one saddle on the rim | 6 switchbacks, a crevasse, two saddles | 6 taller switchbacks on 84-tile benches, three stonefall chutes, three saddles, the most ice |
-  | The way down | 2 scree slopes, one 5-row step down | 3 slopes, an 8-row step, slabs | 4 slopes, two steps down (8 and 10 rows), two chutes, slabs |
+  **The route sets the bar and the hurt** (`Trek.BAR`, `Trek.HURT`,
+  `Trek.MIN_BAR`): the long way's full stamina bar, half of it on the
+  faster way, a quarter on the fastest; knocks hurt half as much on the
+  long way. The HUD draws the bar at its size. Every obstacle costs
+  something: thistles, ants, ravens, gusts and a stone on a helmet take
+  stamina; a stone, a fall or a slab that knocks you off costs a slip and
+  a bruise off the bar you get back at the cairn (`Climber.KNOCK`). No
+  wall on a route is taller than that route's smallest bar can climb
+  (`route_levels.FACE_MAX`), so the fastest way has many short walls, more
+  stonefall and more in the way rather than taller faces.
 
-  Obstacles come more often on the faster ways (every 6 to 8 tiles on the
-  long way, 6 on the faster, 5 on the fastest; the way down is quieter);
-  the wildlife is one per stretch. Each layout's JSON says the
-  order of its cairns and signs (the way down is reached top to bottom),
-  where its gear and its two artifacts lie, the teammate and which way you
-  pass them, and the line a climber takes. `tests/test_routes.gd` plays
-  every climb on every route along that line.
+  **Nothing is given away.** Gear and the two artifacts lie off the line:
+  on ledges over the path, up a wall you climb for them and climb back
+  down; the artifacts higher, under stonefall or out in the wind. What you
+  find goes in **the pack** and does nothing until you use it: tap it in
+  the pack row along the top edge (keys 1 to 6) to put gear on or take it
+  off, or to drink. A worn rope holds one slip and is done.
+
+  Each layout's JSON says the order of its cairns and signs, where its
+  gear and two artifacts lie, the teammate, and the line a climber takes,
+  detours to the finds included. `tests/test_routes.gd` plays every climb
+  on every route along that line; `tests/test_places.gd` checks the nine
+  places, the bars, the hurt, the finds and the camp's names.
 
   **Risk on the camp cards is a spread** (`Trek.foresee`). The score now
   counts what the choice itself does, not only the party's state:

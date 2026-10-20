@@ -164,7 +164,10 @@ func show_state(s: Dictionary) -> void:
 		if not sick.is_empty():
 			m["pose"] = "kneel" if sick["stage"] >= 2 else "lag"
 		members.append(m)
-	weather = clampf(float(s["weatherRisk"]) / 100.0, 0.0, 1.0)
+	# Each route's camps look like that route (Places.look).
+	var look := Places.look(String(Trek.ensure(Expedition.session).get("route", "")))
+	_plate.modulate = Color(look["tint"])
+	weather = clampf(float(s["weatherRisk"]) / 100.0 + float(look["weather"]), 0.0, 1.0)
 	var tints := {"day": Color(1, 1, 1), "dawn": Color(1.0, 0.86, 0.82), "dusk": Color(1.0, 0.8, 0.7), "night": Color(0.42, 0.5, 0.74)}
 	_tint.color = tints[phase]
 	var skies := {

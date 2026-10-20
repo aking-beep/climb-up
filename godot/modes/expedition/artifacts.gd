@@ -1,10 +1,12 @@
 class_name Artifacts
 extends RefCounted
 ## Artifacts: pieces of Kilimanjaro's history and culture hidden on the
-## played climbs. Each climb has two for each route (the long, faster and
-## fastest way: easy, medium, hard), so a different expedition finds
-## different ones. They are placed on the climb's most dangerous ground,
-## and they are hard to keep:
+## played climbs. Each route climbs its own places (Places), and each place
+## has two that belong to it: the Shira rock on the Shira plateau, the
+## forest's honey barrel on the Umbwe Ridge, Purtscheller's axe on the
+## Arrow Glacier. They lie off the line, up a side wall, out on an exposed
+## ledge or under the stonefall, so taking one is a climb of its own, and
+## they are hard to keep:
 ##
 ## - a slip that counts drops every artifact you carry back where you
 ##   found it, and a raven can snatch one;
@@ -24,22 +26,22 @@ const CLIMBS := ["lava-tower", "barranco-wall", "summit-night", "descent"]
 const MAX := 8
 
 ## {climb: {route: [[name, story], ...]}}. Where each lies is the route's
-## layout (tools/levels/route_levels.py picks the two most dangerous
-## standing spots on the climb's own line; the fastest way's layout is the
+## layout (tools/levels/route_levels.py puts them on ledges off the line,
+## high up side walls, under stonefall or in the wind; the fastest way's are the
 ## hardest of all).
 const DATA := {
 	"lava-tower": {
 		"lemosho": [
-			["a Chagga honey barrel", "Chagga families kept bees in hollowed logs hung high in the forest trees on the mountain's slopes. Honey was both food and medicine."],
-			["a porter's head strap", "Most of what reaches a high camp is carried by porters. The park limits a porter's load to 20 kg, and porters' groups work for fair pay and proper gear."],
+			["a shard of Shira rock", "Kilimanjaro is three volcanoes. Shira, to the west, is the oldest and has fallen in; Mawenzi is jagged and worn; Kibo, the youngest, holds the summit."],
+			["a Maasai cowbell", "Maasai herders graze cattle on the dry plains below the mountain's north and west sides, across into Kenya, as they have for generations."],
 		],
 		"machame": [
-			["a stone from a mfongo", "The Chagga dug mifongo, furrows that lead water from the mountain's streams for kilometres along the slopes to their banana gardens. Some are very old and still run."],
-			["a shard of Shira rock", "Kilimanjaro is three volcanoes. Shira, to the west, is the oldest and has fallen in; Mawenzi is jagged and worn; Kibo, the youngest, holds the summit."],
+			["Rebmann's sketch", "In 1848 the missionary Johannes Rebmann reported snow on a mountain almost on the equator. Geographers in London doubted him. He was right."],
+			["a porter's head strap", "Most of what reaches a high camp is carried by porters. The park limits a porter's load to 20 kg, and porters' groups work for fair pay and proper gear."],
 		],
 		"umbwe": [
-			["Rebmann's sketch", "In 1848 the missionary Johannes Rebmann reported snow on a mountain almost on the equator. Geographers in London doubted him. He was right."],
-			["a Maasai cowbell", "Maasai herders graze cattle on the dry plains below the mountain's north and west sides, across into Kenya, as they have for generations."],
+			["a Chagga honey barrel", "Chagga families kept bees in hollowed logs hung high in the forest trees on the mountain's slopes. Honey was both food and medicine."],
+			["a stone from a mfongo", "The Chagga dug mifongo, furrows that lead water from the mountain's streams for kilometres along the slopes to their banana gardens. Some are very old and still run."],
 		],
 	},
 	"barranco-wall": {
@@ -52,8 +54,8 @@ const DATA := {
 			["a caravan trade bead", "In the 1800s caravans from the Swahili coast passed the mountain trading cloth and glass beads for ivory. Beads served as money along the way."],
 		],
 		"umbwe": [
-			["Yohani Lauwo's walking stick", "Yohani Kinyala Lauwo, a young Chagga man from Marangu, guided Hans Meyer and Ludwig Purtscheller on the first recorded climb to the summit in October 1889."],
 			["Purtscheller's ice axe", "Ludwig Purtscheller, an Austrian alpinist, reached the top with Hans Meyer on 6 October 1889. They called it Kaiser-Wilhelm-Spitze; in 1961 it was renamed Uhuru Peak."],
+			["an ice core marker", "In 2000 scientists drilled through the summit glaciers. The oldest ice was about 11,700 years old. Most of the ice mapped in 1912 has since melted."],
 		],
 	},
 	"summit-night": {
@@ -66,7 +68,7 @@ const DATA := {
 			["a flame of the Uhuru Torch", "At Tanganyika's independence in December 1961 a torch was lit on the summit, and the highest point became Uhuru Peak: uhuru means freedom."],
 		],
 		"umbwe": [
-			["an ice core marker", "In 2000 scientists drilled through the summit glaciers. The oldest ice was about 11,700 years old. Most of the ice mapped in 1912 has since melted."],
+			["Yohani Lauwo's walking stick", "Yohani Kinyala Lauwo, a young Chagga man from Marangu, guided Hans Meyer and Ludwig Purtscheller on the first recorded climb to the summit in October 1889."],
 			["Nyerere's candle", "In 1959 Julius Nyerere said Tanganyika would light a candle on top of Kilimanjaro to shine beyond its borders: hope where there was despair, dignity where there was humiliation."],
 		],
 	},

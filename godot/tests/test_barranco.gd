@@ -1,9 +1,11 @@
 extends ClimbBot
-## The Barranco Wall, played. A scripted climber drives the real level
+## The middle climb (Marco's), played: on the long way, which these tests
+## use, it is the Karanga Valley. A scripted climber drives the real level
 ## through the same input actions a player presses (GameInput.scripted):
-## walk out of camp, scramble, climb, traverse the void, rest, cross the
-## exposed ledge between gusts, deal with Marco, climb the gully, and walk
-## to Karanga. Run with --fixed-fps 60 so physics steps are exact.
+## walk out of camp, climb down into the valley, hop the stream, fetch what
+## lies off the line, deal with Marco, climb out, cross the exposed shoulder
+## between gusts, and walk to Karanga. Run with --fixed-fps 60 so physics
+## steps are exact.
 
 const LEVEL := "res://modes/expedition/levels/kilimanjaro/barranco/barranco.tscn"
 
@@ -193,7 +195,8 @@ func test_climbing_drains_and_sitting_recovers() -> void:
 	full = c.stamina.value
 	await drive(["climb_up"], func() -> bool: return ty() <= foot - 2.0, 10.0, "climbing")
 	check(c.stamina.value < full, "climbing costs stamina")
-	await up_to(float(face["row"]), "mantle", "move_left" if right else "move_right")
+	# Pull over the way the line goes on (the layout's lean).
+	await up_to(float(face["row"]), "mantle", "move_right" if int(face.get("lean", 1)) > 0 else "move_left")
 	var before := c.stamina.value
 	await rest_up(0.99)
 	check(c.stamina.value > before, "sitting recovers")

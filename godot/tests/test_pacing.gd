@@ -78,7 +78,7 @@ func test_the_brief_says_what_the_climb_costs_at_camp() -> void:
 	var level: Node = await _level("barranco-wall")
 	var body: String = level.panel.all_text()
 	check("each slip costs the party" in body, "the brief names the cost of a slip: " + body.substr(0, 400))
-	check("Marco is somewhere above you" in body, "Marco is on the wall")
+	check("Marco is somewhere" in body, "Marco is on the climb")
 	await _done(level)
 
 

@@ -106,7 +106,13 @@ func test_water_and_lost_gear() -> void:
 	c.stamina.value = 10.0
 	var water: Vector2i = level.terrain.markers["w"][0]
 	await _put(water)
-	check(c.stamina.value > 40.0, "a water cache gives most of the bar back")
+	eq(c.stamina.value, 10.0, "a drink goes in the pack: nothing until you drink it")
+	eq(level.drinks, 1, "one drink carried")
+	var slots: Array = level.pack_slots()
+	eq(String(slots[slots.size() - 1]["id"]), "drink", "in the pack")
+	check(level.use_slot(slots.size() - 1), "drink it")
+	check(c.stamina.value > 40.0, "a drink gives most of the bar back")
+	eq(level.drinks, 0, "and it is gone")
 	eq(Expedition.climb.get("taken", []), ["%d,%d" % [water.x, water.y]], "taken for this attempt")
 	eq(hz.gear_count, 0, "nothing found yet")
 	# The gloves, where this route's layout put them.
@@ -251,8 +257,10 @@ func _scene(climb: String) -> String:
 ## gear and water on ground, stonefall, two artifacts, and a line to follow.
 func test_each_level_has_what_its_climb_needs() -> void:
 	for climb in Artifacts.CLIMBS:
-		var lvl: ClimbLevel = load(_scene(climb)).instantiate()
 		for route in Trek.ROUTES:
+			# The place this route climbs here (its spec entry).
+			var lvl: ClimbLevel = load(_scene(climb)).instantiate()
+			lvl.apply_route(route)
 			var id := "%s (%s)" % [climb, route]
 			var t := Terrain.load_file(lvl.map_path(route))
 			var lay := lvl.layout_for(route)
@@ -274,22 +282,20 @@ func test_each_level_has_what_its_climb_needs() -> void:
 				for cell in t.markers.get(ch, []):
 					check(not t.is_solid(cell) and t.is_solid(cell + Vector2i.DOWN), "%s: %s at %s stands on ground" % [id, ch, cell])
 			check(lay["script"].size() >= 3 and lay["script"][-1][0] == "finish", "%s has a line to the exit" % id)
-		lvl.free()
+			lvl.free()
 
 
-## The routes really are easy, medium and hard: each climb is longer, with
-## more and taller faces, on the faster ways.
+## The harder the route, the more in the way: more stonefall, wildlife,
+## ice, slabs and wind, and at least as many walls; but every wall (and
+## every side wall up to a find) fits in that route's smallest bar, so the
+## quarter bar of the fastest way is never a wall you cannot climb.
 func test_the_faster_ways_are_harder_climbs() -> void:
 	for climb in Artifacts.CLIMBS:
 		var lvl: ClimbLevel = load(_scene(climb)).instantiate()
 		var size := []
 		for route in ["lemosho", "machame", "umbwe"]:
 			var t := Terrain.load_file(lvl.map_path(route))
-			var faces := 0
-			for y in t.height:
-				for x in t.width:
-					if t.is_climbable(Vector2i(x, y)):
-						faces += 1
+			var lay: Dictionary = lvl.layout_for(route)
 			var hazards := 0
 			for ch in ["r", "n", "a", "v", "b", "d"]:
 				hazards += t.markers.get(ch, []).size()
@@ -297,11 +303,27 @@ func test_the_faster_ways_are_harder_climbs() -> void:
 				for x in t.width:
 					if t.kind(Vector2i(x, y)) in [Terrain.Kind.ICE, Terrain.Kind.CRUMBLE, Terrain.Kind.EXPOSED]:
 						hazards += 1
-			size.append([t.width * t.height, faces, hazards])
+			var walls := 0
+			var worst := 0.0
+			for a in lay["script"]:
+				if a[0] in ["climb", "down"]:
+					walls += 1
+				if a[0] in ["climb", "fetch"]:
+					var col := int(floor(float(a[1]["x"])))
+					var row := int(a[1]["row"])
+					var rows := 0
+					var loose := false
+					while t.is_climbable(Vector2i(col, row + rows)):
+						loose = loose or t.kind(Vector2i(col, row + rows)) == Terrain.Kind.LOOSE
+						rows += 1
+					# What the wall costs to climb, resting first (StaminaModel).
+					var cost := rows * Terrain.TILE / Climber.CLIMB_UP * StaminaModel.RATES["climb"] * (StaminaModel.LOOSE_FACTOR if loose else 1.0)
+					worst = maxf(worst, cost)
+			check(worst <= Trek.MIN_BAR[route] * 0.95, "%s on %s: the costliest wall (%.0f) fits the smallest bar (%d)" % [climb, route, worst, int(Trek.MIN_BAR[route])])
+			size.append([walls, hazards])
 		for k in 2:
-			check(size[k + 1][0] > size[k][0], "%s: the %s way is bigger than the %s way" % [climb, ["faster", "fastest"][k], ["long", "faster"][k]])
-			check(size[k + 1][1] > size[k][1], "%s: more rock to climb on the %s way (%d vs %d)" % [climb, ["faster", "fastest"][k], size[k + 1][1], size[k][1]])
-			check(size[k + 1][2] > size[k][2], "%s: more hazards on the %s way (%d vs %d)" % [climb, ["faster", "fastest"][k], size[k + 1][2], size[k][2]])
+			check(size[k + 1][1] > size[k][1], "%s: more in the way on the %s way (%d vs %d)" % [climb, ["faster", "fastest"][k], size[k + 1][1], size[k][1]])
+		check(size[2][0] >= size[1][0] and size[2][0] >= size[0][0], "%s: the fastest way has the most walls (%s)" % [climb, size])
 		lvl.free()
 
 

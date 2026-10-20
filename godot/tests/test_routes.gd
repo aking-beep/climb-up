@@ -74,6 +74,8 @@ func _play(climb: String) -> void:
 			print("      %s %s: %d s of game time, %d%% stamina left, %d slips, %.0f s resting, lowest %d%% of a %d bar, artifacts %d/%d, %d retries" % [climb, route,
 				outcome.seconds, outcome.stamina_left, outcome.slips, outcome.rest_seconds, int(level.lowest_stamina * 100), int(c.stamina.max_value),
 				outcome.artifacts, outcome.artifacts_total, retries])
+			if outcome and outcome.slips > 0:
+				print("      slips by cause: ", level.slips_by_cause)
 			# The results card, then the outcome lands on the expedition.
 			await drive([], func() -> bool: return level.panel.open, 5.0, "panel")
 			check(level.panel.open and level.panel._title.text != "", "%s on %s: the results card shows" % [climb, route])

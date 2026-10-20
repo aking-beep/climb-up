@@ -330,7 +330,8 @@ func rest_up_locked(dir: String = "move_left") -> void:
 ## Climbs a level along its layout's line (tools/levels/route_levels.py
 ## writes it beside the map): walk, rest, climb a face (out of the stones'
 ## line, into a niche halfway), cross a band of rock, meet the teammate,
-## climb down a step, and on to the exit. False when something gave up.
+## climb down a step, fetch what lies off the line (and put it on), and on
+## to the exit. False when something gave up.
 func follow(script: Array) -> bool:
 	var before := failures.size()
 	var i := 0
@@ -349,11 +350,11 @@ func follow(script: Array) -> bool:
 		# Knocked back to a cairn (a stone, a gust, a slip the rope held):
 		# go back to the start of this stretch and try it again, as a
 		# player would. Twice at most.
-		if failures.size() > had and step[0] in ["climb", "traverse", "down", "walk"] and tries < 2 and not level.get("_ended"):
+		if failures.size() > had and step[0] in ["climb", "traverse", "down", "walk", "fetch"] and tries < 2 and not level.get("_ended"):
 			tries += 1
 			retries += 1
 			failures.resize(had)
-			i = section
+			i = _resume_at(script, section)
 	return failures.size() == before
 
 
@@ -361,11 +362,35 @@ func follow(script: Array) -> bool:
 var retries := 0
 
 
+## Where to pick the line up again after being sent back to a cairn: the
+## lines run left to right, so the first walk that is still ahead of the
+## climber (a wall behind the cairn is climbed again; one before it is not).
+func _resume_at(script: Array, fallback: int) -> int:
+	var x := tx()
+	for j in script.size():
+		var a: Array = script[j]
+		if a[0] == "walk" and float(a[1]) > x + 0.3:
+			return j
+	return fallback
+
+
+## One press of a button (an action held for a frame, then let go).
+func press(action: String) -> void:
+	GameInput.scripted = {"_": false, action: true}
+	await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	await tree.physics_frame
+
+
 func _act(step: Array) -> void:
 	match String(step[0]):
 		"walk":
 			await cross(float(step[1]))
 		"rest":
+			# [rest, fraction, need]: sit (to `fraction`) only if what is left
+			# is less than the next wall needs, as a player saving rests would.
+			if step.size() > 2 and c.stamina.value >= float(step[2]):
+				return
 			await rest_up(float(step[1]))
 		"climb":
 			var s: Dictionary = step[1]
@@ -393,6 +418,8 @@ func _act(step: Array) -> void:
 			await drive([dir, "climb_up"], func() -> bool: return c.state == Climber.State.GROUND and (tx() >= to if int(s["dir"]) > 0 else tx() <= to), 40.0, "along the band")
 		"mate":
 			var s: Dictionary = step[1]
+			if level.get("mate_state") in ["helped", "left"]:
+				return  # met already, before being sent back
 			var dir := "move_right" if int(s["dir"]) > 0 else "move_left"
 			await drive([dir], func() -> bool: return level.panel.open, 60.0, "to " + String(level.mate_name()))
 			if not level.panel.open:
@@ -407,6 +434,31 @@ func _act(step: Array) -> void:
 			var dir := "move_right" if int(s["dir"]) > 0 else "move_left"
 			await drive(["climb_down", dir], func() -> bool: return c.is_climbing(), 3.0, "onto the step")
 			await drive(["climb_down"], func() -> bool: return c.state == Climber.State.GROUND, 25.0, "down the step")
+		"fetch":
+			# Something off the line: up the side wall to its ledge, along
+			# to it, back to the edge and down the wall again.
+			var s: Dictionary = step[1]
+			var x := float(s["x"])
+			if s.get("chute", false):
+				await wait_for_stone_window(x * T)
+			await drive(["move_right"], func() -> bool: return c.is_climbing() or tx() >= x - 0.3, 20.0, "to the side wall at %.1f" % x)
+			if not c.is_climbing():
+				await drive(["climb_up"], func() -> bool: return c.is_climbing(), 3.0, "onto the side wall")
+			if not await up_to(float(s["row"]), "the side wall at %.1f" % x, "move_right"):
+				return
+			await cross(float(s["item"]))
+			await cross(float(s["back"]))
+			# On the ledge: breath for the way down if it is short.
+			if c.stamina.value < float(s.get("down", 0.0)):
+				await rest_up(0.98)
+			await drive(["climb_down", "move_left"], func() -> bool: return c.is_climbing(), 3.0, "back onto the side wall")
+			await drive(["climb_down"], func() -> bool: return c.state == Climber.State.GROUND, 25.0, "down the side wall")
+		"use":
+			# Put the find on: its button in the pack.
+			var slots: Array = level.pack_slots()
+			for k in slots.size():
+				if String(slots[k]["id"]) == String(step[1]) and not slots[k]["on"]:
+					await press("use_%d" % (k + 1))
 		"finish":
 			var dir := "move_right" if int(step[1]) > 0 else "move_left"
 			await drive([dir], func() -> bool: return outcome != null, 120.0, "to the exit")

@@ -60,12 +60,21 @@ func test_standing_still_gives_nothing_back_only_rest_does() -> void:
 func test_walking_uphill_and_hopping_cost_stamina() -> void:
 	await _load(BARRANCO)
 	await physics_frames(5)
-	# Out of camp: flat ground, then the slope up to the wall foot.
+	# The first slope up on this layout: stand at its foot and walk up it.
+	var foot := Vector2i(-1, -1)
+	for x in level.terrain.width:
+		for y in level.terrain.height:
+			if foot.x < 0 and level.terrain.kind(Vector2i(x, y)) == Terrain.Kind.SLOPE_R:
+				foot = Vector2i(x, y)
+	check(foot.x > 0, "a slope up on the way")
+	c.global_position = Terrain.feet(foot + Vector2i(-3, 0))
+	c.reset_physics_interpolation()
+	await physics_frames(5)
 	var before := c.stamina.value
 	var seen_up := false
 	var up_cost := 0.0
 	for i in 60 * 30:
-		if tx() >= 50.0:
+		if tx() >= foot.x + 4.0:
 			break
 		var v := c.stamina.value
 		var held := {"_": false, "move_right": true}
@@ -122,7 +131,8 @@ func test_ice_costs_stamina_and_crampons_make_it_easy() -> void:
 	check(bare > 0.0, "ice drains")
 	# Crampons: half the cost, and no sliding.
 	level.gear_kinds.append("crampons")
-	level._apply_gear()
+	check(level.stamina.rate("ice") == bare, "crampons in the pack do nothing")
+	check(level.use_slot(level.gear_kinds.find("crampons")), "put the crampons on")
 	check(level.stamina.rate("ice") < bare * 0.6, "crampons halve what ice costs")
 	check(c.crampons, "crampons on")
 	await _done()
@@ -147,8 +157,18 @@ func test_gear_helps_and_is_lost_with_the_climb() -> void:
 		await physics_frames(4)
 	check(level.gear_kinds.has("gloves"), "found the gloves")
 	check(level.gear_kinds.has("poles"), "found the poles")
-	check(level.stamina.rate("climb") < rock, "gloves: rock costs less")
-	check(level.stamina.rate("walk") < walk, "poles: walking costs less")
+	# Found is carried, not used: nothing changes until you put it on.
+	eq(level.stamina.rate("climb"), rock, "gloves in the pack: rock costs the same")
+	eq(level.stamina.rate("walk"), walk, "poles in the pack: walking costs the same")
+	for kind in ["gloves", "poles"]:
+		check(level.use_slot(level.gear_kinds.find(kind)), "put the %s on" % kind)
+	check(level.stamina.rate("climb") < rock, "gloves on: rock costs less")
+	check(level.stamina.rate("walk") < walk, "poles on: walking costs less")
+	eq(Expedition.climb.get("worn", []), ["gloves", "poles"], "what is on is kept for this attempt (resume)")
+	# And the choice goes both ways: take the gloves off again.
+	check(level.use_slot(level.gear_kinds.find("gloves")), "take the gloves off")
+	eq(level.stamina.rate("climb"), rock, "gloves off: rock at full cost")
+	level.use_slot(level.gear_kinds.find("gloves"))
 	eq(level.hazards.gear_count, 2, "two found")
 	eq((Expedition.climb.get("gear", []) as Array).size(), 2, "kept for this attempt (resume)")
 	# A fall into a hole: back to the start with nothing, and the gear is back
@@ -156,6 +176,7 @@ func test_gear_helps_and_is_lost_with_the_climb() -> void:
 	c.slip("hole")
 	await drive([], func() -> bool: return c.state == Climber.State.GROUND, 5.0, "back at the start")
 	eq(level.gear_kinds.size(), 0, "no gear after the hole")
+	eq(level.worn.size(), 0, "nothing on")
 	eq(level.hazards.gear_count, 0, "gear count reset")
 	eq(level.stamina.rate("climb"), rock, "rock back to full cost")
 	eq((Expedition.climb.get("gear", []) as Array).size(), 0, "nothing kept")
@@ -180,9 +201,9 @@ func test_goggles_soften_a_gust() -> void:
 	await physics_frames(5)
 	var pushed := []
 	for shell in [false, true]:
-		level.gear_kinds.clear()
+		level.worn.clear()
 		if shell:
-			level.gear_kinds.append("shell")
+			level.worn.append("shell")
 		level._apply_gear()
 		# Wait standing (no input) for the next gust to start.
 		GameInput.scripted = {"_": false}
@@ -320,13 +341,14 @@ func test_food_eaten_on_the_climb_comes_out_of_camp_supplies() -> void:
 	check(Expedition.descent_effect({"result": "complete", "food": 3}).get("supplies", 0) == -3, "the way down eats from camp too")
 
 
-## The rim is long, but the wind is not: no open stretch longer than twelve
-## tiles, and a cairn in the lee between the saddles, so a gust never sends
-## you back the whole rim.
+## The summit's wind comes in short stretches: no open stretch longer than
+## twelve tiles, and a cairn out of the wind after the first before the
+## next, so a gust never sends you back far.
 func test_the_summit_rim_has_short_windy_saddles_and_a_cairn_between() -> void:
 	var lvl: ClimbLevel = load(SUMMIT).instantiate()
 	for route in Trek.ROUTES:
 		var t := Terrain.load_file(lvl.map_path(route))
+		var lay := lvl.layout_for(route)
 		var longest := 0
 		var runs: Array = []
 		for y in t.height:
@@ -339,15 +361,23 @@ func test_the_summit_rim_has_short_windy_saddles_and_a_cairn_between() -> void:
 						runs.append([x - run, x - 1, y])
 					longest = maxi(longest, run)
 					run = 0
+		runs.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+		# A ledge's wind broken only by what lies on it is one stretch.
+		var merged: Array = []
+		for r in runs:
+			if not merged.is_empty() and merged[-1][2] == r[2] and r[0] - merged[-1][1] <= 2:
+				merged[-1][1] = r[1]
+			else:
+				merged.append(r.duplicate())
+		runs = merged
 		check(longest <= 12, "%s: no windy stretch longer than 12 tiles (longest %d)" % [route, longest])
-		check(runs.size() >= 1, "%s: windy saddles on the rim" % route)
-		check(runs.all(func(r: Array) -> bool: return r[2] == runs[0][2]), "%s: on the rim only" % route)
-		# A cairn after the first saddle, out of the wind, before the next.
+		check(runs.size() >= 2, "%s: windy saddles on the way to the top" % route)
+		# A cairn after the first windy stretch, before the next one.
 		var lee := false
-		for k in t.markers.get("K", []):
-			if k.y == runs[0][2] and k.x > runs[0][1] and (runs.size() == 1 or k.x < runs[1][0]):
+		for k in lay["cairns"]:
+			if int(k[0]) > runs[0][1] and int(k[0]) < runs[1][0]:
 				lee = true
-		check(lee, "%s: a cairn in the lee after the first saddle" % route)
+		check(lee, "%s: a cairn in the lee after the first windy stretch" % route)
 	lvl.free()
 
 
@@ -500,13 +530,18 @@ func test_a_helmet_and_a_rope() -> void:
 	c.global_position = Terrain.feet(cell_of["rope"])
 	await physics_frames(4)
 	check(level.gear_kinds.has("rope"), "found the rope")
+	check(not c.spotter, "a rope in the pack holds nothing")
+	check(level.use_slot(level.gear_kinds.find("rope")), "tie on")
 	check(c.spotter, "the rope will hold the next slip")
 	c.slip("fall")
 	await drive([], func() -> bool: return c.state == Climber.State.GROUND, 5.0, "caught")
 	eq(c.slips, 0, "the rope caught it")
 	eq(c.caught, 1, "one caught")
+	check(not level.gear_kinds.has("rope"), "the rope that held a slip is done")
 	c.global_position = Terrain.feet(cell_of["helmet"])
 	await physics_frames(4)
+	check(not c.helmet, "a helmet in the pack is not on your head")
+	check(level.use_slot(level.gear_kinds.find("helmet")), "put the helmet on")
 	check(c.helmet, "helmet on")
 	var before := c.stamina.value
 	# A stone lands on the helmet.

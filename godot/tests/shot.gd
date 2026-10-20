@@ -2,6 +2,7 @@ extends Node
 ## Renders the level (or another scene) and saves screenshots. Not a test:
 ## a tool for reviewing the look without the editor.
 ##   godot --path godot res://tests/shot.tscn -- out=/tmp/x at=24,77 at=56,67 ...
+##   (route=lemosho|machame|umbwe for that route's place)
 
 var finish_climb := false
 
@@ -48,6 +49,10 @@ func _ready() -> void:
 			else:
 				Expedition.resume_climb()
 			Expedition.last = {}
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("route="):
+			# The place the route climbs (Places): route=umbwe.
+			Trek.ensure(Expedition.session)["route"] = arg.substr(6)
 	var scene: Node = load(path).instantiate()
 	add_child(scene)
 	if finish_climb:

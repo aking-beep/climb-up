@@ -13,6 +13,13 @@ const ACTIONS := {
 	"jump": [KEY_SPACE, KEY_K, KEY_Z],
 	"rest": [KEY_R, KEY_SHIFT],
 	"pause": [KEY_ESCAPE, KEY_P],
+	# The pack's slots (ClimbLevel.use_slot): put gear on, take it off, drink.
+	"use_1": [KEY_1],
+	"use_2": [KEY_2],
+	"use_3": [KEY_3],
+	"use_4": [KEY_4],
+	"use_5": [KEY_5],
+	"use_6": [KEY_6],
 }
 
 const PAD := {

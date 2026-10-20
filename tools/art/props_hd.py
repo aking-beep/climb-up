@@ -7,7 +7,8 @@ godot/assets/terrain/props/, into godot/assets/terrain/props/hd/; the game
 (core/world/art.gd) uses the HD one at the pixel size, so layouts and frame
 regions do not change.
 
-    python3 tools/art/props_hd.py
+    python3 tools/art/props_hd.py          # everything
+    python3 tools/art/props_hd.py flora    # just the other places' plants and ice
 """
 
 import math
@@ -334,6 +335,104 @@ def raven():
     p.at(0).save("raven")
 
 
+# --- Plants and ice of the other places (tools/levels/route_levels.py) -------
+
+def tree(i):
+    """A podocarpus of the Umbwe forest, hung with old man's beard."""
+    w, h = (40, 80) if i == 0 else (34, 66)
+    p = Pen(w, h)
+    cx = w / 2
+    p.poly([(cx - 3.2, h - 0.4), (cx - 2.2, h * 0.42), (cx + 2.4, h * 0.42), (cx + 3.4, h - 0.4)], c("#4a3426"))
+    p.line([(cx - 1.4, h - 2), (cx - 1.0, h * 0.46)], 0.8, c("#6a4c36"), outline=False)
+    p.line([(cx, h * 0.6), (cx - w * 0.3, h * 0.44)], 1.4, c("#4a3426"))
+    p.line([(cx, h * 0.52), (cx + w * 0.32, h * 0.38)], 1.4, c("#4a3426"))
+    rnd = [0.0, 0.7, 0.3, 0.9, 0.5, 0.2]
+    blobs = [(cx - w * 0.28, h * 0.36, w * 0.24), (cx + w * 0.26, h * 0.3, w * 0.24),
+             (cx - w * 0.05, h * 0.18, w * 0.3), (cx + w * 0.08, h * 0.38, w * 0.22)]
+    for bx, by, r in blobs:
+        p.ellipse(bx - r, by - r * 0.7, bx + r, by + r * 0.7, c("#24452c"))
+    for k, (bx, by, r) in enumerate(blobs):
+        p.ellipse(bx - r * 0.7, by - r * 0.6, bx + r * 0.3, by + r * 0.1, c("#3c6a3c"), outline=False)
+        p.ellipse(bx - r * 0.5, by - r * 0.5, bx - r * 0.05, by - r * 0.15, c("#5c8c4c"), outline=False)
+        # Old man's beard: pale strands hanging from the crown.
+        for j in range(4):
+            sx = bx - r * 0.6 + j * r * 0.4
+            ln = r * (0.6 + rnd[(k + j) % 6])
+            p.line([(sx, by + r * 0.4), (sx + 0.4, by + r * 0.4 + ln)], 0.7, c("#b8c4a0", 220), outline=False)
+    p.save(f"tree_{i}")
+
+
+def heather():
+    """Giant heather of the Shira moorland: twiggy, lichen-grey and olive."""
+    p = Pen(22, 30)
+    for x0, x1 in ((11, 4), (11, 18), (11, 9), (11, 14)):
+        p.line([(x0, 29.6), (x1, 12)], 1.0, c("#5a4632"))
+    for cx, cy, r in ((5, 11, 4.6), (17, 10, 4.8), (11, 6, 5.2), (9, 15, 4.0), (14, 15, 4.0)):
+        p.ellipse(cx - r, cy - r * 0.8, cx + r, cy + r * 0.8, c("#5f6e36"))
+        p.ellipse(cx - r * 0.6, cy - r * 0.6, cx + r * 0.2, cy, c("#869448"), outline=False)
+        p.ellipse(cx - r * 0.3, cy - r * 0.5, cx + r * 0.1, cy - r * 0.15, c("#c8c8a0", 200), outline=False)
+    p.save("heather")
+
+
+def protea():
+    """A Kilimanjaro protea: a low shrub with a pale pink cup."""
+    p = Pen(14, 14)
+    for a in (-0.9, -0.3, 0.3, 0.9):
+        p.line([(7, 13.6), (7 + a * 6, 7)], 0.8, c("#4c6a3a"))
+    p.ellipse(1.0, 6.0, 6.0, 9.0, c("#5a7a40"))
+    p.ellipse(8.0, 6.4, 13.0, 9.4, c("#5a7a40"))
+    p.ellipse(4.2, 1.0, 9.8, 7.0, c("#e8b8b0"))
+    p.ellipse(5.4, 2.0, 8.6, 4.8, c("#fff0e0"), outline=False)
+    p.save("protea")
+
+
+def roots():
+    """Roots across the forest floor."""
+    p = Pen(30, 10)
+    p.line([(0.6, 9.4), (6, 5.4), (13, 6.6), (20, 4.2), (29.4, 8.8)], 1.6, c("#5a3e2a"))
+    p.line([(8, 9.6), (12, 6.8)], 1.2, c("#5a3e2a"))
+    p.line([(18, 9.6), (20.4, 5.0)], 1.2, c("#5a3e2a"))
+    p.line([(2, 8.6), (6, 5.0), (12, 6.0)], 0.5, c("#8a6a4a"), outline=False)
+    p.ellipse(13, 3.0, 17, 6.0, c("#4c7a3c"))
+    p.save("roots")
+
+
+def serac():
+    """A block of glacier ice: cold blue shadow, white top, a crack."""
+    p = Pen(22, 30)
+    p.poly([(1, 29.6), (2.4, 9), (8, 2), (15, 1), (20.6, 7), (21, 29.6)], c("#a8cce8"))
+    p.poly([(12, 1.4), (15, 1.2), (20.4, 7.2), (20.6, 29.2), (13.6, 29.2)], c("#7aa8d0"), outline=False)
+    p.poly([(2.6, 9.4), (8.2, 2.4), (14, 1.6), (10, 6), (4, 11)], c("#f2fbff"), outline=False)
+    p.line([(9, 8), (11, 15), (9.4, 22)], 0.5, c("#5a88b8"), outline=False)
+    for y in (14, 20, 25):
+        p.line([(3, y), (12, y + 0.6)], 0.3, c("#d8eefc", 180), outline=False)
+    p.save("serac")
+
+
+def vent():
+    """A fumarole on the crater floor: yellow sulphur round a warm hole."""
+    p = Pen(16, 10)
+    p.ellipse(0.6, 3.0, 15.4, 9.6, c("#9a8a5a"))
+    p.ellipse(2.4, 4.0, 13.6, 9.0, c("#d8c050"), outline=False)
+    p.ellipse(5.4, 5.0, 10.6, 8.0, c("#3a3028"))
+    p.ellipse(3.4, 4.4, 6.0, 5.8, c("#f4e080"), outline=False)
+    p.save("vent")
+
+
+def branch():
+    """A dead branch coming down through the forest (the forest's stonefall)."""
+    p = Pen(10, 10)
+    p.line([(1, 8.6), (9, 1.4)], 1.4, c("#6a4a32"))
+    p.line([(5, 5), (8.6, 7)], 0.8, c("#6a4a32"))
+    p.line([(1.6, 8), (8.4, 2)], 0.5, c("#9a7652"), outline=False)
+    p.save("branch")
+
+
+def flora():
+    tree(0); tree(1); heather(); protea(); roots(); serac(); vent(); branch()
+    print("wrote flora to", OUT)
+
+
 def main():
     cairn(); sign(); groundsel(); lobelia(); rest_stone(); exit_post(); fg_boulder()
     for i in range(4):
@@ -347,4 +446,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    flora() if sys.argv[1:] == ["flora"] else main()
