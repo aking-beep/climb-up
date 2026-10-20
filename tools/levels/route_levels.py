@@ -640,9 +640,9 @@ def stella_point(L):
     L.spur(5, "gear:poles")
     L.walk(6)
     L.face(5, "C")
-    L.walk(6); L.cairn(); L.walk(4)
+    L.rocks(6); L.cairn(); L.walk(4)
     L.spur(8, "artifact", chute=True)
-    L.walk(8); L.sign(1); L.mark("V", 5); L.walk(14)
+    L.rocks(8); L.sign(1); L.mark("V", 5); L.walk(14)
     L.finish(16, summit=True)
     return {"every": 7, "kinds": ("hop", "raven", "pit", "raven", "hop", "ice"), "wildlife": False}
 
