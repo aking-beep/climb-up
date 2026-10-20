@@ -82,7 +82,7 @@ func _ready() -> void:
 	_plate.stretch_mode = TextureRect.STRETCH_SCALE
 	_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_plate)
-	var fog_tex: Texture2D = load("res://assets/world/fog.png")
+	var fog_tex: Texture2D = load("res://assets/scenery/fog.png")
 	for i in 2:
 		var f := TextureRect.new()
 		f.texture = fog_tex

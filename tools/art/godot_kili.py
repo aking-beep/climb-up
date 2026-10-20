@@ -25,7 +25,9 @@ def main():
     for zone in ["rainforest", "moorland", "desert", "snow"]:
         shutil.copyfile(HD / "world" / f"{zone}.webp", world / f"{zone}.webp")
         shutil.copyfile(HD / "world" / f"{zone}.json", world / f"{zone}.json")
-    for name in ["map.png", "props.png", "fog.png"]:
+    # The camp's fog is the climbs' fog (assets/scenery/fog.png): one copy
+    # in the APK.
+    for name in ["map.png", "props.png"]:
         shutil.copyfile(HD / "world" / name, world / name)
     for who in ["you", "lena", "marco", "jun"]:
         shutil.copyfile(HD / "characters" / f"{who}-map.png", world / f"{who}-map.png")
