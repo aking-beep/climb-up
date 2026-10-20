@@ -88,6 +88,7 @@ class Course:
         self.mate = None
         self.niches = []
         self.clear_spans = []      # (x0, x1, row) kept free of the gauntlet
+        self.pitches = []          # the fastest way's alpine pitches (Alpine)
 
     def fill(self, x0, y0, x1, y1, ch):
         for y in range(max(0, y0), min(self.h - 1, y1) + 1):
@@ -201,6 +202,39 @@ class Line:
         # stones' line.
         c.say("climb", {"x": x + (2.5 if chute else 1.5), "dir": 1, "row": hi, "lean": 1, "chute": chute, "niche": nich, "kind": kind})
         self.x += 3
+        self.y = hi
+        self._track()
+
+    def pitch(self, h, kind="C", chute=False, every=3):
+        """An alpine pitch (the fastest way, Alpine): a cleft h rows tall, a
+        chimney or a couloir, too tall for the bar in one go. A two-wide
+        line of rock between a prow on the left and the ledge on the right,
+        pitons up it every `every` rows and an anchor on the ledge at the
+        top. The partner belays from the foot; you clip as you climb, rest
+        on the rope, and at the anchor pull the partner up."""
+        assert every <= FACE_MAX[self.route] * (1.0 / LOOSE if kind == "L" else 1.0) + 0.01, (self.route, "pitons too far apart")
+        c, x, lo = self.c, self.x, self.y
+        hi = lo - h
+        for k in range(2):
+            self._column(x + k, lo)
+        c.fill(x, hi, x + 1, lo - 1, kind)
+        self._column(x + 2, hi)
+        # The prow: the cleft's left wall, overhanging the path below (room
+        # to walk under it) and standing above the top.
+        c.fill(x - 2, hi - 2, x - 1, lo - 4, "#")
+        if chute:
+            # Stones down the cleft's left column; the line is the right.
+            c.put(x, hi - 6, "r")
+        pitons = [[x + 1, r] for r in range(lo - every, hi, -every)]
+        anchor = [x + 3, hi - 1]
+        c.pitches.append({"x": x + 1.5, "base": [x - 1, lo - 1], "top": hi, "pitons": pitons, "anchor": anchor})
+        c.clear_spans.append((x - 3, x - 1, lo - 1))
+        c.clear_spans.append((x + 2, x + 6, hi - 1))
+        c.say("walk", x - 2.5)
+        c.say("rest", 0.98, self.need(every, kind))
+        c.say("pitch", {"x": x + 1.5, "row": hi, "pitons": pitons, "anchor": anchor, "chute": chute,
+                        "stretch": self.need(every, kind)})
+        self.x += 2
         self.y = hi
         self._track()
 
@@ -470,7 +504,7 @@ def umbwe_ridge(L):
     L.walk(3); L.mark("R", 1); L.walk(4); L.sign(1); L.walk(4)
     L.spur(5, "gear:helmet", chute=True)
     L.walk(6)
-    L.face(4, "C", chute=True)
+    L.pitch(10, "C", chute=True)
     L.walk(4); L.cairn(); L.walk(4)
     L.ice(6); L.walk(4)
     L.spur(4, "gear:poles")
@@ -484,7 +518,7 @@ def umbwe_ridge(L):
     L.wind(8)
     L.spur(5, "gear:rope", windy=True)
     L.walk(6); L.slabs(); L.walk(5)
-    L.face(5, "C", chute=True)
+    L.pitch(11, "C", chute=True)
     L.walk(3); L.mark("R", 1); L.walk(5)
     L.ice(5); L.walk(4)
     L.face(4, "s")
@@ -492,7 +526,7 @@ def umbwe_ridge(L):
     L.wind(6)
     L.spur(5, "gear:shell", windy=True)
     L.walk(6)
-    L.face(5, "C", chute=True)
+    L.pitch(12, "C", chute=True)
     L.walk(4); L.sign(1); L.mark("V", 4); L.walk(6)
     L.spur(5, "artifact", chute=True, windy=True, raven=True)
     L.walk(8); L.cairn(); L.walk(4)
@@ -591,7 +625,7 @@ def arrow_glacier(L):
     L.ice(6); L.walk(3)
     L.spur(5, "gear:crampons", chute=True)
     L.walk(6)
-    L.face(4, "C", chute=True)
+    L.pitch(10, "C", chute=True)
     L.walk(4); L.cairn(); L.walk(4)
     L.ice(8); L.walk(3)
     L.spur(5, "gear:gloves", chute=True)
@@ -603,14 +637,14 @@ def arrow_glacier(L):
     L.walk(4)
     L.mate()
     L.walk(3)
-    L.face(4, "C", chute=True)
+    L.pitch(11, "C", chute=True)
     L.walk(4); L.cairn(); L.walk(4); L.sign(1); L.walk(4)
     L.spur(5, "artifact", chute=True, windy=True)
     L.walk(5); L.roller(12)
     L.face(3, "L", chute=True)
     L.walk(3); L.mark("R", 1); L.walk(4)
     L.crevasse(); L.walk(4)
-    L.face(4, "C", chute=True)
+    L.pitch(12, "C", chute=True)
     L.walk(4); L.cairn(); L.walk(4)
     L.spur(5, "gear:rope", chute=True)
     L.walk(5); L.slabs(); L.walk(4)
@@ -706,7 +740,7 @@ def western_breach(L):
     L.walk(3); L.mark("R", 1); L.walk(4); L.sign(1); L.walk(3)
     L.spur(4, "gear:headlamp", chute=True)
     L.walk(5)
-    L.face(4, "C", chute=True)
+    L.pitch(10, "C", chute=True)
     L.walk(4); L.cairn(); L.walk(3)
     L.ice(5); L.walk(3)
     L.spur(4, "gear:crampons", chute=True)
@@ -715,7 +749,7 @@ def western_breach(L):
     L.walk(3); L.mark("R", 1); L.walk(4)
     L.mate()
     L.walk(3)
-    L.face(4, "C", chute=True)
+    L.pitch(11, "C", chute=True)
     L.walk(4); L.cairn(); L.walk(3); L.slabs(); L.ice(6); L.walk(3)
     L.spur(4, "gear:rope", chute=True)
     L.walk(3); L.wind(7); L.cairn(); L.walk(2); L.slabs(); L.walk(3)
@@ -723,7 +757,7 @@ def western_breach(L):
     L.walk(3); L.mark("R", 1); L.walk(4)
     L.spur(4, "artifact", chute=True, windy=True)
     L.walk(5)
-    L.face(4, "C", chute=True)
+    L.pitch(12, "C", chute=True)
     L.walk(4); L.cairn(); L.walk(3); L.sign(1); L.walk(3)
     L.wind(9); L.walk(3); L.breather(); L.rocks(6)
     L.down(4); L.walk(3); L.ice(8); L.walk(3)
@@ -963,6 +997,8 @@ def build(name, route):
         "mate": c.mate,
         "script": c.script,
     }
+    if c.pitches:
+        side["pitches"] = c.pitches
     return c, side
 
 

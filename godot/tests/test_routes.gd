@@ -82,6 +82,17 @@ func _play(climb: String) -> void:
 				outcome.artifacts, outcome.artifacts_total, retries])
 			if outcome and outcome.slips > 0:
 				print("      slips by cause: ", level.slips_by_cause)
+			# The fastest way's pitches: led on the rope, every partner pulled
+			# up at every anchor.
+			var al: Alpine = level.alpine
+			eq(al != null, route == "umbwe" and climb != "descent", "%s on %s: alpine pitches on the fastest way only" % [climb, route])
+			if al:
+				eq(al.hauls, al.pitches.size(), "%s on %s: the partner pulled up every pitch" % [climb, route])
+				var pins := 0
+				for p in al.pitches:
+					pins += p["pitons"].size()
+				check(al.clips_made >= pins, "%s on %s: clipped as it led (%d clips for %d pitons, more after a fall)" % [climb, route, al.clips_made, pins])
+				print("      %s %s: %d pitches, %d clips, %d falls held by the rope" % [climb, route, al.pitches.size(), al.clips_made, c.rope_falls])
 			# The results card, then the outcome lands on the expedition.
 			await drive([], func() -> bool: return level.panel.open, 5.0, "panel")
 			check(level.panel.open and level.panel._title.text != "", "%s on %s: the results card shows" % [climb, route])

@@ -394,11 +394,11 @@ func _resume_at(script: Array, fallback: int) -> int:
 		var at := NAN
 		if a[0] == "walk":
 			at = float(a[1])
-		elif a[0] in ["climb", "fetch"]:
+		elif a[0] in ["climb", "fetch", "pitch"]:
 			at = float(a[1]["x"])
 		# A wall whose foot you stand at is still ahead if its top is above;
 		# a step down is, if its foot is below and its lip is here.
-		var wall_above: bool = a[0] == "climb" and absf(at - x) < 3.0 and float(a[1]["row"]) < ty() - 0.5
+		var wall_above: bool = a[0] in ["climb", "pitch"] and absf(at - x) < 3.0 and float(a[1]["row"]) < ty() - 0.5
 		if a[0] == "walk" and j + 1 < script.size():
 			var next: Array = script[j + 1] if script[j + 1][0] != "rest" or j + 2 >= script.size() else script[j + 2]
 			if next[0] == "down" and float(next[1]["row"]) > ty() + 0.5 and absf(float(a[1]) - x) < 3.0:
@@ -411,6 +411,60 @@ func _resume_at(script: Array, fallback: int) -> int:
 			k -= 1
 		return k
 	return fallback
+
+
+## An alpine pitch (Alpine): up the cleft, clipping each piton as it comes
+## into reach and sitting back on the rope when the next stretch needs more
+## than is left; at the anchor, pull the partner up.
+func lead_pitch(s: Dictionary) -> void:
+	var al: Alpine = level.alpine
+	var x := float(s["x"])
+	var which: int = al.lead
+	var stretch := float(s.get("stretch", 15.0))
+	if s.get("chute", false):
+		await wait_for_stone_window((x - 1.0) * T)
+	await drive(["move_right"], func() -> bool: return c.is_climbing() or tx() >= x - 0.3, 20.0, "to the pitch at %.1f" % x)
+	var slips := c.slips
+	var hz: Hazards = level.hazards
+	for i in 150 * 60:
+		if al.lead != which or level.get("_ended"):
+			break
+		if c.slips > slips:
+			# Off the rope altogether: back at a cairn.
+			GameInput.scripted = {"_": false}
+			failures.append("slipped on the pitch at %.1f at %s" % [x, where()])
+			return
+		if al.belaying:
+			await press("interact")
+			continue
+		if c.state == Climber.State.SLIP or c.state == Climber.State.LOCKED:
+			GameInput.scripted = {"_": false}
+			await tree.physics_frame
+			continue
+		if al.clip_target >= 0:
+			await press("interact")
+			continue
+		if al.resting:
+			GameInput.scripted = {"_": false}
+			await tree.physics_frame
+			continue
+		if c.state == Climber.State.CLIMB and al.clipped() > 0 and al.rope_left > 0.5 and c.stamina.value < minf(stretch, c.stamina.max_value * 0.95):
+			await press("rest")
+			continue
+		var held := {"_": false}
+		if c.state == Climber.State.GROUND and c.global_position.distance_to(al.current()["base"]) < 3.0 * T and hz.threat_at(c.global_position.x, 1.6):
+			pass  # a stone coming down the cleft: wait at the foot
+		else:
+			held["climb_up"] = true
+			if c.is_climbing() and c.terrain.hold_at(c.body_rect(c.global_position + Vector2(0, -6))) == Terrain.Kind.AIR:
+				held["move_right"] = true
+			elif c.state == Climber.State.GROUND and ty() <= float(s["row"]) + 0.05:
+				held = {"_": false, "move_right": true}
+		GameInput.scripted = held
+		await tree.physics_frame
+	GameInput.scripted = {"_": false}
+	if al.lead == which:
+		failures.append("never brought the partner up the pitch at %.1f: %s" % [x, where()])
 
 
 ## One press of a button (an action held for a frame, then let go).
@@ -449,6 +503,8 @@ func _act(step: Array) -> void:
 				await drive(["move_left"], func() -> bool: return tx() <= float(n["back"]), 5.0, "back to the face")
 				await drive(["climb_up"], func() -> bool: return c.is_climbing(), 5.0, "regrab")
 			await up_to(float(s["row"]), "the face at %.1f to row %d" % [x, int(s["row"])], lean)
+		"pitch":
+			await lead_pitch(step[1])
 		"traverse":
 			var s: Dictionary = step[1]
 			var dir := "move_right" if int(s["dir"]) > 0 else "move_left"

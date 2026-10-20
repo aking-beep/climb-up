@@ -136,6 +136,14 @@ var cramp := 0.0
 var can_dyno := false
 ## Resting on the rope after a clip (the crag): holding still costs nothing.
 var on_rope := false
+## Asked when you come off (the fastest way's alpine pitches): true when a
+## clipped piton holds the fall. A fall the rope holds is no slip, but the
+## knock still hurts (the bruise), and you hang below the piton
+## (Alpine.landing), not back at the cairn.
+var rope_catch: Callable
+var rope_falls := 0
+## The slip under way is one the rope holds.
+var on_belay_fall := false
 var dynos := 0
 ## Hand moves made on the rock this climb.
 var moves := 0
@@ -865,7 +873,10 @@ func slip(reason: String) -> void:
 		return
 	# Nobody can grab you out of a hole.
 	var saved := spotter and reason != "hole"
-	if saved:
+	on_belay_fall = not saved and reason != "hole" and rope_catch.is_valid() and bool(rope_catch.call(reason))
+	if on_belay_fall:
+		rope_falls += 1
+	elif saved:
 		spotter = false
 		caught += 1
 		spotter_caught_last = true

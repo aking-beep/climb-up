@@ -73,6 +73,8 @@ var camera: ExpeditionCamera
 var panel: StoryPanel
 var hud: Hud
 var mate: Companion
+## The fastest way's alpine pitches (Alpine), when the layout has any.
+var alpine: Alpine
 var hazards: Hazards
 var creatures: Creatures
 ## The body the trek left you (Condition.of): health, sleep, food, sickness,
@@ -387,6 +389,12 @@ func _ready() -> void:
 	Settings.interrupted.connect(_on_interrupted)
 	Settings.back_requested.connect(_on_back)
 
+	var pitches: Array = layout.get("pitches", [])
+	if not pitches.is_empty():
+		alpine = Alpine.new()
+		alpine.name = "Alpine"
+		add_child(alpine)
+		alpine.setup(self, pitches)
 	_resume_from_save()
 	Audio.set_camp(1.0)
 	# Each climb has its own music, under the wind and your breath.
@@ -572,6 +580,8 @@ func _resume_from_save() -> void:
 		mate.left_behind()
 	camera.snap()
 	hazards.skip_to(climber.clock)
+	if alpine:
+		alpine.reset_to(cairns[checkpoint])
 	# Where you are matters more than the weather, which you met before.
 	_cold_said = true
 	_hot_said = true
@@ -702,7 +712,11 @@ func _physics_process(_delta: float) -> void:
 	if panel.open:
 		_panel_closed_at = climber.clock
 	var settled := climber.clock - _panel_closed_at > 0.3
-	if GameInput.pressed_now("interact") and not panel.open and settled:
+	var tap := GameInput.pressed_now("interact") and not panel.open and settled
+	# On a pitch the ACT button clips, and at the anchor it pulls.
+	if alpine and not panel.open and alpine.step(tap):
+		tap = false
+	if tap:
 		_interact()
 	if GameInput.pressed_now("pause") and not panel.open:
 		pause_menu()
@@ -1087,6 +1101,11 @@ func _on_slipped(saved: bool, reason: String) -> void:
 	if saved:
 		hud.flash("%s grabs your pack. That slip doesn't count." % mate_name())
 		return
+	if climber.on_belay_fall:
+		# Off the rock, onto the rope: it holds. No slip, but it hurts.
+		Audio.play("whip", -6.0, 0.1)
+		hud.flash("Falling! The rope comes tight...", 1.2)
+		return
 	_hole = reason == "hole"
 	slips_by_cause[reason] = int(slips_by_cause.get(reason, 0)) + 1
 	var line: String = {"rock": "A falling stone knocks you off. Back to the last cairn.", "fall": "Fell too far. Back to the last cairn.",
@@ -1110,6 +1129,12 @@ func _on_slipped(saved: bool, reason: String) -> void:
 
 
 func _on_slip_finished() -> void:
+	if climber.on_belay_fall and alpine and alpine.caught_now():
+		climber.on_belay_fall = false
+		alpine.hang()
+		camera.snap()
+		return
+	climber.on_belay_fall = false
 	if climber.slips >= max_slips:
 		finish("fail")
 		return
@@ -1123,6 +1148,8 @@ func _on_slip_finished() -> void:
 	_rest_open = false
 	if mate and mate_state == "helped":
 		mate.catch_up(cairns[checkpoint])
+	if alpine:
+		alpine.reset_to(cairns[checkpoint])
 	camera.snap()
 	_remember()
 
