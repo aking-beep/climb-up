@@ -144,11 +144,6 @@ var stars := 0
 ## they are unwell), sitting near them gives it back. At zero they stop.
 var mate_breath := 100.0
 const ARMS_GRACE := 3.0
-## However worn the party, the long way's bar is never smaller than this
-## (each route has its own floor: Trek.min_bar): every face on its climbs
-## fits in it, so a climb is always possible for someone who rests to full
-## before each face (test_climbs checks the summit night at this bar).
-const MIN_BAR := 48.0
 ## The emptiest the bar got on this go (a share of it): how close the climb
 ## came to beating you. For balance tests and the results.
 var lowest_stamina := 1.0

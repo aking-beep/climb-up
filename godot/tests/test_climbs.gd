@@ -653,11 +653,11 @@ func test_the_summit_is_the_boss_but_never_impossible() -> void:
 		level.panel.choose("start")
 		await physics_frames(1)
 		c = level.climber
-		eq(c.stamina.max_value, ClimbLevel.MIN_BAR, "a worn party gets the smallest bar")
+		eq(c.stamina.max_value, Trek.MIN_BAR[route], "a worn party gets the route's smallest bar")
 		await follow(level.layout["script"])
 		check(outcome != null and outcome.result == "complete", "the summit on %s, even worn out" % route)
 		if route == "umbwe":
 			check(level.lowest_stamina < 0.25, "and the fastest way is the hardest: down to %d%% of the bar" % int(level.lowest_stamina * 100))
-		print("      worn-out summit (%s): %d s, %d slips, lowest %d%% of a %d bar, food eaten %d, %d retries" % [route, int(c.clock), c.slips, int(level.lowest_stamina * 100), int(c.stamina.max_value), level.snacks * ClimbLevel.SNACK, retries])
+		print("      worn-out summit (%s): %d s, %d slips, lowest %d%% of a %d bar, food eaten %d, %d retries, slips by cause %s" % [route, int(c.clock), c.slips, int(level.lowest_stamina * 100), int(c.stamina.max_value), level.snacks * ClimbLevel.SNACK, retries, level.slips_by_cause])
 		retries = 0
 		await _done()
