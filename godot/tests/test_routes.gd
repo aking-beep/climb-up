@@ -6,14 +6,20 @@ extends ClimbBot
 ## climb must be finished, with time to spare on the slips, and keep its
 ## pacing (something to do every few seconds).
 ##
-## ROUTES_ONLY=<climb>:<route> runs just one (e.g. lava-tower:umbwe).
+## ROUTES_ONLY=<climb>:<route> runs just one (e.g. lava-tower:umbwe); a
+## comma-separated list runs several.
 
 const CLIMBS := ["lava-tower", "barranco-wall", "summit-night", "descent"]
 
 
 func _wanted(climb: String, route: String) -> bool:
 	var only := OS.get_environment("ROUTES_ONLY")
-	return only == "" or only == "%s:%s" % [climb, route] or only == climb or only == route
+	if only == "":
+		return true
+	for want in only.split(","):
+		if want == "%s:%s" % [climb, route] or want == climb or want == route:
+			return true
+	return false
 
 
 func _start(climb: String, route: String) -> bool:
