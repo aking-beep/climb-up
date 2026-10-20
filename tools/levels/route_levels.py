@@ -197,7 +197,9 @@ class Line:
         if rest:
             c.say("walk", x - 2.5)
             c.say("rest", 0.98, self.need(h, kind))
-        c.say("climb", {"x": x + 1.5, "dir": 1, "row": hi, "lean": 1, "chute": chute, "niche": nich, "kind": kind})
+        # Under a chute, the line is the face's right-hand column, out of the
+        # stones' line.
+        c.say("climb", {"x": x + (2.5 if chute else 1.5), "dir": 1, "row": hi, "lean": 1, "chute": chute, "niche": nich, "kind": kind})
         self.x += 3
         self.y = hi
         self._track()
