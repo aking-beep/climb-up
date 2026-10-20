@@ -149,9 +149,19 @@ func cross(until_x: float) -> bool:
 	var sign := 1 if dir == "move_right" else -1
 	var arrived := func() -> bool: return tx() >= until_x if dir == "move_right" else tx() <= until_x
 	var sat := 0
+	var last_x := tx()
+	var stuck := 0
 	for i in 60 * 150:
 		if arrived.call() or level.panel.open:
 			break
+		# Walking into a wall (it is to be climbed, not walked): stop.
+		if c.state == Climber.State.GROUND and absf(tx() - last_x) < 0.01 and GameInput.scripted.get(dir, false):
+			stuck += 1
+			if stuck > 90:
+				break
+		else:
+			stuck = 0
+		last_x = tx()
 		var held := {"_": false}
 		var ahead := c.terrain.kinds_in(c.body_rect(c.global_position + Vector2(sign * T, 0)))
 		var windy: bool = c.exposed or ahead.has(Terrain.Kind.EXPOSED)

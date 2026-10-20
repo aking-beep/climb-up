@@ -719,7 +719,7 @@ def western_breach(L):
     L.face(4, "C", chute=True)
     L.walk(4); L.cairn(); L.walk(3); L.sign(1); L.walk(3)
     L.wind(9); L.walk(3); L.mark("R", 1); L.walk(3)
-    L.down(4); L.walk(4); L.ice(8); L.walk(3)
+    L.down(4); L.rocks(6); L.ice(8); L.walk(3)
     L.crevasse(); L.walk(3)
     L.spur(4, "gear:gloves")
     L.walk(4); L.ice(6); L.walk(4); L.cairn(); L.walk(4)
