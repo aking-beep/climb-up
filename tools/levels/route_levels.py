@@ -825,8 +825,8 @@ def ravens_off_rests(c, reach=6):
                 c.g[y][x] = "."
 
 
-def fill_quiet(c, gap=12, kinds=("#",), rest_reach=7):
-    """Nothing to do for more than `gap` tiles of the line (about three
+def fill_quiet(c, gap=9, kinds=("#",), rest_reach=7):
+    """Nothing to do for more than `gap` tiles of the line (two seconds or so
     seconds at a walk) gets something: a boulder to hop, or a raven
     circling over it (never over a place the line sits down)."""
     rests = [c.script[k - 1][1] for k, a in enumerate(c.script)
