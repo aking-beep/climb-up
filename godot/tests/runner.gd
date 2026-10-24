@@ -35,6 +35,9 @@ class ErrorWatch extends Logger:
 func _ready() -> void:
 	await get_tree().process_frame
 	Expedition.navigate = false
+	# A fresh climber for every run: no gear or look from this device's own
+	# play changes what the tests see.
+	Profile.reset()
 	var only := ""
 	var pick := ""
 	for arg in OS.get_cmdline_user_args():

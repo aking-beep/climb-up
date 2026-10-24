@@ -9,8 +9,14 @@ extends Node
 
 signal changed
 
-const MENU := "res://modes/expedition/menu.tscn"
+## The way in (CLIMB UP 2.0: the route picker; the classic menu is still
+## there).
+const MENU := "res://modes/expedition/picker.tscn"
+const CLASSIC_MENU := "res://modes/expedition/menu.tscn"
+## The camp board (every decision, the team, the log). With the camp world
+## on, the party arrives in the walkable camp first (camp_scene()).
 const CAMP := "res://modes/expedition/camp/camp.tscn"
+const CAMP_WORLD := "res://modes/expedition/camp/camp_world.tscn"
 const LEVELS := {
 	"lava-tower": "res://modes/expedition/levels/kilimanjaro/lava_tower/lava_tower.tscn",
 	"barranco-wall": "res://modes/expedition/levels/kilimanjaro/barranco/barranco.tscn",
@@ -239,7 +245,7 @@ func finish_climb(outcome: Dictionary) -> String:
 		last = {"kind": "climb", "label": p["choiceLabel"], "before": before, "outcome": outcome}
 	climb = {}
 	save()
-	go(CAMP)
+	go(camp_scene())
 	changed.emit()
 	return r["status"]
 
@@ -333,7 +339,7 @@ func finish_descent(outcome: Dictionary) -> String:
 	last = {"kind": "climb", "label": "The way down", "before": before, "outcome": outcome}
 	climb = {}
 	save()
-	go(CAMP)
+	go(camp_scene())
 	changed.emit()
 	return "applied"
 
@@ -373,7 +379,7 @@ func abandon_climb() -> void:
 			"outcome": {"challengeId": p["challengeId"], "result": "retreat", "slips": 0, "staminaLeft": 100, "assisted": null, "regrouped": false, "seconds": 0}}
 	climb = {}
 	save()
-	go(CAMP)
+	go(camp_scene())
 	changed.emit()
 
 
@@ -485,6 +491,12 @@ static func _whole(v: Variant) -> Variant:
 
 func has_save() -> bool:
 	return SaveGame.read() != null
+
+
+## Where the party arrives after a climb or a day: the walkable camp when
+## it is on, else the board.
+func camp_scene() -> String:
+	return CAMP_WORLD if FeatureFlags.camp_world else CAMP
 
 
 func go(path: String) -> void:

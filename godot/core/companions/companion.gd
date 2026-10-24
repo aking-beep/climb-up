@@ -20,6 +20,9 @@ var trust := 60
 var condition := 70
 var idle_anim := "idle"
 var sprite: AnimatedSprite2D
+## Drawn with your rig (FeatureFlags.hero_in_climbs); the sprite runs
+## unseen and this follows it.
+var hero: Hero
 var _trail: Array = []
 
 
@@ -33,6 +36,18 @@ func _ready() -> void:
 		sprite.material = outline
 	add_child(sprite)
 	sprite.play(idle_anim)
+	if FeatureFlags.hero_in_climbs and not TeamLooks.look(person).is_empty():
+		hero = Hero.new()
+		hero.height = Climber.HERO_HEIGHT
+		hero.set_look(TeamLooks.look(person))
+		hero.phase = float(person.length())
+		add_child(hero)
+		sprite.visible = false
+
+
+func _process(_delta: float) -> void:
+	if hero:
+		hero.follow(sprite)
 
 
 func set_waiting() -> void:

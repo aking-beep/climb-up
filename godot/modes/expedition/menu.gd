@@ -23,7 +23,7 @@ func _ready() -> void:
 	button("Records and leaderboards", func() -> void: Records.open("expedition", "res://modes/expedition/menu.tscn"))
 	button("Graphics: %s" % ["Full", "Reduced", "Low power"][Settings.quality], _quality)
 	button("Reduced motion: %s" % ("On" if Settings.reduced_motion else "Off"), _motion)
-	button("Back", func() -> void: Expedition.go("res://modes/title/title.tscn"))
+	button("Back", func() -> void: Expedition.go(Crag.TITLE))
 	if Settings.touch_enabled():
 		text("Left thumb moves (push up on rock to climb); right thumb jumps and acts (talk, climb, help). II pauses.", 8, MUTED)
 	else:
@@ -53,4 +53,4 @@ func _motion() -> void:
 
 
 func on_back() -> void:
-	Expedition.go("res://modes/title/title.tscn")
+	Expedition.go(Crag.TITLE)

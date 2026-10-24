@@ -53,6 +53,22 @@ from a ledge grabs it.
 
 ## The game
 
+**CLIMB UP 2.0** (`docs/climb-up-2.md`). The game opens on the **hub**
+(`modes/hub/`), a drawn landscape with two ways in: Lion Rock (the crag)
+and Kilimanjaro (the expedition). Bottom left is "continue", bottom right
+today's route. Your climber warms up on a boulder; tap them for your
+**profile**. From the hub you also reach the **locker** (looks and gear),
+the **world map** (7 continents) and the **climbing school** (knowledge
+checks). You and the team are drawn with one rig (`core/hero/`).
+
+The expedition starts at a **route picker**, then a **prep** screen
+(Lena's briefing from each level's own weather, your pack). Then the
+**walkable camp**: Lena has the decision, Neema the weather, Baraka the
+stores, Marco and Jun their condition, Juma your gear, and your tent is a
+checkpoint. Every camp action is the expedition's own; the camp board
+below has them all on one page. Lion Rock opens on a **guidebook page**
+with each route's topo. Switches are in `core/flags/feature_flags.gd`.
+
 **At camp** (the strategy half): the diorama shows where the party is, the
 time of day and who is struggling; the paper shows the day's decision card
 from the Expo game, the camp beats (pole pole, water, head count), the

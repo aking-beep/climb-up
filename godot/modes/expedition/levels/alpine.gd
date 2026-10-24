@@ -222,7 +222,7 @@ func hang() -> void:
 	climber.stamina.value = maxf(climber.stamina.max_value * 0.25, _fall_from_stamina - hit)
 	climber.hurt_total += hit
 	# Hanging on the rope after a fall: a fresh rest bar to try again.
-	rope_left = ROPE_REST * climber.stamina.max_value
+	rope_left = ROPE_REST * float(level.kit["rope_rest"]) * climber.stamina.max_value
 	level.hud.flash("The rope holds! %s catches you below the piton. Tap REST to hang on the rope and get your breath back." % partner_name if partner else "The rope holds. Tap REST to hang on it and get your breath back.", 3.0)
 
 
@@ -309,7 +309,7 @@ func _clip() -> void:
 	pt["clipped"] = true
 	clips_made += 1
 	climber.stamina.value = maxf(0.0, climber.stamina.value - CLIP_COST)
-	rope_left = ROPE_REST * climber.stamina.max_value
+	rope_left = ROPE_REST * float(level.kit["rope_rest"]) * climber.stamina.max_value
 	level.engage("clip")
 	Haptics.tap(28)
 	Audio.play("clip", -2.0, 0.06, false)
@@ -386,7 +386,7 @@ func _at_anchor() -> void:
 func _pull() -> void:
 	var p := current()
 	pulls += 1
-	climber.stamina.value = maxf(0.0, climber.stamina.value - PULL_COST)
+	climber.stamina.value = maxf(0.0, climber.stamina.value - PULL_COST * float(level.kit["haul"]))
 	Haptics.tap(14)
 	Audio.play("grip", -10.0, 0.1)
 	var t := float(pulls) / float(PULLS)

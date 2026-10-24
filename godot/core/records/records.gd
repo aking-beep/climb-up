@@ -46,7 +46,7 @@ const SCREEN := "res://modes/records/records_screen.tscn"
 ## friends, global), and where Back goes.
 var board := "crag"
 var scope := "personal"
-var back_to := "res://modes/title/title.tscn"
+var back_to := "res://modes/hub/hub.tscn"
 
 var data: Dictionary = {}
 ## The online service's client (core/records/online.gd).

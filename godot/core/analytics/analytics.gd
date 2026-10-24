@@ -29,6 +29,9 @@ const EVENTS := [
 	"attempt_ended", "instant_retry_tapped", "retry_time_ms", "new_high_point", "near_miss",
 	# Records (local; see docs/records-backend.md).
 	"record_set", "record_shared",
+	# CLIMB UP 2.0 (docs/climb-up-2.md): the hub, your climber, gear, the
+	# knowledge checks and the camp. On the device like the rest.
+	"screen_opened", "look_changed", "gear_equipped", "knowledge_answered", "camp_interacted",
 ]
 
 var session := ""

@@ -168,6 +168,12 @@ const MOVE_LENGTH := 9.0
 var _breath := 0.0
 var _rest_stone := false
 var sprite: AnimatedSprite2D
+## You, drawn (CLIMB UP 2.0, FeatureFlags.hero_in_climbs): the climber you
+## dressed in the locker, posed from the same state as the sprite. The
+## sprite keeps running unseen: teammates follow its animation names.
+var hero: Hero
+## As tall as the party sprites (Sheet.HD_SIZE) stand.
+const HERO_HEIGHT := 40.0
 
 
 func setup(t: Terrain, w: WindSchedule, s: StaminaModel) -> void:
@@ -191,6 +197,15 @@ func _ready() -> void:
 		outline.shader = preload("res://core/world/outline.gdshader")
 		sprite.material = outline
 	add_child(sprite)
+	if FeatureFlags.hero_in_climbs and sheet_path.ends_with("/you.png"):
+		hero = Hero.new()
+		hero.height = HERO_HEIGHT
+		var look: Dictionary = Profile.look.duplicate()
+		# On the rock you wear the helmet you packed (the look's colour).
+		look["headwear"] = "helmet"
+		hero.set_look(look)
+		add_child(hero)
+		sprite.visible = false
 	floor_max_angle = deg_to_rad(50)
 	floor_snap_length = 6.0
 	floor_constant_speed = true
@@ -1003,3 +1018,8 @@ func _animate(input: Vector2) -> void:
 	if sprite.animation != anim:
 		sprite.play(anim)
 	sprite.flip_h = facing < 0
+	if hero:
+		hero.follow(sprite)
+		hero.expression = "tired" if anim == "tired" or (state == State.CLIMB and stamina.is_tired()) else ""
+		# The limbs move only while you climb: holding still holds the pose.
+		hero.set_process(not (anim == "hang" and Settings.reduced_motion))

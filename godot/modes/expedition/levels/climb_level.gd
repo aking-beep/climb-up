@@ -175,6 +175,9 @@ const SLIP_LESSONS := {
 var climate: Climate
 var degrees := 10.0
 var _base_recovery := 1.0
+## What your packed gear does on this climb (Profile.effects(),
+## EquipmentCatalog): all 1 with the gear_effects flag off.
+var kit: Dictionary = EquipmentCatalog.effects({})
 var _base_drain := 1.0
 var _tint: ColorRect
 ## The sunrise at the top (summit night only).
@@ -230,7 +233,8 @@ func apply_route(for_route: String) -> void:
 func _ready() -> void:
 	route = route_of(Expedition.session)
 	apply_route(route)
-	rest_limit = int(ceil(REST_LIMIT / Trek.bar_factor(Expedition.session)))
+	kit = Profile.effects()
+	rest_limit = int(ceil(REST_LIMIT / Trek.bar_factor(Expedition.session))) + int(kit["rests"])
 	rests_left = rest_limit
 	var d: Dictionary = spec["difficulty"]
 	# The route sets how forgiving the climbs are (Trek.max_slips).
@@ -263,7 +267,7 @@ func _ready() -> void:
 		# What the finds of earlier climbs grew it by, kept.
 		stamina.max_value = minf(maxf(bar_full, bar_base), bar_base + Trek.GROW * Trek.grown(Expedition.session).size())
 	stamina.value = stamina.max_value
-	stamina.recovery = clampf(stamina.recovery * condition["recovery"], 0.2, 1.2)
+	stamina.recovery = clampf(stamina.recovery * condition["recovery"] * float(kit["rest"]), 0.2, 1.2)
 	stamina.thin_air *= condition["thinAir"]
 	stamina.grip = condition["grip"]
 	stamina.shoes = Trek.rock_factor(Expedition.session)
@@ -309,7 +313,7 @@ func _ready() -> void:
 	# ways it is a bigger share, never more than you can have.
 	climber.helper_cost = roundf(float(d["helpCost"]) * maxf(0.4, Trek.bar_factor(Expedition.session)))
 	climber.setup(terrain, wind, stamina)
-	climber.hurt_scale = Trek.hurt_factor(Expedition.session)
+	climber.hurt_scale = Trek.hurt_factor(Expedition.session) * float(kit["hurt"])
 	add_child(climber)
 	climber.global_position = cairns[0]
 	climber.slipped.connect(_on_slipped)
@@ -851,7 +855,8 @@ func _rain() -> void:
 	var now := climber.clock
 	var phase := rain.phase_at(now)
 	var pour := phase == RainSchedule.Phase.POUR
-	stamina.wet = RainSchedule.WET_ROCK if pour else 1.0
+	# A hard shell takes some of the downpour's extra cost off (kit "wet").
+	stamina.wet = 1.0 + (RainSchedule.WET_ROCK - 1.0) * float(kit["wet"]) if pour else 1.0
 	if pour and not sheltered():
 		stamina.recovery *= RainSchedule.OPEN_REST
 	if phase == RainSchedule.Phase.COMING and not _downpour:
@@ -1447,8 +1452,8 @@ func use_slot(i: int) -> bool:
 
 ## What the gear you have on does: to stamina costs, the ice, the wind.
 func _apply_gear() -> void:
-	stamina.walk_gear = float(GEAR["poles"]["walk"]) if worn.has("poles") else 1.0
-	stamina.rock_gear = float(GEAR["gloves"]["rock"]) if worn.has("gloves") else 1.0
+	stamina.walk_gear = (float(GEAR["poles"]["walk"]) if worn.has("poles") else 1.0) * float(kit["walk"])
+	stamina.rock_gear = (float(GEAR["gloves"]["rock"]) if worn.has("gloves") else 1.0) * float(kit["rock"])
 	stamina.ice_gear = float(GEAR["crampons"]["ice"]) if worn.has("crampons") else 1.0
 	climber.crampons = worn.has("crampons")
 	climber.helmet = worn.has("helmet")

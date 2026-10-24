@@ -120,7 +120,7 @@ func test_camp_beats_and_tending() -> void:
 
 func test_the_screens_build() -> void:
 	_fresh()
-	for path in [Expedition.MENU, Expedition.CAMP]:
+	for path in [Expedition.MENU, Expedition.CLASSIC_MENU, Expedition.CAMP, Expedition.CAMP_WORLD, "res://modes/expedition/prep.tscn"]:
 		var screen: Node = load(path).instantiate()
 		root.add_child(screen)
 		await tree.process_frame

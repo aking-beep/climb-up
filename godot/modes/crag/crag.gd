@@ -14,7 +14,9 @@ extends Node
 ## exposure (how far a fall can go, and whether it can reach the ground).
 ## facts() works the last two out from the route's map.
 
-const TITLE := "res://modes/title/title.tscn"
+## Home: the hub (CLIMB UP 2.0). The classic title is still at
+## res://modes/title/title.tscn.
+const TITLE := "res://modes/hub/hub.tscn"
 const MENU := "res://modes/crag/crag_menu.tscn"
 const LEVEL := "res://modes/crag/crag_level.tscn"
 const LOGBOOK := "res://modes/crag/logbook_screen.tscn"
