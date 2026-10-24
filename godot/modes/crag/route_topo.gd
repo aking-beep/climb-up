@@ -68,7 +68,7 @@ func _draw() -> void:
 					Terrain.Kind.POCKET:
 						draw_circle(mid, cell * 0.22, col)
 					_:
-						draw_rect(Rect2(p + Vector2(1, 1), Vector2(cell - 2, cell - 2)), Color(col, 0.35))
+						draw_rect(Rect2(p + Vector2(1, 1), Vector2(cell - 2, cell - 2)), Color(col.darkened(0.25), 0.9))
 	# Your high point, in chalk.
 	if high_rows > 0 and terrain.markers.has("P"):
 		var foot: Vector2i = terrain.markers["P"][0]

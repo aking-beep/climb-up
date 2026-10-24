@@ -144,19 +144,28 @@ func test_panels_fit_a_short_screen() -> void:
 	await tree.process_frame
 
 
+## The people are drawn smooth: since CLIMB UP 2.0 you and the team are
+## drawn in code with one rig (Hero), not as sprites. The HD sprite sheets
+## were removed for the APK size cap; the small sheets stay, unseen, for
+## the clips the game's logic follows (teammates retrace your clips).
 func test_characters_are_drawn_smooth() -> void:
 	for who in ["you", "marco", "lena", "jun"]:
 		var path := "res://assets/characters/%s.png" % who
-		eq(Sheet.best(path), "res://assets/characters/%s-hd.png" % who, "%s has an HD sheet" % who)
 		var s := Sheet.sprite(path)
-		check(s.texture_filter == CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS, "%s is filtered smooth, not pixelated" % who)
-		var tex: Texture2D = s.sprite_frames.get_frame_texture("climb", 0)
-		eq(tex.get_size(), Vector2(Sheet.FRAME * Sheet.HD), "%s: frames are HD times the pixel frame" % who)
-		var on_screen: float = tex.get_size().y * s.scale.y
-		check(absf(on_screen - Sheet.FRAME.y * Sheet.HD_SIZE) < 0.5, "%s shows at the figure's size in the world (%.1f px)" % [who, on_screen])
 		var last: AtlasTexture = s.sprite_frames.get_frame_texture("celebrate", 1)
 		check(last.region.end.x <= last.atlas.get_width() and last.region.end.y <= last.atlas.get_height(), "%s: every frame is inside the sheet" % who)
 		s.free()
+		if who != "you":
+			check(not TeamLooks.look(who).is_empty(), "%s has a drawn look" % who)
+	var c := Climber.new()
+	root.add_child(c)
+	check(c.hero != null and c.hero.visible and not c.sprite.visible, "you are drawn with the rig, the sprite runs unseen")
+	c.queue_free()
+	var m := Companion.new()
+	m.person = "marco"
+	root.add_child(m)
+	check(m.hero != null and not m.sprite.visible, "and so is the team")
+	m.queue_free()
 	await tree.process_frame
 
 

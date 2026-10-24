@@ -617,8 +617,40 @@ func brief() -> void:
 	choices.append(["look", "Look at the route first"])
 	if not route.get("tutorial", false) and not is_daily() and not beta and int(r["sends"]) == 0:
 		choices.append(["beta", "Ask for beta (tips: a clean first go is then a flash)"])
+	if not partner_check().is_empty():
+		choices.append(["check", "Partner check: one quick question (optional)"])
 	choices.append(["menu", "Back to the climbs"])
 	panel.show_panel(kicker, route["name"], body, choices)
+
+
+## The brief's knowledge check (CLIMB UP 2.0, FeatureFlags.knowledge): one
+## question for this route until you get it right. Optional, and it changes
+## nothing in the climb, its style or its score. A game, not a lesson.
+const CHECKS := {"warm-up": "knot-tie-in", "sundown": "knot-check", "the-pinch": "clip-back",
+	"leap-of-faith": "clip-leg", "lions-roof": "belay-brake", "thunderhead": "anchor-lower"}
+
+
+func partner_check() -> Dictionary:
+	if not FeatureFlags.knowledge or route.get("tutorial", false):
+		return {}
+	var id: String = CHECKS.get(String(route["id"]), "")
+	var card := KnowledgeChecks.card(id) if id != "" else KnowledgeChecks.next_card()
+	if card.is_empty() or Profile.knowledge.get(card["id"], {}).get("right", false):
+		return {}
+	return card
+
+
+func _partner_answer(i: int) -> void:
+	var card := partner_check()
+	if card.is_empty():
+		brief()
+		return
+	var right := i == int(card["answer"])
+	Profile.answer(String(card["id"]), right)
+	Analytics.event("knowledge_answered", {"card": card["id"], "right": right})
+	Audio.play("chime" if right else "thud", -10.0, 0.0, false)
+	var lines := "%s%s\n%s" % ["" if right else "The answer: %s. " % card["options"][int(card["answer"])], card["why"], KnowledgeChecks.DISCLAIMER]
+	panel.show_panel("Partner check", "Right" if right else "Not quite", lines, [["brief", "Back to the route"]])
 
 
 ## Reading the route from the ground: the camera runs up the line, with the
@@ -1441,6 +1473,14 @@ func _on_choice(id: String) -> void:
 			panel.show_panel("Beta · %s" % route["grade"], route["name"], beta_tips(), [["brief", "Got it"]])
 		"brief":
 			brief()
+		"check":
+			var card := partner_check()
+			var opts: Array = []
+			for i in card["options"].size():
+				opts.append(["kc%d" % i, String(card["options"][i])])
+			panel.show_panel("Partner check · a game, not a lesson", route["name"], String(card["q"]), opts)
+		"kc0", "kc1", "kc2":
+			_partner_answer(int(id.substr(2)))
 		"resume":
 			climber.lock(false)
 		"lower":

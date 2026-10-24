@@ -26,7 +26,7 @@ func test_the_title_opens_two_separate_games() -> void:
 	var focused: Control = title.get_viewport().gui_get_focus_owner()
 	check(focused != null and "Crag" in (focused as Button).text, "and it has the focus")
 	title.queue_free()
-	var menu: Node = load(Crag.MENU).instantiate()
+	var menu: Node = load(Crag.CLASSIC_MENU).instantiate()
 	root.add_child(menu)
 	await physics_frames(2)
 	var routes := 0

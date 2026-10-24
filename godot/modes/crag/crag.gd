@@ -17,7 +17,9 @@ extends Node
 ## Home: the hub (CLIMB UP 2.0). The classic title is still at
 ## res://modes/title/title.tscn.
 const TITLE := "res://modes/hub/hub.tscn"
-const MENU := "res://modes/crag/crag_menu.tscn"
+## The guidebook page (CLIMB UP 2.0); the classic menu is still there.
+const MENU := "res://modes/crag/crag_select.tscn"
+const CLASSIC_MENU := "res://modes/crag/crag_menu.tscn"
 const LEVEL := "res://modes/crag/crag_level.tscn"
 const LOGBOOK := "res://modes/crag/logbook_screen.tscn"
 const SAVE := "user://climb_up_crag.json"
